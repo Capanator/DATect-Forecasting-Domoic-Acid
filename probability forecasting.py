@@ -261,14 +261,14 @@ def train_and_predict(data):
 # ================================
 def forecast_next_date(df, anchor_date, site):
     """
-    Train on data up to anchor_date, forecast the next date > anchor_date for that site.
-    Return single-row dict with Q05/Q50/Q95, classification probabilities, 
-    plus single-date coverage/logloss if feasible.
+    Train on data up to anchor_date (per site), forecast the next date > anchor_date.
+    Returns a dict with Q05/Q50/Q95, classification probabilities, plus
+    single-date coverage/logloss/brier if feasible.
     """
     df_site = df[df['Site'] == site].copy()
     df_site.sort_values('Date', inplace=True)
 
-    # Next date
+    # Next date (strictly > anchor_date)
     df_future = df_site[df_site['Date'] > anchor_date]
     if df_future.empty:
         return None
@@ -279,12 +279,14 @@ def forecast_next_date(df, anchor_date, site):
     if df_train.empty:
         return None
 
-    # Test set: exactly next_date
+    # Test set: exactly the next date
     df_test = df_site[df_site['Date'] == next_date].copy()
     if df_test.empty:
         return None
 
-    # ========== REGRESSION ==========
+    # =======================
+    # 1) REGRESSION (DA_Levels)
+    # =======================
     drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
     X_train_reg = df_train.drop(columns=drop_cols_reg, errors='ignore')
     y_train_reg = df_train['DA_Levels']
@@ -292,19 +294,21 @@ def forecast_next_date(df, anchor_date, site):
     X_test_reg = df_test.drop(columns=drop_cols_reg, errors='ignore')
     y_test_reg = df_test['DA_Levels']
 
+    # Pipeline for numeric columns
     num_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
     reg_preproc = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
     col_trans_reg = ColumnTransformer(
-        transformers=[('num', reg_preproc, num_cols_reg)],
+        [('num', reg_preproc, num_cols_reg)],
         remainder='passthrough'
     )
+
     X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
     X_test_reg_processed = col_trans_reg.transform(X_test_reg)
 
-    # 3 quantile regressors
+    # Train quantile regressors
     gb_q05 = GradientBoostingRegressor(loss='quantile', alpha=0.05, random_state=42)
     gb_q50 = GradientBoostingRegressor(loss='quantile', alpha=0.50, random_state=42)
     gb_q95 = GradientBoostingRegressor(loss='quantile', alpha=0.95, random_state=42)
@@ -317,21 +321,29 @@ def forecast_next_date(df, anchor_date, site):
     y_pred_reg_q50 = gb_q50.predict(X_test_reg_processed)
     y_pred_reg_q95 = gb_q95.predict(X_test_reg_processed)
 
-    # Single-date coverage is 1 if actual is within [q05,q95], else 0
+    # Single-date coverage: 1 if actual is in [Q05, Q95], else 0
     actual_levels = float(y_test_reg.iloc[0]) if len(y_test_reg) > 0 else None
-    single_coverage = None
     if actual_levels is not None:
-        if (actual_levels >= y_pred_reg_q05[0]) and (actual_levels <= y_pred_reg_q95[0]):
-            single_coverage = 1.0
-        else:
-            single_coverage = 0.0
+        covered = (actual_levels >= y_pred_reg_q05[0]) and (actual_levels <= y_pred_reg_q95[0])
+        single_coverage = 1.0 if covered else 0.0
+    else:
+        single_coverage = None
 
-    # Single-date pinball losses (if you really want them)
-    single_pinball_q05 = pinball_loss([actual_levels], [y_pred_reg_q05[0]], alpha=0.05) if actual_levels else None
-    single_pinball_q50 = pinball_loss([actual_levels], [y_pred_reg_q50[0]], alpha=0.50) if actual_levels else None
-    single_pinball_q95 = pinball_loss([actual_levels], [y_pred_reg_q95[0]], alpha=0.95) if actual_levels else None
+    # Optionally compute single-date pinball losses
+    def pinball_loss_single(y_true, y_pred, alpha):
+        diff = y_true - y_pred
+        return alpha * diff if diff > 0 else (alpha - 1) * diff
 
-    # ========== CLASSIFICATION ==========
+    single_pinball_q05 = (pinball_loss_single(actual_levels, y_pred_reg_q05[0], 0.05)
+                          if actual_levels is not None else None)
+    single_pinball_q50 = (pinball_loss_single(actual_levels, y_pred_reg_q50[0], 0.50)
+                          if actual_levels is not None else None)
+    single_pinball_q95 = (pinball_loss_single(actual_levels, y_pred_reg_q95[0], 0.95)
+                          if actual_levels is not None else None)
+
+    # =======================
+    # 2) CLASSIFICATION (DA_Category)
+    # =======================
     drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
     X_train_cls = df_train.drop(columns=drop_cols_cls, errors='ignore')
     y_train_cls = df_train['DA_Category']
@@ -345,9 +357,10 @@ def forecast_next_date(df, anchor_date, site):
         ('scaler', MinMaxScaler())
     ])
     col_trans_cls = ColumnTransformer(
-        transformers=[('num', cls_preproc, num_cols_cls)],
+        [('num', cls_preproc, num_cols_cls)],
         remainder='passthrough'
     )
+
     X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
     X_test_cls_processed = col_trans_cls.transform(X_test_cls)
 
@@ -361,43 +374,49 @@ def forecast_next_date(df, anchor_date, site):
     pred_cat = int(y_pred_cls[0])
     prob_list = list(y_pred_cls_proba[0])
 
-    # Single-date log loss
+    # Single-date log loss: only compute if the classifier has >1 class
     single_logloss = None
-    if actual_cat is not None:
-        # We can feed a single row into log_loss by wrapping:
-        single_logloss = log_loss([actual_cat], [prob_list], labels=cls_model.classes_)
+    if len(cls_model.classes_) > 1 and actual_cat is not None:
+        from sklearn.metrics import log_loss
+        single_logloss = log_loss(
+            [actual_cat],
+            [prob_list],
+            labels=cls_model.classes_
+        )
 
-    # Single-date Brier? Only if it's binary or you'd do a multi-class version
+    # Single-date Brier Score (only if binary)
     single_brier = None
-    if len(cls_model.classes_) == 2 and 1 in cls_model.classes_ and actual_cat is not None:
-        idx_class1 = list(cls_model.classes_).index(1)
-        prob_class1 = prob_list[idx_class1]
-        # actual is 1 if actual_cat == 1 else 0
-        y_true_binary = 1 if actual_cat == 1 else 0
-        single_brier = (prob_class1 - y_true_binary)**2
+    if len(cls_model.classes_) == 2 and actual_cat is not None:
+        # Assume classes_ might be [0,1] or [1,2]—check if '1' is present
+        if 1 in cls_model.classes_:
+            idx_class1 = list(cls_model.classes_).index(1)
+            prob_class1 = prob_list[idx_class1]
+            y_true_binary = 1 if actual_cat == 1 else 0
+            single_brier = (prob_class1 - y_true_binary) ** 2
 
-    result_dict = {
+    # Return info
+    return {
         'AnchorDate': anchor_date,
         'Site': site,
         'NextDate': next_date,
-        # Regression
+
+        # Regression predictions
         'Predicted_DA_Levels_Q05': float(y_pred_reg_q05[0]),
         'Predicted_DA_Levels_Q50': float(y_pred_reg_q50[0]),
         'Predicted_DA_Levels_Q95': float(y_pred_reg_q95[0]),
         'Actual_DA_Levels': actual_levels,
-        'SingleDateCoverage': single_coverage,
+        'SingleDateCoverage': single_coverage,    # 1 or 0 if actual_levels is known
         'Pinball_Q05': single_pinball_q05,
         'Pinball_Q50': single_pinball_q50,
         'Pinball_Q95': single_pinball_q95,
 
-        # Classification
+        # Classification predictions
         'Predicted_DA_Category': pred_cat,
         'Probabilities': prob_list,
         'Actual_DA_Category': actual_cat,
         'SingleDateLogLoss': single_logloss,
         'SingleDateBrier': single_brier
     }
-    return result_dict
 
 
 # ================================
@@ -414,6 +433,7 @@ predictions = train_and_predict(raw_data)
 # ================================
 # 6) RANDOM 200 APPROACH
 # ================================
+
 df_after_2010 = raw_data[raw_data['Date'].dt.year >= 2010].copy()
 df_after_2010.sort_values(['Site', 'Date'], inplace=True)
 
@@ -435,11 +455,15 @@ df_results_200 = pd.DataFrame(results_list)
 
 # Compute performance on these single-step forecasts:
 if not df_results_200.empty:
-    # Regression (Q50)
+    # -- Classification accuracy (DA_Category)
+    acc_200 = (
+        df_results_200['Actual_DA_Category'] == df_results_200['Predicted_DA_Category']
+    ).mean()
+    
+    # (Below lines are for the regression metrics, if you still want them)
     rmse_200 = np.sqrt(mean_squared_error(
         df_results_200['Actual_DA_Levels'], df_results_200['Predicted_DA_Levels_Q50']
     ))
-    # coverage for single-step
     coverage_values = []
     for idx, row in df_results_200.iterrows():
         act = row['Actual_DA_Levels']
@@ -447,35 +471,35 @@ if not df_results_200.empty:
         hi = row['Predicted_DA_Levels_Q95']
         coverage_values.append(1 if (act >= lo) and (act <= hi) else 0)
     coverage_200 = np.mean(coverage_values)
-
-    # Classification accuracy
-    acc_200 = (
-        df_results_200['Actual_DA_Category'] == df_results_200['Predicted_DA_Category']
-    ).mean()
 else:
     rmse_200 = None
     acc_200 = None
     coverage_200 = None
 
-# Plot actual vs predicted Q50 in a line chart (for demonstration)
+# -------------------------------
+# CHANGE HERE: plot Actual vs. Predicted DA_Category
+# -------------------------------
 if not df_results_200.empty:
     df_line = df_results_200.copy().sort_values('NextDate')
+    
+    # Melt actual vs. predicted categories for easy plotting
     df_plot_melt = df_line.melt(
         id_vars=['Site', 'NextDate'],
-        value_vars=['Actual_DA_Levels', 'Predicted_DA_Levels_Q50'],
+        value_vars=['Actual_DA_Category', 'Predicted_DA_Category'],
         var_name='Type',
-        value_name='DA_Level'
+        value_name='DA_Category'
     )
-    fig_random_line = px.line(
+    
+    # Use a scatter plot (or line plot) to compare categories
+    fig_random_line = px.scatter(
         df_plot_melt,
         x='NextDate',
-        y='DA_Level',
+        y='DA_Category',
         color='Type',
-        line_group='Site',
         hover_data=['Site'],
-        title="Random 200 Next-Date Forecast (After 2010)"
+        title="Random 200 Next-Date Forecast (After 2010) - DA Category"
     )
-    fig_random_line.update_layout(xaxis_title='Next Date', yaxis_title='DA Level')
+    fig_random_line.update_layout(xaxis_title='Next Date', yaxis_title='DA Category')
 else:
     fig_random_line = px.line(title="No valid data for random 200 approach")
 
@@ -532,10 +556,14 @@ forecast_layout = html.Div([
 
 random_200_layout = html.Div([
     html.H3("Random 200 Anchor Dates (Post-2010) Forecast -> Next Date"),
+
+    # The updated graph now shows categories instead of levels:
     dcc.Graph(figure=fig_random_line),
+
     html.Div([
         html.H4("Overall Performance on These 200 Single-Step Forecasts"),
         html.Ul([
+            # Keep or remove regression metrics as needed:
             html.Li(f"RMSE (DA Levels, Q50): {rmse_200:.3f}") if rmse_200 is not None else html.Li("No RMSE"),
             html.Li(f"Coverage (Q05-Q95): {coverage_200:.3f}") if coverage_200 is not None else html.Li("No coverage"),
             html.Li(f"Accuracy (DA Category): {acc_200:.3f}") if acc_200 is not None else html.Li("No Accuracy")
