@@ -14,41 +14,42 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
-# -------------------------------------------
-# Data Loading and Feature Engineering
-# -------------------------------------------
+# ---------------------------------------------------------
+# 1) Data Loading & Feature Engineering
+# ---------------------------------------------------------
 def load_and_prepare_data(file_path):
     data = pd.read_csv(file_path)
-
     data['Date'] = pd.to_datetime(data['Date'])
     data.sort_values(['Site', 'Date'], inplace=True)
 
-    # 1) Spatial Clusters
+    # Spatial Clustering
     kmeans = KMeans(n_clusters=5, random_state=42)
     data['spatial_cluster'] = kmeans.fit_predict(data[['latitude', 'longitude']])
     data = pd.get_dummies(data, columns=['spatial_cluster'], prefix='cluster')
 
-    # 2) Seasonal Features
+    # Seasonal (sin/cos)
     day_of_year = data['Date'].dt.dayofyear
     data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
     data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
 
+    # Month (one-hot)
     data['Month'] = data['Date'].dt.month
     data = pd.get_dummies(data, columns=['Month'], prefix='Month')
 
+    # Year
     data['Year'] = data['Date'].dt.year
 
-    # 3) Lag Features
+    # Lag Features
     for lag in [1, 2, 3, 7, 14]:
         data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
 
-    # 4) Interaction: cluster * cyclical
+    # Interaction: cluster * cyclical
     cluster_cols = [col for col in data.columns if col.startswith('cluster_')]
     for col in cluster_cols:
         data[f'{col}_sin_day_of_year'] = data[col] * data['sin_day_of_year']
         data[f'{col}_cos_day_of_year'] = data[col] * data['cos_day_of_year']
 
-    # 5) Categorize DA_Levels
+    # DA_Category
     def categorize_da_levels(x):
         if x <= 5:
             return 0
@@ -58,14 +59,13 @@ def load_and_prepare_data(file_path):
             return 2
         else:
             return 3
-
     data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)
 
     return data
 
-# -------------------------------------------
-# Model Training and Prediction
-# -------------------------------------------
+# ---------------------------------------------------------
+# 2) Original Analysis: Train & Predict (Full Split)
+# ---------------------------------------------------------
 def train_and_predict(data):
     """
     Splits data into train/test sets, applies
@@ -76,9 +76,7 @@ def train_and_predict(data):
       - site-level metrics
       - overall metrics
     """
-    # -----------------------------
-    # 1) DA_Levels Regression
-    # -----------------------------
+    # 2A) Regression
     data_reg = data.drop(['DA_Category'], axis=1)
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
 
@@ -90,7 +88,7 @@ def train_and_predict(data):
     y_test_reg = test_set_reg['DA_Levels']
 
     numeric_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
-    numeric_transformer_reg = Pipeline(steps=[
+    numeric_transformer_reg = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
@@ -101,7 +99,7 @@ def train_and_predict(data):
     )
 
     X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
-    X_test_reg_processed = preprocessor_reg.transform(X_test_reg)
+    X_test_reg_processed  = preprocessor_reg.transform(X_test_reg)
 
     rf_regressor = RandomForestRegressor(random_state=42)
     rf_regressor.fit(X_train_reg_processed, y_train_reg)
@@ -120,9 +118,7 @@ def train_and_predict(data):
         })
     )
 
-    # -----------------------------
-    # 2) DA_Category Classification
-    # -----------------------------
+    # 2B) Classification
     data_cls = data.drop(['DA_Levels'], axis=1)
     train_set_cls, test_set_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
 
@@ -134,7 +130,7 @@ def train_and_predict(data):
     y_test_cls = test_set_cls['DA_Category']
 
     numeric_cols_cls = X_train_cls.select_dtypes(include=[np.number]).columns
-    numeric_transformer_cls = Pipeline(steps=[
+    numeric_transformer_cls = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
@@ -145,7 +141,7 @@ def train_and_predict(data):
     )
 
     X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
-    X_test_cls_processed = preprocessor_cls.transform(X_test_cls)
+    X_test_cls_processed  = preprocessor_cls.transform(X_test_cls)
 
     rf_classifier = RandomForestClassifier(random_state=42)
     rf_classifier.fit(X_train_cls_processed, y_train_cls)
@@ -173,55 +169,174 @@ def train_and_predict(data):
         }
     }
 
-# -------------------------------------------
-# Dash App
-# -------------------------------------------
+# ---------------------------------------------------------
+# 3) Time-Based Forecast Function
+#    Train on data <= anchor date, predict next date > anchor
+# ---------------------------------------------------------
+def forecast_next_date(df, anchor_date, site):
+    """
+    1. Train on data up to and including anchor_date (no future leakage).
+    2. Forecast the next available date strictly > anchor_date for that site.
+    3. Return dictionary of actual/predicted for that 'next date' row (if it exists).
+    """
+    df_site = df[df['Site'] == site].copy()
+    df_site.sort_values('Date', inplace=True)
+
+    # Next available date
+    df_future = df_site[df_site['Date'] > anchor_date]
+    if df_future.empty:
+        # No future date for this site
+        return None
+    next_date = df_future['Date'].iloc[0]
+
+    # Training set: everything up to anchor_date
+    df_train = df_site[df_site['Date'] <= anchor_date].copy()
+    if df_train.empty:
+        # No training data
+        return None
+
+    # Test set: exactly the next date
+    df_test = df_site[df_site['Date'] == next_date].copy()
+    if df_test.empty:
+        return None
+
+    # --- Train Regression (DA_Levels) ---
+    drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
+    X_train_reg = df_train.drop(columns=drop_cols_reg, errors='ignore')
+    y_train_reg = df_train['DA_Levels']
+
+    X_test_reg = df_test.drop(columns=drop_cols_reg, errors='ignore')
+    y_test_reg = df_test['DA_Levels']
+
+    num_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
+    reg_preproc = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    col_trans_reg = ColumnTransformer(
+        transformers=[('num', reg_preproc, num_cols_reg)],
+        remainder='passthrough'
+    )
+
+    X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
+    X_test_reg_processed  = col_trans_reg.transform(X_test_reg)
+
+    reg_model = RandomForestRegressor(random_state=42)
+    reg_model.fit(X_train_reg_processed, y_train_reg)
+    y_pred_reg = reg_model.predict(X_test_reg_processed)
+
+    # --- Train Classification (DA_Category) ---
+    drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
+    X_train_cls = df_train.drop(columns=drop_cols_cls, errors='ignore')
+    y_train_cls = df_train['DA_Category']
+
+    X_test_cls = df_test.drop(columns=drop_cols_cls, errors='ignore')
+    y_test_cls = df_test['DA_Category']
+
+    num_cols_cls = X_train_cls.select_dtypes(include=[np.number]).columns
+    cls_preproc = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    col_trans_cls = ColumnTransformer(
+        transformers=[('num', cls_preproc, num_cols_cls)],
+        remainder='passthrough'
+    )
+
+    X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
+    X_test_cls_processed  = col_trans_cls.transform(X_test_cls)
+
+    cls_model = RandomForestClassifier(random_state=42)
+    cls_model.fit(X_train_cls_processed, y_train_cls)
+    y_pred_cls = cls_model.predict(X_test_cls_processed)
+
+    # Return single-row results
+    return {
+        'AnchorDate': anchor_date,
+        'Site': site,
+        'NextDate': next_date,
+        'Predicted_DA_Levels': float(y_pred_reg[0]),
+        'Actual_DA_Levels': float(y_test_reg.iloc[0]) if len(y_test_reg) else None,
+        'Predicted_DA_Category': int(y_pred_cls[0]),
+        'Actual_DA_Category': int(y_test_cls.iloc[0]) if len(y_test_cls) else None
+    }
+
+# ---------------------------------------------------------
+# Build the Dash App
+# ---------------------------------------------------------
 app = dash.Dash(__name__)
 
-file_path = 'final_output.csv'  # Update as needed
+file_path = 'final_output.csv'  # your CSV
 raw_data = load_and_prepare_data(file_path)
+
+# 1) Run your original "train_and_predict" for the overall analysis
 predictions = train_and_predict(raw_data)
 
-# 1. Pull out test sets for each task
-test_reg = predictions["DA_Level"]["test_df"]
-test_cls = predictions["DA_Category"]["test_df"]
+# ----------------------------------------------------------
+# 2) Prepare Data for Random 200 Approach (Dates >= 2010)
+# ----------------------------------------------------------
+df_after_2010 = raw_data[raw_data['Date'].dt.year >= 2010].copy()
+df_after_2010.sort_values(['Site', 'Date'], inplace=True)
 
-# 2. Merge them so we can reference predictions together
-#    Some rows might not overlap if the random splits differ.
-#    We'll do an outer join on [Site, Date]:
-test_merged = pd.merge(
-    test_reg[['Site', 'Date', 'DA_Levels', 'Predicted_DA_Levels']],
-    test_cls[['Site', 'Date', 'DA_Category', 'Predicted_DA_Category']],
-    on=['Site', 'Date'],
-    how='outer'
-).sort_values(['Site', 'Date'])
-
-# 3. Prepare a 200-sample comparison
-test_merged_no_na = test_merged.dropna(
-    subset=['DA_Levels', 'Predicted_DA_Levels', 'DA_Category', 'Predicted_DA_Category']
-)
-
-if len(test_merged_no_na) >= 200:
-    random_200 = test_merged_no_na.sample(n=200, random_state=42)
+pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
+# Take 200 random or all if <200
+if len(pairs_after_2010) > 200:
+    df_random_200 = pairs_after_2010.sample(n=200, random_state=42)
 else:
-    # If data is smaller, just use all
-    random_200 = test_merged_no_na.copy()
+    df_random_200 = pairs_after_2010
 
-rmse_200 = np.sqrt(mean_squared_error(random_200["DA_Levels"], random_200["Predicted_DA_Levels"])) if not random_200.empty else None
-acc_200 = accuracy_score(random_200["DA_Category"], random_200["Predicted_DA_Category"]) if not random_200.empty else None
+results_list = []
+for _, row in df_random_200.iterrows():
+    site_ = row['Site']
+    anchor_date_ = row['Date']
+    result = forecast_next_date(raw_data, anchor_date_, site_)
+    if result is not None:
+        results_list.append(result)
 
-random_sample_text = (
-    "Analysis on 200 (or fewer if limited data) randomly selected date-site combinations:\n"
-)
-if rmse_200 is not None and acc_200 is not None:
-    random_sample_text += f"- RMSE (Domoic Acid Level) = {rmse_200:.2f}\n"
-    random_sample_text += f"- Accuracy (Domoic Acid Category) = {acc_200:.2f}\n"
+df_results_200 = pd.DataFrame(results_list)
+
+# Overall metrics on these 200 forecasts
+if not df_results_200.empty:
+    # For regression (levels)
+    rmse_200 = np.sqrt(mean_squared_error(
+        df_results_200['Actual_DA_Levels'], df_results_200['Predicted_DA_Levels']
+    ))
+    # For classification (category)
+    acc_200 = (df_results_200['Actual_DA_Category'] == df_results_200['Predicted_DA_Category']).mean()
 else:
-    random_sample_text += "Not enough data to sample 200 rows."
+    rmse_200 = None
+    acc_200 = None
 
-# -------------------------------------------
-# Tab 1 Layout: Overall Analysis
-# -------------------------------------------
+# Create a line chart with time on x-axis, DA level on y-axis, 2 lines: actual & predicted
+if not df_results_200.empty:
+    df_line = df_results_200.copy()
+    df_line = df_line.sort_values('NextDate')
+    df_plot_melt = df_line.melt(
+        id_vars=['Site','NextDate'],
+        value_vars=['Actual_DA_Levels','Predicted_DA_Levels'],
+        var_name='Type', value_name='DA_Level'
+    )
+    fig_random_line = px.line(
+        df_plot_melt,
+        x='NextDate',
+        y='DA_Level',
+        color='Type',
+        line_group='Site',
+        hover_data=['Site'],
+        title="Random 200 Next-Date Forecast (After 2010)"
+    )
+    fig_random_line.update_layout(
+        xaxis_title='Next Date',
+        yaxis_title='DA Level'
+    )
+else:
+    fig_random_line = px.line(title="No valid data for random 200 approach")
+
+# ---------------------------------------------------------
+# Tabs Layout
+# ---------------------------------------------------------
+
+# ---------- Tab 1: Original Analysis -----------
 analysis_layout = html.Div([
     html.H3("Overall Analysis (Time-Series)"),
     dcc.Dropdown(
@@ -243,57 +358,65 @@ analysis_layout = html.Div([
     dcc.Graph(id='analysis-graph')
 ])
 
-# -------------------------------------------
-# Tab 2 Layout: Forecast by Date & Site
-# -------------------------------------------
+# ---------- Tab 2: Forecast by Date & Site (Strictly Partial Training) ----------
+
+# 2A) Build disabled_days for DatePickerSingle
+valid_dates = sorted(raw_data['Date'].unique())
+all_dates_range = pd.date_range(valid_dates[0], valid_dates[-1], freq='D')
+disabled_days = [d for d in all_dates_range if d not in valid_dates]
+
 forecast_layout = html.Div([
-    html.H3("Forecast by Specific Date & Site"),
+    html.H3("Forecast by Specific Date & Site (Partial Training up to Date)"),
 
-    html.Div([
-        html.Label("Choose a Site:"),
-        dcc.Dropdown(
-            id='site-dropdown-forecast',
-            options=[{'label': site, 'value': site} for site in raw_data['Site'].unique()],
-            value=raw_data['Site'].unique()[0],
-            style={'width': '50%'}
-        )
-    ], style={'marginBottom': 20}),
+    html.Label("Choose a Site:"),
+    dcc.Dropdown(
+        id='site-dropdown-forecast',
+        options=[{'label': s, 'value': s} for s in raw_data['Site'].unique()],
+        value=raw_data['Site'].unique()[0],
+        style={'width': '50%'}
+    ),
 
-    html.Div([
-        html.Label("Pick a Date:"),
-        dcc.DatePickerSingle(
-            id='forecast-date-picker',
-            min_date_allowed=raw_data['Date'].min(),
-            max_date_allowed=raw_data['Date'].max(),
-            initial_visible_month=raw_data['Date'].min(),
-            date=raw_data['Date'].min()
-        )
-    ], style={'marginBottom': 20}),
+    html.Label("Pick an Anchor Date:"),
+    dcc.DatePickerSingle(
+        id='forecast-date-picker',
+        min_date_allowed=valid_dates[0],
+        max_date_allowed=valid_dates[-1],
+        initial_visible_month=valid_dates[0],
+        date=valid_dates[0],
+        disabled_days=disabled_days  # gray out invalid dates
+    ),
 
-    html.Div(id='forecast-output', style={'whiteSpace': 'pre-wrap'}),
-
-    html.Hr(),
-    html.Div([
-        html.H4("Random 200-Sample Analysis"),
-        html.Div(random_sample_text, style={'whiteSpace': 'pre-wrap', 'border': '1px solid #ccc', 'padding': '10px'})
-    ])
+    html.Div(id='forecast-output-partial', style={'whiteSpace': 'pre-wrap', 'marginTop': 20})
 ])
 
-# -------------------------------------------
-# Combine Tabs into Single Layout
-# -------------------------------------------
+# ---------- Tab 3: Random 200 Next-Date ----------
+
+random_200_layout = html.Div([
+    html.H3("Random 200 Anchor Dates (Post-2010) Forecast -> Next Date"),
+    dcc.Graph(figure=fig_random_line),
+    html.Div([
+        html.H4("Overall Performance on These 200 Forecasts"),
+        html.Ul([
+            html.Li(f"RMSE (DA Levels): {rmse_200:.3f}") if rmse_200 is not None else html.Li("No RMSE (no data)"),
+            html.Li(f"Accuracy (DA Category): {acc_200:.3f}") if acc_200 is not None else html.Li("No Accuracy (no data)")
+        ])
+    ], style={'marginTop': 20})
+])
+
+# ---------- Combine Tabs ----------
 app.layout = html.Div([
     dcc.Tabs(id="tabs", children=[
         dcc.Tab(label='Analysis', children=[analysis_layout]),
         dcc.Tab(label='Forecast by Date & Site', children=[forecast_layout]),
+        dcc.Tab(label='Random 200 Next-Date Forecast', children=[random_200_layout]),
     ])
 ])
 
-# -------------------------------------------
+# ---------------------------------------------------------
 # Callbacks
-# -------------------------------------------
+# ---------------------------------------------------------
 
-# --- Callback for Tab 1 (Analysis Graph) ---
+# --- Tab 1 Callback: Original Analysis Graph ---
 @app.callback(
     Output('analysis-graph', 'figure'),
     [Input('forecast-type-dropdown', 'value'),
@@ -317,7 +440,7 @@ def update_graph(selected_forecast_type, selected_site):
         else:
             performance_text = "No data for selected site."
 
-    else:
+    else:  # DA_Category
         df_plot = predictions['DA_Category']['test_df'].copy()
         site_stats = predictions['DA_Category']['site_stats']
         overall_accuracy = predictions['DA_Category']['overall_accuracy']
@@ -344,7 +467,6 @@ def update_graph(selected_forecast_type, selected_site):
         color='Site' if selected_site == 'All Sites' else None,
         title=f"{y_axis_title} Forecast - {selected_site}"
     )
-
     fig.update_layout(
         yaxis_title=y_axis_title,
         xaxis_title='Date',
@@ -357,63 +479,45 @@ def update_graph(selected_forecast_type, selected_site):
             )
         ]
     )
-
     return fig
 
-# --- Callback for Tab 2 (Date & Site Forecast) ---
+# --- Tab 2 Callback: Partial Training up to Date & Forecast Next Date ---
 @app.callback(
-    Output('forecast-output', 'children'),
+    Output('forecast-output-partial', 'children'),
     [Input('forecast-date-picker', 'date'),
      Input('site-dropdown-forecast', 'value')]
 )
-def update_forecast(selected_date, selected_site):
-    if not selected_date or not selected_site:
-        return "Please select a date and site."
+def partial_forecast_callback(anchor_date_str, site):
+    if not anchor_date_str or not site:
+        return "Please select a site and a valid date."
 
-    selected_date_obj = pd.to_datetime(selected_date)
+    anchor_date = pd.to_datetime(anchor_date_str)
 
-    # Filter by selected site
-    df_site = test_merged[test_merged['Site'] == selected_site].copy()
+    # Use the same function as random 200 approach
+    result = forecast_next_date(raw_data, anchor_date, site)
 
-    # Find the *next* date in the dataset after the chosen date
-    df_future = df_site[df_site['Date'] > selected_date_obj].sort_values('Date')
-    if df_future.empty:
-        return "No future forecast available for this Site after the selected date."
+    if result is None:
+        return (
+            f"No forecast possible for Site={site} after {anchor_date.date()}.\n"
+            "Possibly no future date or no training data up to that date."
+        )
 
-    # Take the first row as the "next available" forecast
-    row = df_future.iloc[0]
-    next_date_str = row['Date'].strftime('%Y-%m-%d')
-
-    # Extract predicted values
-    pred_level = row.get('Predicted_DA_Levels', None)
-    pred_cat   = row.get('Predicted_DA_Category', None)
-
-    # Extract actual values (if present)
-    actual_level = row.get('DA_Levels', None)
-    actual_cat   = row.get('DA_Category', None)
-
-    # Build text
     lines = [
-        f"Next available forecast date for {selected_site} after {selected_date_obj.date()}: {next_date_str}",
-        f"Predicted DA Level: {pred_level:.2f}" if pred_level is not None else "No predicted level.",
-        f"Predicted DA Category: {pred_cat}" if pred_cat is not None else "No predicted category."
+        f"Selected Anchor Date (training cut-off): {result['AnchorDate'].date()}",
+        f"Next Date (forecast target): {result['NextDate'].date()}",
+        "",
+        f"Predicted DA Level: {result['Predicted_DA_Levels']:.2f}",
+        f"Actual   DA Level: {result['Actual_DA_Levels']:.2f} (error = {abs(result['Predicted_DA_Levels'] - result['Actual_DA_Levels']):.2f})",
+        "",
+        f"Predicted DA Category: {result['Predicted_DA_Category']}",
+        f"Actual   DA Category: {result['Actual_DA_Category']} "
+        f"({'MATCH' if result['Predicted_DA_Category'] == result['Actual_DA_Category'] else 'MISMATCH'})"
     ]
-
-    # If actual data is available, compute difference and match
-    if pd.notnull(actual_level):
-        diff = abs(pred_level - actual_level)
-        lines.append(f"Actual DA Level: {actual_level:.2f} (error = {diff:.2f})")
-
-    if pd.notnull(actual_cat):
-        match_text = "MATCH" if (pred_cat == actual_cat) else "MISMATCH"
-        lines.append(f"Actual DA Category: {actual_cat} ({match_text})")
-    else:
-        lines.append("No actual category available.")
 
     return "\n".join(lines)
 
-# -------------------------------------------
-# Run Server
-# -------------------------------------------
+# ---------------------------------------------------------
+# Run
+# ---------------------------------------------------------
 if __name__ == '__main__':
     app.run_server(debug=True, port=8055)
