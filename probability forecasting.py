@@ -351,38 +351,81 @@ def partial_forecast_callback(anchor_date_str, site):
         match_status = "✅ MATCH" if result['Predicted_DA_Category'] == result['Actual_DA_Category'] else "❌ MISMATCH"
         lines.append(f"Actual: {CATEGORY_LABELS[result['Actual_DA_Category']]} {match_status}")
 
-    # Create DA_Levels visualization
+    # Create DA_Levels visualization with gradient effect
     fig_level = go.Figure()
+    
+    # Create gradient effect using multiple semi-transparent rectangles
+    q05 = result['Predicted_DA_Levels_Q05']
+    q50 = result['Predicted_DA_Levels_Q50']
+    q95 = result['Predicted_DA_Levels_Q95']
+    n_segments = 50  # More segments = smoother gradient
+    max_distance = max(q50 - q05, q95 - q50)
+    base_color = (70, 130, 180)  # Steel blue
+    
+    # Add gradient background
+    for i in range(n_segments):
+        x0 = q05 + (i/n_segments)*(q95 - q05)
+        x1 = q05 + ((i+1)/n_segments)*(q95 - q05)
+        midpoint = (x0 + x1) / 2
+        distance = abs(midpoint - q50)
+        opacity = 1 - (distance / max_distance)**0.5  # Square root for smoother falloff
+        
+        fig_level.add_shape(
+            type="rect",
+            x0=x0, x1=x1,
+            y0=0.4, y1=0.6,  # Vertical position of the range bar
+            line=dict(width=0),
+            fillcolor=f'rgba{(*base_color, opacity)}',
+            layer='below'
+        )
+
+    # Add median line
     fig_level.add_trace(go.Scatter(
-        x=[q05, q95],
-        y=["Predicted Range"],
+        x=[q50, q50],
+        y=[0.4, 0.6],
         mode='lines',
-        line=dict(width=15, color='lightgray'),
-        name='Q05-Q95 Range'
-    ))
-    fig_level.add_trace(go.Scatter(
-        x=[q50],
-        y=["Predicted Range"],
-        mode='markers',
-        marker=dict(size=20, color='blue'),
+        line=dict(color='rgb(30, 60, 90)', width=3),
         name='Median (Q50)'
     ))
-    
+
+    # Add range boundaries
+    fig_level.add_trace(go.Scatter(
+        x=[q05, q95],
+        y=[0.5, 0.5],
+        mode='markers',
+        marker=dict(
+            size=15,
+            color=['rgba(70, 130, 180, 0.3)', 'rgba(70, 130, 180, 0.3)'],
+            symbol='line-ns-open'
+        ),
+        name='Prediction Range'
+    ))
+
+    # Add actual value if available
     if actual_levels is not None:
         fig_level.add_trace(go.Scatter(
             x=[actual_levels],
-            y=["Predicted Range"],
+            y=[0.5],
             mode='markers',
-            marker=dict(size=20, color='red', symbol='x'),
+            marker=dict(
+                size=18,
+                color='red',
+                symbol='x-thin',
+                line=dict(width=2)
+            ),
             name='Actual Value'
         ))
 
     fig_level.update_layout(
-        title="DA Level Forecast Range",
+        title="DA Level Forecast Range with Gradient Confidence",
         xaxis_title="DA Level",
-        yaxis=dict(visible=False),
+        yaxis=dict(
+            visible=False,
+            range=[0, 1]
+        ),
         showlegend=True,
-        height=300
+        height=300,
+        plot_bgcolor='white'
     )
 
     # Create DA_Category visualization
