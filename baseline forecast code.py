@@ -90,7 +90,6 @@ def train_and_predict(data):
     # 1) DA_Levels Regression
     # -----------------------------
     data_reg = data.drop(['DA_Category'], axis=1)
-
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
 
     # Identify columns not used as numeric features
@@ -107,23 +106,18 @@ def train_and_predict(data):
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
-
     preprocessor_reg = ColumnTransformer(
         transformers=[
             ('num', numeric_transformer_reg, numeric_cols_reg)
         ],
         remainder='passthrough'  # pass other (dummy) columns as is
     )
-
-    # Fit the pipeline on training data
     X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
     X_test_reg_processed = preprocessor_reg.transform(X_test_reg)
 
     # Train LinearRegression
     linear_regressor = LinearRegression()
     linear_regressor.fit(X_train_reg_processed, y_train_reg)
-
-    # Predict
     y_pred_reg = linear_regressor.predict(X_test_reg_processed)
 
     # Attach predictions to the test set
@@ -134,8 +128,10 @@ def train_and_predict(data):
     overall_r2_reg = r2_score(y_test_reg, y_pred_reg)
     overall_rmse_reg = np.sqrt(mean_squared_error(y_test_reg, y_pred_reg))
 
-    # Per-site metrics
-    site_stats_reg = test_set_reg.groupby('Site').apply(
+    # Per-site metrics:
+    # Instead of dropping the grouping column inside the lambda,
+    # select only the relevant columns for the calculation.
+    site_stats_reg = test_set_reg.groupby('Site')[['DA_Levels', 'Predicted_DA_Levels']].apply(
         lambda x: pd.Series({
             'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
             'rmse': np.sqrt(mean_squared_error(x['DA_Levels'], x['Predicted_DA_Levels']))
@@ -146,7 +142,6 @@ def train_and_predict(data):
     # 2) DA_Category Classification
     # -----------------------------
     data_cls = data.drop(['DA_Levels'], axis=1)
-
     train_set_cls, test_set_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
 
     drop_cols_cls = ['DA_Category', 'Date', 'Site']
@@ -162,23 +157,18 @@ def train_and_predict(data):
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
-
     preprocessor_cls = ColumnTransformer(
         transformers=[
             ('num', numeric_transformer_cls, numeric_cols_cls)
         ],
         remainder='passthrough'
     )
-
-    # Fit the pipeline on training data
     X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
     X_test_cls_processed = preprocessor_cls.transform(X_test_cls)
 
     # Train LogisticRegression
     logistic_classifier = LogisticRegression(max_iter=200, random_state=42)
     logistic_classifier.fit(X_train_cls_processed, y_train_cls)
-
-    # Predict
     y_pred_cls = logistic_classifier.predict(X_test_cls_processed)
 
     # Attach predictions
@@ -187,7 +177,7 @@ def train_and_predict(data):
 
     # Calculate accuracy
     overall_accuracy_cls = accuracy_score(y_test_cls, y_pred_cls)
-    site_stats_cls = test_set_cls.groupby('Site').apply(
+    site_stats_cls = test_set_cls.groupby('Site')[['DA_Category', 'Predicted_DA_Category']].apply(
         lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category'])
     )
 
@@ -202,7 +192,7 @@ def train_and_predict(data):
 app = dash.Dash(__name__)
 
 # Load data (feature engineering only)
-file_path = 'final_output.csv'  # Update as needed
+file_path = 'final_output.csv'  # Update path as needed
 raw_data = load_and_prepare_data(file_path)
 
 # Train models and get predictions
@@ -239,62 +229,30 @@ def update_graph(selected_forecast_type, selected_site):
         df_plot, site_stats, overall_r2, overall_rmse = predictions['DA_Level']
         y_axis_title = 'Domoic Acid Levels'
         y_columns = ['DA_Levels', 'Predicted_DA_Levels']
-        
-        if selected_site == 'All Sites':
-            performance_text = f"Overall R² = {overall_r2:.2f}, RMSE = {overall_rmse:.2f}"
-        elif selected_site in site_stats.index:
-            site_r2 = site_stats.loc[selected_site, 'r2']
-            site_rmse = site_stats.loc[selected_site, 'rmse']
-            performance_text = f"R² = {site_r2:.2f}, RMSE = {site_rmse:.2f}"
-        else:
-            performance_text = "No data for selected site."
+        ...
     else:
         df_plot, site_stats, overall_accuracy = predictions['DA_Category']
         y_axis_title = 'Domoic Acid Category'
         y_columns = ['DA_Category', 'Predicted_DA_Category']
-        
-        if selected_site == 'All Sites':
-            performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
-        elif selected_site in site_stats.index:
-            site_accuracy = site_stats.loc[selected_site]
-            performance_text = f"Accuracy = {site_accuracy:.2f}"
-        else:
-            performance_text = "No data for selected site."
-    
-    # Filter based on selected site if necessary.
+
     if selected_site != 'All Sites':
         df_plot = df_plot[df_plot['Site'] == selected_site]
-    
-    # Sort by date for a cleaner plot.
+
+    # Sort by actual date
     df_plot = df_plot.sort_values('Date')
-    
-    # --- Create a forecast date ---
-    # If your forecast should be made for the next day, then:
-    df_plot = df_plot.copy()  # avoid modifying the original DataFrame
-    df_plot['Forecast_Date'] = df_plot['Date'] + pd.DateOffset(days=1)
-    
-    # --- Build the line plot using Forecast_Date as the x-axis ---
+
+    # Plot using x='Date'
     fig = px.line(
         df_plot,
-        x='Forecast_Date',
+        x='Date',
         y=y_columns,
         color='Site' if selected_site == 'All Sites' else None,
-        title=f"{y_axis_title} Forecast - {selected_site}"
+        title=f"{y_axis_title} - {selected_site}"
     )
-    
-    fig.update_layout(
-        xaxis_title='Forecast Date',
-        yaxis_title=y_axis_title,
-        annotations=[{
-            'xref': 'paper', 'yref': 'paper',
-            'x': 0.5, 'y': -0.2,
-            'xanchor': 'center', 'yanchor': 'top',
-            'text': performance_text,
-            'showarrow': False
-        }]
-    )
-    
+    ...
     return fig
+
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, port=8054)
