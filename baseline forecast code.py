@@ -235,16 +235,11 @@ app.layout = html.Div([
      Input('site-dropdown', 'value')]
 )
 def update_graph(selected_forecast_type, selected_site):
-    """
-    Update the line plot based on the selected forecast
-    type (regression or classification) and the site.
-    """
     if selected_forecast_type == 'DA_Level':
         df_plot, site_stats, overall_r2, overall_rmse = predictions['DA_Level']
         y_axis_title = 'Domoic Acid Levels'
         y_columns = ['DA_Levels', 'Predicted_DA_Levels']
-
-        # Overall/per-site stats
+        
         if selected_site == 'All Sites':
             performance_text = f"Overall R² = {overall_r2:.2f}, RMSE = {overall_rmse:.2f}"
         elif selected_site in site_stats.index:
@@ -253,13 +248,11 @@ def update_graph(selected_forecast_type, selected_site):
             performance_text = f"R² = {site_r2:.2f}, RMSE = {site_rmse:.2f}"
         else:
             performance_text = "No data for selected site."
-
     else:
         df_plot, site_stats, overall_accuracy = predictions['DA_Category']
         y_axis_title = 'Domoic Acid Category'
         y_columns = ['DA_Category', 'Predicted_DA_Category']
-
-        # Overall/per-site stats
+        
         if selected_site == 'All Sites':
             performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
         elif selected_site in site_stats.index:
@@ -267,36 +260,40 @@ def update_graph(selected_forecast_type, selected_site):
             performance_text = f"Accuracy = {site_accuracy:.2f}"
         else:
             performance_text = "No data for selected site."
-
-    # Filter data based on selected site
+    
+    # Filter based on selected site if necessary.
     if selected_site != 'All Sites':
         df_plot = df_plot[df_plot['Site'] == selected_site]
-
-    # Sort by date for a cleaner line plot
+    
+    # Sort by date for a cleaner plot.
     df_plot = df_plot.sort_values('Date')
-
-    # Create Plotly figure
+    
+    # --- Create a forecast date ---
+    # If your forecast should be made for the next day, then:
+    df_plot = df_plot.copy()  # avoid modifying the original DataFrame
+    df_plot['Forecast_Date'] = df_plot['Date'] + pd.DateOffset(days=1)
+    
+    # --- Build the line plot using Forecast_Date as the x-axis ---
     fig = px.line(
         df_plot,
-        x='Date',
+        x='Forecast_Date',
         y=y_columns,
         color='Site' if selected_site == 'All Sites' else None,
         title=f"{y_axis_title} Forecast - {selected_site}"
     )
-
+    
     fig.update_layout(
+        xaxis_title='Forecast Date',
         yaxis_title=y_axis_title,
-        xaxis_title='Date',
-        annotations=[
-            dict(
-                xref='paper', yref='paper', x=0.5, y=-0.2,
-                xanchor='center', yanchor='top',
-                text=performance_text,
-                showarrow=False
-            )
-        ]
+        annotations=[{
+            'xref': 'paper', 'yref': 'paper',
+            'x': 0.5, 'y': -0.2,
+            'xanchor': 'center', 'yanchor': 'top',
+            'text': performance_text,
+            'showarrow': False
+        }]
     )
-
+    
     return fig
 
 if __name__ == '__main__':

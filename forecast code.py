@@ -185,14 +185,12 @@ def forecast_next_date(df, anchor_date, site):
     # Next available date
     df_future = df_site[df_site['Date'] > anchor_date]
     if df_future.empty:
-        # No future date for this site
         return None
     next_date = df_future['Date'].iloc[0]
 
     # Training set: everything up to anchor_date
     df_train = df_site[df_site['Date'] <= anchor_date].copy()
     if df_train.empty:
-        # No training data
         return None
 
     # Test set: exactly the next date
@@ -250,7 +248,6 @@ def forecast_next_date(df, anchor_date, site):
     cls_model.fit(X_train_cls_processed, y_train_cls)
     y_pred_cls = cls_model.predict(X_test_cls_processed)
 
-    # Return single-row results
     return {
         'AnchorDate': anchor_date,
         'Site': site,
@@ -383,7 +380,6 @@ app.layout = html.Div([
 # Callbacks
 # ---------------------------------------------------------
 
-# --- Tab 1 Callback: Original Analysis Graph ---
 @app.callback(
     Output('analysis-graph', 'figure'),
     [Input('forecast-type-dropdown', 'value'),
@@ -396,7 +392,15 @@ def update_graph(selected_forecast_type, selected_site):
         overall_r2 = predictions['DA_Level']['overall_r2']
         overall_rmse = predictions['DA_Level']['overall_rmse']
         y_axis_title = 'Domoic Acid Levels'
-        y_columns = ['DA_Levels', 'Predicted_DA_Levels']
+        
+        # Create a melted dataframe for proper line plotting
+        df_plot_melted = pd.melt(
+            df_plot,
+            id_vars=['Date', 'Site'],
+            value_vars=['DA_Levels', 'Predicted_DA_Levels'],
+            var_name='Metric',
+            value_name='Value'
+        )
 
         if selected_site == 'All Sites':
             performance_text = f"Overall R² = {overall_r2:.2f}, RMSE = {overall_rmse:.2f}"
@@ -412,7 +416,15 @@ def update_graph(selected_forecast_type, selected_site):
         site_stats = predictions['DA_Category']['site_stats']
         overall_accuracy = predictions['DA_Category']['overall_accuracy']
         y_axis_title = 'Domoic Acid Category'
-        y_columns = ['DA_Category', 'Predicted_DA_Category']
+        
+        # Create a melted dataframe for proper line plotting
+        df_plot_melted = pd.melt(
+            df_plot,
+            id_vars=['Date', 'Site'],
+            value_vars=['DA_Category', 'Predicted_DA_Category'],
+            var_name='Metric',
+            value_name='Value'
+        )
 
         if selected_site == 'All Sites':
             performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
@@ -423,17 +435,29 @@ def update_graph(selected_forecast_type, selected_site):
             performance_text = "No data for selected site."
 
     if selected_site != 'All Sites':
-        df_plot = df_plot[df_plot['Site'] == selected_site]
+        df_plot_melted = df_plot_melted[df_plot_melted['Site'] == selected_site]
 
-    df_plot = df_plot.sort_values('Date')
+    df_plot_melted = df_plot_melted.sort_values('Date')
 
-    fig = px.line(
-        df_plot,
-        x='Date',
-        y=y_columns,
-        color='Site' if selected_site == 'All Sites' else None,
-        title=f"{y_axis_title} Forecast - {selected_site}"
-    )
+    # Create the plot using the melted dataframe
+    if selected_site == 'All Sites':
+        fig = px.line(
+            df_plot_melted,
+            x='Date',
+            y='Value',
+            color='Site',
+            line_dash='Metric',  # Use different line styles for actual vs predicted
+            title=f"{y_axis_title} Forecast - All Sites"
+        )
+    else:
+        fig = px.line(
+            df_plot_melted,
+            x='Date',
+            y='Value',
+            color='Metric',  # Use different colors for actual vs predicted
+            title=f"{y_axis_title} Forecast - {selected_site}"
+        )
+
     fig.update_layout(
         yaxis_title=y_axis_title,
         xaxis_title='Date',
