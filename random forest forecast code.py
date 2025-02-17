@@ -273,7 +273,7 @@ raw_data = load_and_prepare_data(file_path)
 predictions = train_and_predict(raw_data)
 
 # ----------------------------------------------------------
-# 2) Prepare Data for Random 200 Approach (Dates >= 2010)
+# Prepare Data for Random 200 Approach (Dates >= 2010)
 # ----------------------------------------------------------
 df_after_2010 = raw_data[raw_data['Date'].dt.year >= 2010].copy()
 df_after_2010.sort_values(['Site', 'Date'], inplace=True)
@@ -358,39 +358,7 @@ analysis_layout = html.Div([
     dcc.Graph(id='analysis-graph')
 ])
 
-# ---------- Tab 2: Forecast by Date & Site (Strictly Partial Training) ----------
-
-# 2A) Build disabled_days for DatePickerSingle
-valid_dates = sorted(raw_data['Date'].unique())
-all_dates_range = pd.date_range(valid_dates[0], valid_dates[-1], freq='D')
-disabled_days = [d for d in all_dates_range if d not in valid_dates]
-
-forecast_layout = html.Div([
-    html.H3("Forecast by Specific Date & Site (Partial Training up to Date)"),
-
-    html.Label("Choose a Site:"),
-    dcc.Dropdown(
-        id='site-dropdown-forecast',
-        options=[{'label': s, 'value': s} for s in raw_data['Site'].unique()],
-        value=raw_data['Site'].unique()[0],
-        style={'width': '50%'}
-    ),
-
-    html.Label("Pick an Anchor Date:"),
-    dcc.DatePickerSingle(
-        id='forecast-date-picker',
-        min_date_allowed=valid_dates[0],
-        max_date_allowed=valid_dates[-1],
-        initial_visible_month=valid_dates[0],
-        date=valid_dates[0],
-        disabled_days=disabled_days  # gray out invalid dates
-    ),
-
-    html.Div(id='forecast-output-partial', style={'whiteSpace': 'pre-wrap', 'marginTop': 20})
-])
-
-# ---------- Tab 3: Random 200 Next-Date ----------
-
+# ---------- Tab 2: Random 200 Next-Date Forecast -----------
 random_200_layout = html.Div([
     html.H3("Random 200 Anchor Dates (Post-2010) Forecast -> Next Date"),
     dcc.Graph(figure=fig_random_line),
@@ -403,11 +371,10 @@ random_200_layout = html.Div([
     ], style={'marginTop': 20})
 ])
 
-# ---------- Combine Tabs ----------
+# ---------- Combine Tabs -----------
 app.layout = html.Div([
     dcc.Tabs(id="tabs", children=[
         dcc.Tab(label='Analysis', children=[analysis_layout]),
-        dcc.Tab(label='Forecast by Date & Site', children=[forecast_layout]),
         dcc.Tab(label='Random 200 Next-Date Forecast', children=[random_200_layout]),
     ])
 ])
@@ -480,41 +447,6 @@ def update_graph(selected_forecast_type, selected_site):
         ]
     )
     return fig
-
-# --- Tab 2 Callback: Partial Training up to Date & Forecast Next Date ---
-@app.callback(
-    Output('forecast-output-partial', 'children'),
-    [Input('forecast-date-picker', 'date'),
-     Input('site-dropdown-forecast', 'value')]
-)
-def partial_forecast_callback(anchor_date_str, site):
-    if not anchor_date_str or not site:
-        return "Please select a site and a valid date."
-
-    anchor_date = pd.to_datetime(anchor_date_str)
-
-    # Use the same function as random 200 approach
-    result = forecast_next_date(raw_data, anchor_date, site)
-
-    if result is None:
-        return (
-            f"No forecast possible for Site={site} after {anchor_date.date()}.\n"
-            "Possibly no future date or no training data up to that date."
-        )
-
-    lines = [
-        f"Selected Anchor Date (training cut-off): {result['AnchorDate'].date()}",
-        f"Next Date (forecast target): {result['NextDate'].date()}",
-        "",
-        f"Predicted DA Level: {result['Predicted_DA_Levels']:.2f}",
-        f"Actual   DA Level: {result['Actual_DA_Levels']:.2f} (error = {abs(result['Predicted_DA_Levels'] - result['Actual_DA_Levels']):.2f})",
-        "",
-        f"Predicted DA Category: {result['Predicted_DA_Category']}",
-        f"Actual   DA Category: {result['Actual_DA_Category']} "
-        f"({'MATCH' if result['Predicted_DA_Category'] == result['Actual_DA_Category'] else 'MISMATCH'})"
-    ]
-
-    return "\n".join(lines)
 
 # ---------------------------------------------------------
 # Run
