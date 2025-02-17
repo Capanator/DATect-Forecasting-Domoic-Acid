@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
@@ -18,38 +19,44 @@ from dash.dependencies import Input, Output
 # 1) Data Loading & Feature Engineering
 # ---------------------------------------------------------
 def load_and_prepare_data(file_path):
+    """
+    Reads a CSV file, preprocesses the data by adding date-based
+    and spatial cluster features, and returns a pandas DataFrame.
+    """
     data = pd.read_csv(file_path)
-    data['Date'] = pd.to_datetime(data['Date'])
-    data.sort_values(['Site', 'Date'], inplace=True)
 
-    # Spatial Clustering
-    kmeans = KMeans(n_clusters=5, random_state=42)
+    # Convert 'Date' to datetime; sort by Site, then Date
+    data['Date'] = pd.to_datetime(data['Date'])
+    data = data.sort_values(['Site', 'Date']).copy()
+
+    # --- Spatial Clustering ---
+    kmeans = KMeans(n_clusters=5, n_init='auto', random_state=42)
     data['spatial_cluster'] = kmeans.fit_predict(data[['latitude', 'longitude']])
     data = pd.get_dummies(data, columns=['spatial_cluster'], prefix='cluster')
 
-    # Seasonal (sin/cos)
+    # --- Seasonal Features (sin/cos) ---
     day_of_year = data['Date'].dt.dayofyear
     data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
     data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
 
-    # Month (one-hot)
+    # --- Month (one-hot) ---
     data['Month'] = data['Date'].dt.month
     data = pd.get_dummies(data, columns=['Month'], prefix='Month')
 
-    # Year
+    # --- Year ---
     data['Year'] = data['Date'].dt.year
 
-    # Lag Features
+    # --- Lag Features ---
     for lag in [1, 2, 3, 7, 14]:
         data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
 
-    # Interaction: cluster * cyclical
+    # --- Interaction: cluster * cyclical ---
     cluster_cols = [col for col in data.columns if col.startswith('cluster_')]
     for col in cluster_cols:
         data[f'{col}_sin_day_of_year'] = data[col] * data['sin_day_of_year']
         data[f'{col}_cos_day_of_year'] = data[col] * data['cos_day_of_year']
 
-    # DA_Category
+    # --- DA_Category Based on DA_Levels ---
     def categorize_da_levels(x):
         if x <= 5:
             return 0
@@ -59,6 +66,7 @@ def load_and_prepare_data(file_path):
             return 2
         else:
             return 3
+
     data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)
 
     return data
@@ -69,14 +77,15 @@ def load_and_prepare_data(file_path):
 def train_and_predict(data):
     """
     Splits data into train/test sets, applies
-    imputation + scaling to the training set,
-    and uses RandomForest for both regression and classification.
-    Returns dictionaries for each task with:
-      - test DataFrame containing predictions
-      - site-level metrics
-      - overall metrics
+    imputation + scaling, and uses RandomForest
+    for both regression (DA_Levels) and classification (DA_Category).
+
+    Returns a dictionary with results for:
+    - "DA_Level"  -> test_df, site_stats, overall_r2, overall_rmse
+    - "DA_Category" -> test_df, site_stats, overall_accuracy
     """
-    # 2A) Regression
+
+    # 2A) Regression Setup
     data_reg = data.drop(['DA_Category'], axis=1)
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
 
@@ -111,14 +120,15 @@ def train_and_predict(data):
     overall_r2_reg = r2_score(y_test_reg, y_pred_reg)
     overall_rmse_reg = np.sqrt(mean_squared_error(y_test_reg, y_pred_reg))
 
-    site_stats_reg = test_set_reg.groupby('Site').apply(
+    # Calculate site-level metrics
+    site_stats_reg = test_set_reg[['DA_Levels', 'Predicted_DA_Levels']].groupby(test_set_reg['Site']).apply(
         lambda x: pd.Series({
             'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
             'rmse': np.sqrt(mean_squared_error(x['DA_Levels'], x['Predicted_DA_Levels']))
         })
     )
 
-    # 2B) Classification
+    # 2B) Classification Setup
     data_cls = data.drop(['DA_Levels'], axis=1)
     train_set_cls, test_set_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
 
@@ -151,7 +161,7 @@ def train_and_predict(data):
     test_set_cls['Predicted_DA_Category'] = y_pred_cls
 
     overall_accuracy_cls = accuracy_score(y_test_cls, y_pred_cls)
-    site_stats_cls = test_set_cls.groupby('Site').apply(
+    site_stats_cls = test_set_cls[['DA_Category', 'Predicted_DA_Category']].groupby(test_set_cls['Site']).apply(
         lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category'])
     )
 
@@ -171,24 +181,26 @@ def train_and_predict(data):
 
 # ---------------------------------------------------------
 # 3) Time-Based Forecast Function
-#    Train on data <= anchor date, predict next date > anchor
 # ---------------------------------------------------------
 def forecast_next_date(df, anchor_date, site):
     """
-    1. Train on data up to and including anchor_date (no future leakage).
-    2. Forecast the next available date strictly > anchor_date for that site.
-    3. Return dictionary of actual/predicted for that 'next date' row (if it exists).
+    Forecast the next available date > anchor_date for a given site.
+
+    1) Train on data up to anchor_date (no future leakage)
+    2) Predict on the row that is exactly the next date
+       (the first date after anchor_date)
+    3) Return a dictionary with actual vs. predicted DA_Levels and DA_Category
     """
     df_site = df[df['Site'] == site].copy()
-    df_site.sort_values('Date', inplace=True)
+    df_site = df_site.sort_values('Date').copy()
 
-    # Next available date
+    # Identify the next date strictly greater than anchor_date
     df_future = df_site[df_site['Date'] > anchor_date]
     if df_future.empty:
         return None
     next_date = df_future['Date'].iloc[0]
 
-    # Training set: everything up to anchor_date
+    # Training set: everything up to (and including) anchor_date
     df_train = df_site[df_site['Date'] <= anchor_date].copy()
     if df_train.empty:
         return None
@@ -206,6 +218,7 @@ def forecast_next_date(df, anchor_date, site):
     X_test_reg = df_test.drop(columns=drop_cols_reg, errors='ignore')
     y_test_reg = df_test['DA_Levels']
 
+    # Preprocessing pipeline for numeric columns
     num_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
     reg_preproc = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
@@ -263,51 +276,56 @@ def forecast_next_date(df, anchor_date, site):
 # ---------------------------------------------------------
 app = dash.Dash(__name__)
 
-file_path = 'final_output.csv'  # your CSV
+# Change this to the path of your CSV file
+file_path = 'final_output.csv'
 raw_data = load_and_prepare_data(file_path)
 
-# 1) Run your original "train_and_predict" for the overall analysis
+# 1) Run original "train_and_predict" for the overall analysis
 predictions = train_and_predict(raw_data)
 
 # ----------------------------------------------------------
-# Prepare Data for Random 200 Approach (Dates >= 2010)
+# Prepare Data for Random Anchor Dates (Default = 50)
 # ----------------------------------------------------------
+NUM_RANDOM_ANCHORS = 50  # <-- change this as needed
+
 df_after_2010 = raw_data[raw_data['Date'].dt.year >= 2010].copy()
-df_after_2010.sort_values(['Site', 'Date'], inplace=True)
+df_after_2010 = df_after_2010.sort_values(['Site', 'Date']).copy()
 
 pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
-# Take 200 random or all if <200
-if len(pairs_after_2010) > 200:
-    df_random_200 = pairs_after_2010.sample(n=200, random_state=42)
+
+# Take a random sample of size NUM_RANDOM_ANCHORS, or all if fewer
+if len(pairs_after_2010) > NUM_RANDOM_ANCHORS:
+    df_random_anchors = pairs_after_2010.sample(n=NUM_RANDOM_ANCHORS, random_state=42)
 else:
-    df_random_200 = pairs_after_2010
+    df_random_anchors = pairs_after_2010
 
 results_list = []
-for _, row in df_random_200.iterrows():
+for _, row in df_random_anchors.iterrows():
     site_ = row['Site']
     anchor_date_ = row['Date']
     result = forecast_next_date(raw_data, anchor_date_, site_)
     if result is not None:
         results_list.append(result)
 
-df_results_200 = pd.DataFrame(results_list)
+df_results_anchors = pd.DataFrame(results_list)
 
-# Overall metrics on these 200 forecasts
-if not df_results_200.empty:
-    # For regression (levels)
-    rmse_200 = np.sqrt(mean_squared_error(
-        df_results_200['Actual_DA_Levels'], df_results_200['Predicted_DA_Levels']
+# Overall metrics on these random anchor forecasts
+if not df_results_anchors.empty:
+    rmse_anchors = np.sqrt(mean_squared_error(
+        df_results_anchors['Actual_DA_Levels'],
+        df_results_anchors['Predicted_DA_Levels']
     ))
-    # For classification (category)
-    acc_200 = (df_results_200['Actual_DA_Category'] == df_results_200['Predicted_DA_Category']).mean()
+    acc_anchors = (
+        df_results_anchors['Actual_DA_Category'] ==
+        df_results_anchors['Predicted_DA_Category']
+    ).mean()
 else:
-    rmse_200 = None
-    acc_200 = None
+    rmse_anchors = None
+    acc_anchors = None
 
-# Create a line chart with time on x-axis, DA level on y-axis, 2 lines: actual & predicted
-if not df_results_200.empty:
-    df_line = df_results_200.copy()
-    df_line = df_line.sort_values('NextDate')
+# Create a line chart for the random anchor approach (DA_Levels)
+if not df_results_anchors.empty:
+    df_line = df_results_anchors.copy().sort_values('NextDate')
     df_plot_melt = df_line.melt(
         id_vars=['Site','NextDate'],
         value_vars=['Actual_DA_Levels','Predicted_DA_Levels'],
@@ -320,20 +338,18 @@ if not df_results_200.empty:
         color='Type',
         line_group='Site',
         hover_data=['Site'],
-        title="Random 200 Next-Date Forecast (After 2010)"
+        title=f"Random {NUM_RANDOM_ANCHORS} Next-Date Forecast (After 2010)"
     )
     fig_random_line.update_layout(
         xaxis_title='Next Date',
         yaxis_title='DA Level'
     )
 else:
-    fig_random_line = px.line(title="No valid data for random 200 approach")
+    fig_random_line = px.line(title="No valid data for random anchor approach")
 
 # ---------------------------------------------------------
 # Tabs Layout
 # ---------------------------------------------------------
-
-# ---------- Tab 1: Original Analysis -----------
 analysis_layout = html.Div([
     html.H3("Overall Analysis (Time-Series)"),
     dcc.Dropdown(
@@ -355,45 +371,48 @@ analysis_layout = html.Div([
     dcc.Graph(id='analysis-graph')
 ])
 
-# ---------- Tab 2: Random 200 Next-Date Forecast -----------
-random_200_layout = html.Div([
-    html.H3("Random 200 Anchor Dates (Post-2010) Forecast -> Next Date"),
+random_anchors_layout = html.Div([
+    html.H3(f"Random {NUM_RANDOM_ANCHORS} Anchor Dates (Post-2010) Forecast -> Next Date"),
     dcc.Graph(figure=fig_random_line),
     html.Div([
-        html.H4("Overall Performance on These 200 Forecasts"),
+        html.H4(f"Overall Performance on These {NUM_RANDOM_ANCHORS} Forecasts"),
         html.Ul([
-            html.Li(f"RMSE (DA Levels): {rmse_200:.3f}") if rmse_200 is not None else html.Li("No RMSE (no data)"),
-            html.Li(f"Accuracy (DA Category): {acc_200:.3f}") if acc_200 is not None else html.Li("No Accuracy (no data)")
+            html.Li(f"RMSE (DA Levels): {rmse_anchors:.3f}") if rmse_anchors is not None else html.Li("No RMSE (no data)"),
+            html.Li(f"Accuracy (DA Category): {acc_anchors:.3f}") if acc_anchors is not None else html.Li("No Accuracy (no data)")
         ])
     ], style={'marginTop': 20})
 ])
 
-# ---------- Combine Tabs -----------
 app.layout = html.Div([
     dcc.Tabs(id="tabs", children=[
         dcc.Tab(label='Analysis', children=[analysis_layout]),
-        dcc.Tab(label='Random 200 Next-Date Forecast', children=[random_200_layout]),
+        dcc.Tab(label='Random Anchor Forecast', children=[random_anchors_layout]),
     ])
 ])
 
 # ---------------------------------------------------------
 # Callbacks
 # ---------------------------------------------------------
-
 @app.callback(
     Output('analysis-graph', 'figure'),
-    [Input('forecast-type-dropdown', 'value'),
-     Input('site-dropdown', 'value')]
+    [
+        Input('forecast-type-dropdown', 'value'),
+        Input('site-dropdown', 'value')
+    ]
 )
 def update_graph(selected_forecast_type, selected_site):
+    """
+    Updates the main analysis graph based on forecast type (DA_Level or DA_Category)
+    and selected site.
+    """
     if selected_forecast_type == 'DA_Level':
         df_plot = predictions['DA_Level']['test_df'].copy()
         site_stats = predictions['DA_Level']['site_stats']
         overall_r2 = predictions['DA_Level']['overall_r2']
         overall_rmse = predictions['DA_Level']['overall_rmse']
         y_axis_title = 'Domoic Acid Levels'
-        
-        # Create a melted dataframe for proper line plotting
+
+        # Melt for line plotting
         df_plot_melted = pd.melt(
             df_plot,
             id_vars=['Date', 'Site'],
@@ -404,20 +423,22 @@ def update_graph(selected_forecast_type, selected_site):
 
         if selected_site == 'All Sites':
             performance_text = f"Overall R² = {overall_r2:.2f}, RMSE = {overall_rmse:.2f}"
-        elif selected_site in site_stats.index:
-            site_r2 = site_stats.loc[selected_site, 'r2']
-            site_rmse = site_stats.loc[selected_site, 'rmse']
-            performance_text = f"R² = {site_r2:.2f}, RMSE = {site_rmse:.2f}"
         else:
-            performance_text = "No data for selected site."
+            if selected_site in site_stats.index:
+                site_r2 = site_stats.loc[selected_site, 'r2']
+                site_rmse = site_stats.loc[selected_site, 'rmse']
+                performance_text = f"R² = {site_r2:.2f}, RMSE = {site_rmse:.2f}"
+            else:
+                performance_text = "No data for selected site."
 
-    else:  # DA_Category
+    else:
+        # DA_Category
         df_plot = predictions['DA_Category']['test_df'].copy()
         site_stats = predictions['DA_Category']['site_stats']
         overall_accuracy = predictions['DA_Category']['overall_accuracy']
         y_axis_title = 'Domoic Acid Category'
-        
-        # Create a melted dataframe for proper line plotting
+
+        # Melt for line plotting
         df_plot_melted = pd.melt(
             df_plot,
             id_vars=['Date', 'Site'],
@@ -428,25 +449,27 @@ def update_graph(selected_forecast_type, selected_site):
 
         if selected_site == 'All Sites':
             performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
-        elif selected_site in site_stats.index:
-            site_accuracy = site_stats.loc[selected_site]
-            performance_text = f"Accuracy = {site_accuracy:.2f}"
         else:
-            performance_text = "No data for selected site."
+            if selected_site in site_stats.index:
+                site_accuracy = site_stats.loc[selected_site]
+                performance_text = f"Accuracy = {site_accuracy:.2f}"
+            else:
+                performance_text = "No data for selected site."
 
+    # Filter if a specific site was chosen
     if selected_site != 'All Sites':
         df_plot_melted = df_plot_melted[df_plot_melted['Site'] == selected_site]
 
     df_plot_melted = df_plot_melted.sort_values('Date')
 
-    # Create the plot using the melted dataframe
+    # Create line chart
     if selected_site == 'All Sites':
         fig = px.line(
             df_plot_melted,
             x='Date',
             y='Value',
             color='Site',
-            line_dash='Metric',  # Use different line styles for actual vs predicted
+            line_dash='Metric',
             title=f"{y_axis_title} Forecast - All Sites"
         )
     else:
@@ -454,7 +477,7 @@ def update_graph(selected_forecast_type, selected_site):
             df_plot_melted,
             x='Date',
             y='Value',
-            color='Metric',  # Use different colors for actual vs predicted
+            color='Metric',
             title=f"{y_axis_title} Forecast - {selected_site}"
         )
 
@@ -473,7 +496,7 @@ def update_graph(selected_forecast_type, selected_site):
     return fig
 
 # ---------------------------------------------------------
-# Run
+# Run the Dash App
 # ---------------------------------------------------------
 if __name__ == '__main__':
     app.run_server(debug=True, port=8065)
