@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 from sklearn.pipeline import Pipeline
@@ -65,7 +65,7 @@ def load_and_prepare_data(file_path):
     return data
 
 # ---------------------------------------------------------
-# 2) Original Analysis: Train & Predict (Full Split)
+# 2) Improved Analysis: Train & Predict (Time-Series CV + GridSearchCV)
 # ---------------------------------------------------------
 def train_and_predict(data):
     # --- Regression Setup ---
@@ -90,9 +90,24 @@ def train_and_predict(data):
     X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = preprocessor_reg.transform(X_test_reg)
 
-    rf_regressor = RandomForestRegressor(random_state=42)
-    rf_regressor.fit(X_train_reg_processed, y_train_reg)
-    y_pred_reg = rf_regressor.predict(X_test_reg_processed)
+    # Define time series cross-validation and hyperparameter grid for regression
+    tscv = TimeSeriesSplit(n_splits=5)
+    param_grid_reg = {
+        'n_estimators': [200, 300],
+        'max_depth': [10, 15],
+        'min_samples_split': [2, 5],
+        'min_samples_leaf': [1, 2]
+    }
+    grid_search_reg = GridSearchCV(
+        estimator=RandomForestRegressor(random_state=42),
+        param_grid=param_grid_reg,
+        cv=tscv,
+        scoring='r2',
+        n_jobs=-1
+    )
+    grid_search_reg.fit(X_train_reg_processed, y_train_reg)
+    best_reg = grid_search_reg.best_estimator_
+    y_pred_reg = best_reg.predict(X_test_reg_processed)
 
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
@@ -129,9 +144,22 @@ def train_and_predict(data):
     X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = preprocessor_cls.transform(X_test_cls)
 
-    rf_classifier = RandomForestClassifier(random_state=42)
-    rf_classifier.fit(X_train_cls_processed, y_train_cls)
-    y_pred_cls = rf_classifier.predict(X_test_cls_processed)
+    # Define time series cross-validation and hyperparameter grid for classification
+    grid_search_cls = GridSearchCV(
+        estimator=RandomForestClassifier(random_state=42),
+        param_grid={
+            'n_estimators': [200, 300],
+            'max_depth': [10, 15],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2]
+        },
+        cv=tscv,
+        scoring='accuracy',
+        n_jobs=-1
+    )
+    grid_search_cls.fit(X_train_cls_processed, y_train_cls)
+    best_cls = grid_search_cls.best_estimator_
+    y_pred_cls = best_cls.predict(X_test_cls_processed)
 
     test_set_cls = test_set_cls.copy()
     test_set_cls['Predicted_DA_Category'] = y_pred_cls
@@ -156,7 +184,7 @@ def train_and_predict(data):
     }
 
 # ---------------------------------------------------------
-# 3) Time-Based Forecast Function
+# 3) Time-Based Forecast Function (Optional: Using Best Models)
 # ---------------------------------------------------------
 def forecast_next_date(df, anchor_date, site):
     df_site = df[df['Site'] == site].copy()
@@ -197,7 +225,9 @@ def forecast_next_date(df, anchor_date, site):
     X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = col_trans_reg.transform(X_test_reg)
 
-    reg_model = RandomForestRegressor(random_state=42)
+    # For forecasting a single step, you might skip grid search if data is very limited,
+    # or alternatively use the best parameters found earlier. Here we use a simple model.
+    reg_model = RandomForestRegressor(random_state=42, n_estimators=100, max_depth=None)
     reg_model.fit(X_train_reg_processed, y_train_reg)
     y_pred_reg = reg_model.predict(X_test_reg_processed)
 
@@ -220,7 +250,7 @@ def forecast_next_date(df, anchor_date, site):
     X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = col_trans_cls.transform(X_test_cls)
 
-    cls_model = RandomForestClassifier(random_state=42)
+    cls_model = RandomForestClassifier(random_state=42, n_estimators=100, max_depth=None)
     cls_model.fit(X_train_cls_processed, y_train_cls)
     y_pred_cls = cls_model.predict(X_test_cls_processed)
 
@@ -243,7 +273,7 @@ app = dash.Dash(__name__)
 file_path = 'final_output.csv'
 raw_data = load_and_prepare_data(file_path)
 
-# 1) Run original "train_and_predict" for the overall analysis
+# 1) Run improved "train_and_predict" for the overall analysis
 predictions = train_and_predict(raw_data)
 
 # ----------------------------------------------------------
@@ -258,7 +288,7 @@ pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
 
 # Group by site and sample up to NUM_RANDOM_ANCHORS for each site
 df_random_anchors = pairs_after_2010.groupby('Site').apply(
-    lambda x: x.sample(n=min(NUM_RANDOM_ANCHORS, len(x)), random_state=42)
+    lambda x: x[['Site', 'Date']].sample(n=min(NUM_RANDOM_ANCHORS, len(x)), random_state=42)
 ).reset_index(drop=True)
 
 results_list = []
