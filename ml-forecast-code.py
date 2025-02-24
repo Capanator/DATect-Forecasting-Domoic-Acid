@@ -4,7 +4,8 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 from sklearn.pipeline import Pipeline
@@ -72,9 +73,129 @@ def load_and_prepare_data(file_path, season=None):
     return data
 
 # ---------------------------------------------------------
-# 2) Train & Predict Function (Regression & Classification)
+# 2a) Train & Predict Function (Machine Learning - RF with GridSearchCV & TimeSeriesSplit)
 # ---------------------------------------------------------
 def train_and_predict(data):
+    # --- Regression Setup ---
+    data_reg = data.drop(['DA_Category'], axis=1)
+    # Use a hold-out test set (20% of data)
+    train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
+
+    drop_cols_reg = ['DA_Levels', 'Date', 'Site']
+    X_train_reg = train_set_reg.drop(columns=drop_cols_reg, errors='ignore')
+    y_train_reg = train_set_reg['DA_Levels']
+    X_test_reg = test_set_reg.drop(columns=drop_cols_reg, errors='ignore')
+    y_test_reg = test_set_reg['DA_Levels']
+
+    numeric_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
+    numeric_transformer_reg = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    preprocessor_reg = ColumnTransformer(
+        transformers=[('num', numeric_transformer_reg, numeric_cols_reg)],
+        remainder='passthrough'
+    )
+    X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
+    X_test_reg_processed  = preprocessor_reg.transform(X_test_reg)
+
+    # Set up time series cross-validation and grid search for regression
+    tscv = TimeSeriesSplit(n_splits=5)
+    param_grid_reg = {
+        'n_estimators': [200, 300],
+        'max_depth': [10, 15],
+        'min_samples_split': [2, 5],
+        'min_samples_leaf': [1, 2]
+    }
+    grid_search_reg = GridSearchCV(
+        estimator=RandomForestRegressor(random_state=42),
+        param_grid=param_grid_reg,
+        cv=tscv,
+        scoring='r2',
+        n_jobs=-1
+    )
+    grid_search_reg.fit(X_train_reg_processed, y_train_reg)
+    best_reg = grid_search_reg.best_estimator_
+    y_pred_reg = best_reg.predict(X_test_reg_processed)
+
+    test_set_reg = test_set_reg.copy()
+    test_set_reg['Predicted_DA_Levels'] = y_pred_reg
+
+    overall_r2_reg = r2_score(y_test_reg, y_pred_reg)
+    overall_rmse_reg = np.sqrt(mean_squared_error(y_test_reg, y_pred_reg))
+
+    site_stats_reg = test_set_reg[['DA_Levels', 'Predicted_DA_Levels']].groupby(test_set_reg['Site']).apply(
+        lambda x: pd.Series({
+            'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
+            'rmse': np.sqrt(mean_squared_error(x['DA_Levels'], x['Predicted_DA_Levels']))
+        })
+    )
+
+    # --- Classification Setup ---
+    data_cls = data.drop(['DA_Levels'], axis=1)
+    train_set_cls, test_set_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
+
+    drop_cols_cls = ['DA_Category', 'Date', 'Site']
+    X_train_cls = train_set_cls.drop(columns=drop_cols_cls, errors='ignore')
+    y_train_cls = train_set_cls['DA_Category']
+    X_test_cls = test_set_cls.drop(columns=drop_cols_cls, errors='ignore')
+    y_test_cls = test_set_cls['DA_Category']
+
+    numeric_cols_cls = X_train_cls.select_dtypes(include=[np.number]).columns
+    numeric_transformer_cls = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    preprocessor_cls = ColumnTransformer(
+        transformers=[('num', numeric_transformer_cls, numeric_cols_cls)],
+        remainder='passthrough'
+    )
+    X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
+    X_test_cls_processed  = preprocessor_cls.transform(X_test_cls)
+
+    # Grid search for classification using TimeSeriesSplit
+    grid_search_cls = GridSearchCV(
+        estimator=RandomForestClassifier(random_state=42),
+        param_grid={
+            'n_estimators': [200, 300],
+            'max_depth': [10, 15],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2]
+        },
+        cv=tscv,
+        scoring='accuracy',
+        n_jobs=-1
+    )
+    grid_search_cls.fit(X_train_cls_processed, y_train_cls)
+    best_cls = grid_search_cls.best_estimator_
+    y_pred_cls = best_cls.predict(X_test_cls_processed)
+
+    test_set_cls = test_set_cls.copy()
+    test_set_cls['Predicted_DA_Category'] = y_pred_cls
+
+    overall_accuracy_cls = accuracy_score(y_test_cls, y_pred_cls)
+    site_stats_cls = test_set_cls[['DA_Category', 'Predicted_DA_Category']].groupby(test_set_cls['Site']).apply(
+        lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category'])
+    )
+
+    return {
+        "DA_Level": {
+            "test_df": test_set_reg,
+            "site_stats": site_stats_reg,
+            "overall_r2": overall_r2_reg,
+            "overall_rmse": overall_rmse_reg
+        },
+        "DA_Category": {
+            "test_df": test_set_cls,
+            "site_stats": site_stats_cls,
+            "overall_accuracy": overall_accuracy_cls
+        }
+    }
+
+# ---------------------------------------------------------
+# 2b) Train & Predict Function (Linear & Logistic Regression)
+# ---------------------------------------------------------
+def train_and_predict_lr(data):
     # --- Regression Setup ---
     data_reg = data.drop(['DA_Category'], axis=1)
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.25, random_state=42)
@@ -95,11 +216,11 @@ def train_and_predict(data):
         remainder='passthrough'
     )
     X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
-    X_test_reg_processed  = preprocessor_reg.transform(X_test_reg)
+    X_test_reg_processed = preprocessor_reg.transform(X_test_reg)
 
-    rf_regressor = RandomForestRegressor(random_state=42)
-    rf_regressor.fit(X_train_reg_processed, y_train_reg)
-    y_pred_reg = rf_regressor.predict(X_test_reg_processed)
+    lin_regressor = LinearRegression()
+    lin_regressor.fit(X_train_reg_processed, y_train_reg)
+    y_pred_reg = lin_regressor.predict(X_test_reg_processed)
 
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
@@ -136,9 +257,9 @@ def train_and_predict(data):
     X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = preprocessor_cls.transform(X_test_cls)
 
-    rf_classifier = RandomForestClassifier(random_state=42)
-    rf_classifier.fit(X_train_cls_processed, y_train_cls)
-    y_pred_cls = rf_classifier.predict(X_test_cls_processed)
+    log_classifier = LogisticRegression(solver='lbfgs', max_iter=1000)
+    log_classifier.fit(X_train_cls_processed, y_train_cls)
+    y_pred_cls = log_classifier.predict(X_test_cls_processed)
 
     test_set_cls = test_set_cls.copy()
     test_set_cls['Predicted_DA_Category'] = y_pred_cls
@@ -163,7 +284,7 @@ def train_and_predict(data):
     }
 
 # ---------------------------------------------------------
-# 3) Time-Based Forecast Function for Random Anchor Dates
+# 3a) Time-Based Forecast Function for Random Anchor Dates (ML)
 # ---------------------------------------------------------
 def forecast_next_date(df, anchor_date, site):
     df_site = df[df['Site'] == site].copy()
@@ -204,7 +325,8 @@ def forecast_next_date(df, anchor_date, site):
     X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = col_trans_reg.transform(X_test_reg)
 
-    reg_model = RandomForestRegressor(random_state=42)
+    # For forecasting a single step, we use a simple model (grid search is skipped)
+    reg_model = RandomForestRegressor(random_state=42, n_estimators=100, max_depth=None)
     reg_model.fit(X_train_reg_processed, y_train_reg)
     y_pred_reg = reg_model.predict(X_test_reg_processed)
 
@@ -227,7 +349,7 @@ def forecast_next_date(df, anchor_date, site):
     X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = col_trans_cls.transform(X_test_cls)
 
-    cls_model = RandomForestClassifier(random_state=42)
+    cls_model = RandomForestClassifier(random_state=42, n_estimators=100, max_depth=None)
     cls_model.fit(X_train_cls_processed, y_train_cls)
     y_pred_cls = cls_model.predict(X_test_cls_processed)
 
@@ -242,25 +364,102 @@ def forecast_next_date(df, anchor_date, site):
     }
 
 # ---------------------------------------------------------
-# 4) Random Anchor Forecast Helper Function
+# 3b) Time-Based Forecast Function for Random Anchor Dates (LR)
 # ---------------------------------------------------------
-def get_random_anchor_forecasts(data):
-    NUM_RANDOM_ANCHORS = 200
+def forecast_next_date_lr(df, anchor_date, site):
+    df_site = df[df['Site'] == site].copy()
+    df_site = df_site.sort_values('Date').copy()
+
+    df_future = df_site[df_site['Date'] > anchor_date]
+    if df_future.empty:
+        return None
+    next_date = df_future['Date'].iloc[0]
+
+    df_train = df_site[df_site['Date'] <= anchor_date].copy()
+    if df_train.empty:
+        return None
+
+    df_test = df_site[df_site['Date'] == next_date].copy()
+    if df_test.empty:
+        return None
+
+    # --- Regression using LinearRegression ---
+    drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
+    X_train_reg = df_train.drop(columns=drop_cols_reg, errors='ignore')
+    y_train_reg = df_train['DA_Levels']
+    X_test_reg = df_test.drop(columns=drop_cols_reg, errors='ignore')
+    y_test_reg = df_test['DA_Levels']
+
+    num_cols_reg = X_train_reg.select_dtypes(include=[np.number]).columns
+    reg_preproc = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    col_trans_reg = ColumnTransformer(
+        transformers=[('num', reg_preproc, num_cols_reg)],
+        remainder='passthrough'
+    )
+    X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
+    X_test_reg_processed  = col_trans_reg.transform(X_test_reg)
+
+    lin_model = LinearRegression()
+    lin_model.fit(X_train_reg_processed, y_train_reg)
+    y_pred_reg = lin_model.predict(X_test_reg_processed)
+
+    # --- Classification using LogisticRegression ---
+    drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
+    X_train_cls = df_train.drop(columns=drop_cols_cls, errors='ignore')
+    y_train_cls = df_train['DA_Category']
+    X_test_cls = df_test.drop(columns=drop_cols_cls, errors='ignore')
+    y_test_cls = df_test['DA_Category']
+
+    num_cols_cls = X_train_cls.select_dtypes(include=[np.number]).columns
+    cls_preproc = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())
+    ])
+    col_trans_cls = ColumnTransformer(
+        transformers=[('num', cls_preproc, num_cols_cls)],
+        remainder='passthrough'
+    )
+    X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
+    X_test_cls_processed  = col_trans_cls.transform(X_test_cls)
+
+    log_model = LogisticRegression(solver='lbfgs', max_iter=1000)
+    log_model.fit(X_train_cls_processed, y_train_cls)
+    y_pred_cls = log_model.predict(X_test_cls_processed)
+
+    return {
+        'AnchorDate': anchor_date,
+        'Site': site,
+        'NextDate': next_date,
+        'Predicted_DA_Levels': float(y_pred_reg[0]),
+        'Actual_DA_Levels': float(y_test_reg.iloc[0]) if len(y_test_reg) else None,
+        'Predicted_DA_Category': int(y_pred_cls[0]),
+        'Actual_DA_Category': int(y_test_cls.iloc[0]) if len(y_test_cls) else None
+    }
+
+# ---------------------------------------------------------
+# 4) Modified Random Anchor Forecast Helper Function
+# ---------------------------------------------------------
+def get_random_anchor_forecasts(data, forecast_func):
+    NUM_RANDOM_ANCHORS = 2
     df_after_2010 = data[data['Date'].dt.year >= 2010].copy()
     df_after_2010 = df_after_2010.sort_values(['Site', 'Date']).copy()
 
     pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
 
     # Group by site and sample up to NUM_RANDOM_ANCHORS for each site
-    df_random_anchors = pairs_after_2010.groupby('Site').apply(
-        lambda x: x.sample(n=min(NUM_RANDOM_ANCHORS, len(x)), random_state=42)
-    ).reset_index(drop=True)
+    df_random_anchors = pd.concat([
+        group.sample(n=min(NUM_RANDOM_ANCHORS, len(group)), random_state=42)
+        for _, group in pairs_after_2010.groupby('Site')
+    ]).reset_index(drop=True)
 
     results_list = []
     for _, row in df_random_anchors.iterrows():
         site_ = row['Site']
         anchor_date_ = row['Date']
-        result = forecast_next_date(data, anchor_date_, site_)
+        result = forecast_func(data, anchor_date_, site_)
         if result is not None:
             results_list.append(result)
 
@@ -317,17 +516,29 @@ raw_data_dict = {
 }
 
 # Generate predictions for each season.
-predictions = {
+predictions_ml = {
     'annual': train_and_predict(raw_data_annual),
     'spring': train_and_predict(raw_data_spring),
     'fall': train_and_predict(raw_data_fall)
 }
 
+predictions_lr = {
+    'annual': train_and_predict_lr(raw_data_annual),
+    'spring': train_and_predict_lr(raw_data_spring),
+    'fall': train_and_predict_lr(raw_data_fall)
+}
+
 # Generate random anchor forecasts for each season.
-random_anchors = {
-    'annual': get_random_anchor_forecasts(raw_data_annual),
-    'spring': get_random_anchor_forecasts(raw_data_spring),
-    'fall': get_random_anchor_forecasts(raw_data_fall)
+random_anchors_ml = {
+    'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date),
+    'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date),
+    'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date)
+}
+
+random_anchors_lr = {
+    'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date_lr),
+    'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date_lr),
+    'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date_lr)
 }
 
 # ---------------------------------------------------------
@@ -361,7 +572,7 @@ random_anchors_layout = html.Div([
     html.Div(id='random-anchor-container')
 ])
 
-# Global layout including a season selector at the top.
+# Global layout including season and forecast method selectors at the top.
 app.layout = html.Div([
     html.H1("Domoic Acid Forecast Dashboard"),
     html.Div([
@@ -375,8 +586,18 @@ app.layout = html.Div([
             ],
             value='annual',
             style={'width': '30%'}
+        ),
+        html.Label("Select Forecast Method"),
+        dcc.Dropdown(
+            id='forecast-method-dropdown',
+            options=[
+                {'label': 'Machine Learning Forecasts', 'value': 'ml'},
+                {'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'}
+            ],
+            value='ml',
+            style={'width': '30%', 'marginLeft': '20px'}
         )
-    ]),
+    ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
     dcc.Tabs(id="tabs", children=[
         dcc.Tab(label='Analysis', children=[analysis_layout]),
         dcc.Tab(label='Random Anchor Forecast', children=[random_anchors_layout])
@@ -400,11 +621,17 @@ def update_site_dropdown(selected_season):
     [
         Input('season-dropdown', 'value'),
         Input('forecast-type-dropdown', 'value'),
-        Input('site-dropdown', 'value')
+        Input('site-dropdown', 'value'),
+        Input('forecast-method-dropdown', 'value')
     ]
 )
-def update_graph(selected_season, selected_forecast_type, selected_site):
-    pred = predictions[selected_season]
+def update_graph(selected_season, selected_forecast_type, selected_site, forecast_method):
+    # Choose the predictions based on forecast method.
+    if forecast_method == 'ml':
+        pred = predictions_ml[selected_season]
+    else:
+        pred = predictions_lr[selected_season]
+
     if selected_forecast_type == 'DA_Level':
         df_plot = pred['DA_Level']['test_df'].copy()
         site_stats = pred['DA_Level']['site_stats']
@@ -481,13 +708,20 @@ def update_graph(selected_season, selected_forecast_type, selected_site):
     )
     return fig
 
-# Callback for updating the Random Anchor Forecast layout based on season.
+# Callback for updating the Random Anchor Forecast layout based on season and forecast method.
 @app.callback(
     Output('random-anchor-container', 'children'),
-    Input('season-dropdown', 'value')
+    [
+        Input('season-dropdown', 'value'),
+        Input('forecast-method-dropdown', 'value')
+    ]
 )
-def update_random_anchor_layout(selected_season):
-    df_results, figs_random_site, rmse, acc = random_anchors[selected_season]
+def update_random_anchor_layout(selected_season, forecast_method):
+    if forecast_method == 'ml':
+        df_results, figs_random_site, rmse, acc = random_anchors_ml[selected_season]
+    else:
+        df_results, figs_random_site, rmse, acc = random_anchors_lr[selected_season]
+        
     graphs = [dcc.Graph(figure=fig) for site, fig in figs_random_site.items()]
     metrics = html.Div([
         html.H4("Overall Performance on These Forecasts"),
@@ -502,4 +736,4 @@ def update_random_anchor_layout(selected_season):
 # 7) Run the Dash App
 # ---------------------------------------------------------
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8067)
+    app.run_server(debug=True, port=8068)

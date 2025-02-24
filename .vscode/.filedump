@@ -1,0 +1,6 @@
+
+		begin
+      f = addfile("/Users/ansonchen/Downloads/erdBEUTIdaily_7290_3f67_63cd.nc","r")
+      print(f)
+		end
+    
