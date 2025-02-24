@@ -25,7 +25,7 @@
     },
     "satellite_info": {
       "fluorescence": [
-        "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflh8day_LonPM180.nc?fluorescence%5B(2025-02-19T00:00:00Z):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+        "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflh8day_LonPM180.nc?fluorescence%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
         "fluorescence",
         "fluorescence_value"
       ],
@@ -35,7 +35,7 @@
         "temperature_value"
       ],
       "chlorophyll": [
-        "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchla8day_LonPM180.nc?chlorophyll%5B(2025-02-19T00:00:00Z):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+        "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchla8day_LonPM180.nc?chlorophyll%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
         "chlorophyll",
         "chlorophyll_value"
       ],
