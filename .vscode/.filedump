@@ -1,6 +1,6 @@
 
 		begin
-      f = addfile("/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/erdMWcflh8day_LonPM180.nc","r")
+      f = addfile("/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/erdBEUTIdaily.nc","r")
       print(f)
 		end
     

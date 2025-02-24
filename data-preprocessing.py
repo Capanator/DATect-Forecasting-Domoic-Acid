@@ -3,13 +3,15 @@ import json
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from scipy.interpolate import griddata
 from scipy.spatial import KDTree
 from sklearn.neighbors import BallTree
 import xarray as xr
 import requests
+from scipy.linalg import svd  # Use SciPy's SVD
 
-# Load metadata
+# ------------------------------
+# Load Metadata
+# ------------------------------
 with open('metadata.json', 'r') as f:
     metadata = json.load(f)
 
@@ -43,7 +45,6 @@ downloaded_files = []
 # ------------------------------
 # Helper Functions
 # ------------------------------
-
 def download_file(url, local_filename):
     """Download a file from the given URL to a local filename.
     If an HTTP error occurs, print an error and return None.
@@ -77,9 +78,56 @@ def convert_csv_to_parquet(csv_path, parquet_path):
     return parquet_path
 
 # ------------------------------
+# DINEOF Helper Function
+# ------------------------------
+def dineof_reconstruction(matrix, num_modes=1, tol=1e-5, max_iter=100):
+    """
+    Reconstruct missing values in a DataFrame using a basic DINEOF approach.
+    
+    Parameters:
+        matrix (pd.DataFrame): DataFrame with index as time (numeric) and columns as space (e.g., latitude).
+        num_modes (int): Number of SVD modes to retain.
+        tol (float): Convergence tolerance.
+        max_iter (int): Maximum number of iterations.
+        
+    Returns:
+        pd.DataFrame: The filled DataFrame.
+    """
+    M = matrix.copy()
+    # Create a boolean mask for missing values
+    mask = M.isna()
+    # Initial fill with the column means; if a column is all missing, fill with 0.
+    M = M.fillna(M.mean()).fillna(0)
+    
+    # Also replace any inf values that might be present.
+    M.replace([np.inf, -np.inf], 0, inplace=True)
+    
+    for iteration in range(max_iter):
+        M_old = M.copy()
+        # Before SVD, ensure there are no NaNs/infs.
+        A = M.values.copy()
+        A[np.isnan(A)] = 0
+        A[np.isinf(A)] = 0
+        try:
+            U, s, Vt = svd(A, full_matrices=False, lapack_driver='gesvd')
+        except Exception as e:
+            # If SVD fails, add a very small noise and try again
+            A += np.random.normal(0, 1e-8, A.shape)
+            U, s, Vt = svd(A, full_matrices=False, lapack_driver='gesvd')
+        
+        # Reconstruct using the first num_modes modes
+        S = np.diag(s[:num_modes])
+        M_reconstructed = np.dot(U[:, :num_modes], np.dot(S, Vt[:num_modes, :]))
+        # Only update the missing entries
+        M.values[mask.values] = M_reconstructed[mask.values]
+        # Check for convergence
+        if np.linalg.norm(M - M_old) < tol:
+            break
+    return M
+
+# ------------------------------
 # File Paths and Conversion
 # ------------------------------
-
 # Convert DA CSVs to Parquet and update file paths
 da_files = {}
 for name, csv_path in original_da_files.items():
@@ -97,7 +145,6 @@ for name, csv_path in original_pn_files.items():
 # ------------------------------
 # Data Processing Functions
 # ------------------------------
-
 def process_da(da_files):
     da_dfs = {name: pd.read_parquet(path) for name, path in da_files.items()}
     for name, df in da_dfs.items():
@@ -164,7 +211,6 @@ def process_streamflow_json(url):
 # ------------------------------
 # NetCDF Climate Index Functions
 # ------------------------------
-
 def fetch_climate_index_netcdf(url, var_name):
     local_filename = get_local_filename(url, '.nc')
     if not os.path.exists(local_filename):
@@ -229,31 +275,57 @@ def fetch_satellite_data(url, var_name):
 # ------------------------------
 # Data Compilation Functions
 # ------------------------------
-
 def generate_compiled_data(sites, start_date, end_date):
     weeks = [current_week.strftime('%Y-W%W') for current_week in pd.date_range(start_date, end_date, freq='W')]
     return pd.DataFrame([{'Date': week, 'Site': site, 'Latitude': lat, 'Longitude': lon} 
                          for week in weeks for site, (lat, lon) in sites.items()])
 
 def compile_lt_data(compiled_data, beuti_data, oni_data, pdo_data, streamflow_data):
-    compiled_data['Date Float'] = compiled_data['Date'].apply(lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
-    beuti_data['Date Float'] = beuti_data['Year-Week'].apply(lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
-    points = beuti_data[['latitude', 'Date Float']].values
-    values = beuti_data['BEUTI'].values
-    interpolated_values = griddata(points, values, compiled_data[['Latitude', 'Date Float']].values, method='linear')
-    compiled_data['BEUTI'] = interpolated_values
-    kd_tree = KDTree(points)
-    nan_indices = compiled_data[pd.isna(compiled_data['BEUTI'])].index
-    for index in nan_indices:
-        row = compiled_data.loc[index]
-        distance, nearest_index = kd_tree.query([row['Latitude'], row['Date Float']])
-        compiled_data.at[index, 'BEUTI'] = values[nearest_index]
+    # Create a numeric representation of the week for time axis
+    compiled_data['Date Float'] = compiled_data['Date'].apply(
+        lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
+    beuti_data['Date Float'] = beuti_data['Year-Week'].apply(
+        lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
+    
+    # Build a grid for DINEOF using the unique Date Float and Latitude values in the compiled data
+    unique_dates = np.array(sorted(compiled_data['Date Float'].unique()))
+    unique_lats = np.array(sorted(compiled_data['Latitude'].unique()))
+    
+    # Create an empty DataFrame for the grid
+    grid_df = pd.DataFrame(np.nan, index=unique_dates, columns=unique_lats)
+    
+    # Group BEUTI data by Date Float and latitude and fill the grid with observed BEUTI values
+    group = beuti_data.groupby(['Date Float', 'latitude'])['BEUTI'].mean().reset_index()
+    for _, r in group.iterrows():
+        dt = r['Date Float']
+        lat = r['latitude']
+        value = r['BEUTI']
+        if dt in grid_df.index and lat in grid_df.columns:
+            grid_df.at[dt, lat] = value
+    
+    # Apply the DINEOF reconstruction to fill missing values in the BEUTI grid
+    grid_filled = dineof_reconstruction(grid_df, num_modes=1)
+    
+    # Helper function to find nearest grid value
+    def find_nearest(array, value):
+        idx = (np.abs(array - value)).argmin()
+        return array[idx]
+    
+    # Assign reconstructed BEUTI values to compiled_data based on nearest Date Float and Latitude
+    compiled_data['BEUTI'] = compiled_data.apply(
+        lambda row: grid_filled.at[find_nearest(unique_dates, row['Date Float']),
+                                    find_nearest(unique_lats, row['Latitude'])],
+        axis=1
+    )
+    
+    # Merge in ONI and PDO indices
     compiled_data = compiled_data.merge(oni_data, left_on='Date', right_on='week', how='left')\
                                  .drop('week', axis=1)\
                                  .rename(columns={'index': 'ONI'})
     compiled_data = compiled_data.merge(pdo_data, left_on='Date', right_on='week', how='left')\
                                  .drop('week', axis=1)\
                                  .rename(columns={'index': 'PDO'})
+    
     compiled_data['Date'] = compiled_data['Date'].apply(lambda x: f"{x}-1")
     compiled_data['Date'] = pd.to_datetime(compiled_data['Date'], format='%Y-W%W-%w')
     streamflow_data['Date'] = pd.to_datetime(streamflow_data['Date'], format='%Y-W%W')
@@ -262,6 +334,7 @@ def compile_lt_data(compiled_data, beuti_data, oni_data, pdo_data, streamflow_da
     return compiled_data.drop_duplicates(subset=['Date', 'Latitude', 'Longitude'])
 
 def compile_da_pn_data(lt_data, da_data, pn_data):
+    # Rename columns for consistency
     da_data.rename(columns={'Year-Week': 'Date', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
     pn_data.rename(columns={'Year-Week': 'Date', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
     da_data['Date'] = da_data['Date'].apply(lambda x: f"{x}-1")
@@ -269,10 +342,18 @@ def compile_da_pn_data(lt_data, da_data, pn_data):
     pn_data['Date'] = pn_data['Date'].apply(lambda x: f"{x}-1")
     pn_data['Date'] = pd.to_datetime(pn_data['Date'], format='%Y-%U-%w')
     da_data['DA_Levels'] = pd.to_numeric(da_data['DA_Levels'], errors='coerce')
+    
+    # Merge the DA and PN data with lt_data
     compiled_with_da = pd.merge(lt_data, da_data, how='left', on=['Date', 'Site'])
     compiled_full = pd.merge(compiled_with_da, pn_data, how='left', on=['Date', 'Site'])
-    compiled_full['DA_Levels'] = compiled_full['DA_Levels'].interpolate(method='linear')
-    compiled_full['PN_Levels'] = compiled_full['PN_Levels'].interpolate(method='linear')
+    
+    # Apply cubic spline interpolation per site for both DA and PN levels
+    compiled_full['DA_Levels'] = compiled_full.groupby('Site')['DA_Levels']\
+        .transform(lambda x: x.interpolate(method='spline', order=3))
+    compiled_full['PN_Levels'] = compiled_full.groupby('Site')['PN_Levels']\
+        .transform(lambda x: x.interpolate(method='spline', order=3))
+    
+    # Fill any remaining missing values with 0
     compiled_full = compiled_full.fillna({'DA_Levels': 0, 'PN_Levels': 0})
     compiled_full['DA_Levels'] = compiled_full['DA_Levels'].apply(lambda x: 0 if x < 1 else x)
     return compiled_full.loc[:, ~compiled_full.columns.duplicated()]
@@ -291,11 +372,9 @@ def process_duplicates(data):
                 'Streamflow': 'mean',
                 'DA_Levels': 'mean',
                 'PN_Levels': lambda x: x.iloc[0]}
-    # Add satellite columns if they exist
     for col in ['chlorophyll_value', 'fluorescence_value', 'temperature_value', 'radiation_value']:
         if col in data.columns:
             agg_dict[col] = 'mean'
-    # Add latitude and longitude if they exist (we want lowercase in final output)
     for col in ['Latitude', 'Longitude', 'latitude', 'longitude']:
         if col in data.columns:
             agg_dict[col] = 'first'
@@ -307,9 +386,8 @@ def convert_and_fill(data):
     return data.fillna(0)
 
 # ------------------------------
-# New Satellite Data Functions
+# Satellite Data Functions
 # ------------------------------
-
 def add_satellite_measurements(data, satellite_info):
     data['Year-Week'] = data['Date'].dt.strftime('%Y-W%W')
     for meas_type, (url, var_name, out_col) in satellite_info.items():
@@ -333,7 +411,6 @@ def add_satellite_measurements(data, satellite_info):
 # ------------------------------
 # Data Processing Pipeline
 # ------------------------------
-
 da_data = process_da(da_files)
 pn_data = process_pn(pn_files)
 streamflow_data = process_streamflow_json(streamflow_url)
@@ -358,30 +435,24 @@ final_data = convert_and_fill(processed_data)
 # ------------------------------
 # Standardize and Reorder Columns
 # ------------------------------
-
-# Rename coordinate columns to lowercase if needed
 if 'Latitude' in final_data.columns:
     final_data = final_data.rename(columns={'Latitude': 'latitude'})
 if 'Longitude' in final_data.columns:
     final_data = final_data.rename(columns={'Longitude': 'longitude'})
 
-# Ensure all expected columns exist; fill with NaN if missing
 desired_cols = ["Date", "Site", "latitude", "longitude", "BEUTI", "ONI", "PDO", "Streamflow",
                 "DA_Levels", "PN_Levels", "chlorophyll_value", "temperature_value", "radiation_value", "fluorescence_value"]
 for col in desired_cols:
     if col not in final_data.columns:
         final_data[col] = np.nan
-
-# Reorder columns
 final_data = final_data[desired_cols]
 
-# Format date as m/d/yyyy (note: %-m/%-d works on Unix; on Windows use %#m/%#d/%Y)
+# Format date as m/d/yyyy (Unix formatting; adjust for Windows if needed)
 final_data['Date'] = pd.to_datetime(final_data['Date']).dt.strftime("%-m/%-d/%Y")
 
 # ------------------------------
 # Save Final Output and Cleanup
 # ------------------------------
-
 final_data.to_parquet(final_output_path, index=False)
 print(f"Final output saved to '{final_output_path}'")
 
