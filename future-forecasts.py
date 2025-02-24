@@ -82,7 +82,8 @@ def create_forecast_row(last_row, forecast_date):
 # 2) LOAD & PREPARE DATA
 # ================================
 def load_and_prepare_data(file_path):
-    data = pd.read_csv(file_path)
+    # Load data from a Parquet file instead of CSV
+    data = pd.read_parquet(file_path)
     data['Date'] = pd.to_datetime(data['Date'])
     data.sort_values(['Site', 'Date'], inplace=True)
 
@@ -300,12 +301,11 @@ def forecast_for_date(df, forecast_date, site):
 # ================================
 app = dash.Dash(__name__)
 
-# Load and prepare data
-file_path = 'final_output.csv'  # Update path if needed
+# Load and prepare data from a Parquet file
+file_path = 'final_output_og.parquet'  # Updated path to Parquet file
 raw_data = load_and_prepare_data(file_path)
 
 # Allow selection of dates from the dataset—but restrict forecast dates to be on or after 2010.
-# (Even though the CSV data may include earlier dates, the forecast target is limited.)
 min_forecast_date = pd.to_datetime("2010-01-01")
 valid_dates = sorted(raw_data['Date'].unique())
 
