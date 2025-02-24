@@ -20,7 +20,8 @@ from dash.dependencies import Input, Output
 # 1) Data Loading & Feature Engineering
 # ---------------------------------------------------------
 def load_and_prepare_data(file_path, season=None):
-    data = pd.read_csv(file_path)
+    # Change from CSV to Parquet
+    data = pd.read_parquet(file_path)
     data['Date'] = pd.to_datetime(data['Date'])
     
     # Filter data for seasonal analyses if requested.
@@ -501,7 +502,8 @@ def get_random_anchor_forecasts(data, forecast_func):
 # ---------------------------------------------------------
 # 5) Prepare Data, Predictions, and Random Anchors for Each Season
 # ---------------------------------------------------------
-file_path = 'final_output.csv'
+# Update the file path to a Parquet file
+file_path = 'final_output.parquet'
 
 # Create datasets for annual, spring, and fall.
 raw_data_annual = load_and_prepare_data(file_path, season=None)
@@ -736,4 +738,4 @@ def update_random_anchor_layout(selected_season, forecast_method):
 # 7) Run the Dash App
 # ---------------------------------------------------------
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8068)
+    app.run_server(debug=True, port=8070)
