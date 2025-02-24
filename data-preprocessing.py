@@ -1,3 +1,5 @@
+import os
+import json
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -7,12 +9,97 @@ from sklearn.neighbors import BallTree
 import xarray as xr
 import requests
 
+# Load metadata
+with open('metadata.json', 'r') as f:
+    metadata = json.load(f)
+
+# File paths for original CSVs (DA and PN) from metadata
+original_da_files = metadata["original_da_files"]
+original_pn_files = metadata["original_pn_files"]
+
+# URLs and satellite information from metadata
+satellite_info = metadata["satellite_info"]
+pdo_url = metadata["pdo_url"]
+oni_url = metadata["oni_url"]
+beuti_url = metadata["beuti_url"]
+streamflow_url = metadata["streamflow_url"]
+
+# Sites and date range from metadata
+sites = metadata["sites"]
+start_date = datetime.strptime(metadata["start_date"], "%Y-%m-%d")
+end_date = datetime.strptime(metadata["end_date"], "%Y-%m-%d")
+year_cutoff = metadata["year_cutoff"]
+week_cutoff = metadata["week_cutoff"]
+
+# Boolean flag to include satellite processing from metadata
+include_satellite = metadata["include_satellite"]
+
+# Final output file path
+final_output_path = metadata.get("final_output_path", "final_output.parquet")
+
+# Global list to track downloaded files
+downloaded_files = []
+
+# ------------------------------
+# Helper Functions
+# ------------------------------
+
+def download_file(url, local_filename):
+    """Download a file from the given URL to a local filename.
+    If an HTTP error occurs, print an error and return None.
+    """
+    global downloaded_files
+    try:
+        print(f"Downloading {url} to {local_filename}...")
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            f.write(response.content)
+        downloaded_files.append(local_filename)
+        return local_filename
+    except requests.exceptions.HTTPError as e:
+        print(f"Failed to download {url}: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error downloading {url}: {e}")
+        return None
+
+def get_local_filename(url, default_ext):
+    """Generate a local filename based on the URL."""
+    base = url.split('?')[0].split('/')[-1]
+    if not base.endswith(default_ext):
+        base += default_ext
+    return base
+
+def convert_csv_to_parquet(csv_path, parquet_path):
+    df = pd.read_csv(csv_path, low_memory=False)
+    df.to_parquet(parquet_path, index=False)
+    return parquet_path
+
+# ------------------------------
+# File Paths and Conversion
+# ------------------------------
+
+# Convert DA CSVs to Parquet and update file paths
+da_files = {}
+for name, csv_path in original_da_files.items():
+    parquet_path = csv_path.replace('.csv', '.parquet')
+    convert_csv_to_parquet(csv_path, parquet_path)
+    da_files[name] = parquet_path
+
+# Convert PN CSVs to Parquet and update file paths
+pn_files = {}
+for name, csv_path in original_pn_files.items():
+    parquet_path = csv_path.replace('.csv', '.parquet')
+    convert_csv_to_parquet(csv_path, parquet_path)
+    pn_files[name] = parquet_path
+
 # ------------------------------
 # Data Processing Functions
 # ------------------------------
 
 def process_da(da_files):
-    da_dfs = {name: pd.read_csv(path, low_memory=False) for name, path in da_files.items()}
+    da_dfs = {name: pd.read_parquet(path) for name, path in da_files.items()}
     for name, df in da_dfs.items():
         if 'CollectDate' in df.columns:
             df['Year-Week'] = pd.to_datetime(df['CollectDate']).dt.strftime('%Y-%U')
@@ -27,10 +114,11 @@ def process_da(da_files):
 def process_pn(pn_files):
     pn_dfs = []
     for name, path in pn_files.items():
-        df = pd.read_csv(path, low_memory=False)
+        df = pd.read_parquet(path)
         df['Date'] = df['Date'].astype(str)
         pn_column = [col for col in df.columns if "Pseudo-nitzschia" in col][0]
-        date_format = '%m/%d/%Y' if df.loc[df['Date'] != 'nan', 'Date'].iloc[0].count('/') == 2 and len(df.loc[df['Date'] != 'nan', 'Date'].iloc[0].split('/')[-1]) == 4 else '%m/%d/%y'
+        date_format = '%m/%d/%Y' if df.loc[df['Date'] != 'nan', 'Date'].iloc[0].count('/') == 2 and \
+            len(df.loc[df['Date'] != 'nan', 'Date'].iloc[0].split('/')[-1]) == 4 else '%m/%d/%y'
         df['Year-Week'] = pd.to_datetime(df['Date'], format=date_format, errors='coerce').dt.strftime('%Y-%U')
         df['PN'] = df[pn_column]
         df['Location'] = name.replace('-pn', '').replace('-', ' ').title()
@@ -38,22 +126,23 @@ def process_pn(pn_files):
     return pd.concat(pn_dfs, ignore_index=True)
 
 def process_streamflow_json(url):
-    """
-    Fetches USGS streamflow data from the provided JSON URL.
-    Parses the JSON structure (as shown in your sample) to extract daily flow values,
-    groups the data by week (using the 'Year-Week' format), and returns a DataFrame
-    with weekly average flows.
-    """
-    response = requests.get(url)
-    data = response.json()
-    # Navigate into the JSON structure to get the timeSeries values.
+    local_filename = get_local_filename(url, '.json')
+    if not os.path.exists(local_filename):
+        if download_file(url, local_filename) is None:
+            print(f"Skipping streamflow data from {url}")
+            return pd.DataFrame(columns=['Date', 'Flow'])
+    try:
+        with open(local_filename, 'r') as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error loading {local_filename}: {e}")
+        return pd.DataFrame(columns=['Date', 'Flow'])
     time_series = data.get('value', {}).get('timeSeries', [])
     if not time_series:
         return pd.DataFrame(columns=['Date', 'Flow'])
     ts = time_series[0]
     values_list = ts.get('values', [])
     if values_list:
-        # values_list is a list; we use the first element’s 'value' key
         values_list = values_list[0].get('value', [])
     else:
         values_list = []
@@ -69,7 +158,6 @@ def process_streamflow_json(url):
     df['Date'] = pd.to_datetime(df['Date'])
     df['Year-Week'] = df['Date'].dt.strftime('%Y-W%W')
     weekly = df.groupby('Year-Week')['Flow'].mean().reset_index()
-    # Create a representative datetime for each week (using the first day of the week)
     weekly['Date'] = weekly['Year-Week'].apply(lambda x: pd.to_datetime(x + '-1', format='%Y-W%W-%w'))
     return weekly[['Date', 'Flow']]
 
@@ -78,12 +166,16 @@ def process_streamflow_json(url):
 # ------------------------------
 
 def fetch_climate_index_netcdf(url, var_name):
-    """
-    Opens a netCDF file for a climate index (PDO or ONI) and returns a DataFrame 
-    with weekly averaged values. The output DataFrame has columns 'week' (formatted as 'YYYY-Www')
-    and 'index'.
-    """
-    ds = xr.open_dataset(url)
+    local_filename = get_local_filename(url, '.nc')
+    if not os.path.exists(local_filename):
+        if download_file(url, local_filename) is None:
+            print(f"Skipping climate index data from {url}")
+            return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(local_filename)
+    except Exception as e:
+        print(f"Error opening {local_filename}: {e}")
+        return pd.DataFrame()
     df = ds.to_dataframe().reset_index()
     df['time'] = pd.to_datetime(df['time'])
     df = df[['time', var_name]].dropna()
@@ -93,12 +185,16 @@ def fetch_climate_index_netcdf(url, var_name):
     return weekly
 
 def fetch_beuti_netcdf(url):
-    """
-    Opens the BEUTI netCDF file and converts it into a DataFrame.
-    Renames the 'lat' coordinate to 'latitude' (if needed), creates a weekly column,
-    and returns the data grouped by latitude and week.
-    """
-    ds = xr.open_dataset(url)
+    local_filename = get_local_filename(url, '.nc')
+    if not os.path.exists(local_filename):
+        if download_file(url, local_filename) is None:
+            print(f"Skipping BEUTI data from {url}")
+            return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(local_filename)
+    except Exception as e:
+        print(f"Error opening {local_filename}: {e}")
+        return pd.DataFrame()
     df = ds.to_dataframe().reset_index()
     df['time'] = pd.to_datetime(df['time'])
     if 'lat' in df.columns:
@@ -106,6 +202,33 @@ def fetch_beuti_netcdf(url):
     df['Year-Week'] = df['time'].dt.strftime('%Y-W%W')
     df = df[['Year-Week', 'latitude', 'BEUTI']].dropna(subset=['BEUTI'])
     return df.groupby(['latitude', 'Year-Week'])['BEUTI'].mean().reset_index()
+
+def fetch_satellite_data(url, var_name):
+    local_filename = get_local_filename(url, '.nc')
+    if not os.path.exists(local_filename):
+        if download_file(url, local_filename) is None:
+            print(f"Skipping satellite data from {url}")
+            return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(local_filename)
+    except Exception as e:
+        print(f"Error opening {local_filename}: {e}")
+        return pd.DataFrame()
+    df = ds.to_dataframe().reset_index()
+    if 'lat' in df.columns:
+        df = df.rename(columns={'lat': 'latitude'})
+    if 'lon' in df.columns:
+        df = df.rename(columns={'lon': 'longitude'})
+    df['time'] = pd.to_datetime(df['time'])
+    df['Year-Week'] = df['time'].dt.strftime('%Y-W%W')
+    df = df.rename(columns={var_name: 'value'})
+    df = df[['Year-Week', 'latitude', 'longitude', 'value']]
+    df = df.dropna(subset=['value'])
+    return df
+
+# ------------------------------
+# Data Compilation Functions
+# ------------------------------
 
 def generate_compiled_data(sites, start_date, end_date):
     weeks = [current_week.strftime('%Y-W%W') for current_week in pd.date_range(start_date, end_date, freq='W')]
@@ -125,27 +248,26 @@ def compile_lt_data(compiled_data, beuti_data, oni_data, pdo_data, streamflow_da
         row = compiled_data.loc[index]
         distance, nearest_index = kd_tree.query([row['Latitude'], row['Date Float']])
         compiled_data.at[index, 'BEUTI'] = values[nearest_index]
-    compiled_data = compiled_data.merge(oni_data, left_on='Date', right_on='week', how='left').drop('week', axis=1).rename(columns={'index': 'ONI'})
-    compiled_data = compiled_data.merge(pdo_data, left_on='Date', right_on='week', how='left').drop('week', axis=1).rename(columns={'index': 'PDO'})
-    
-    # Convert 'Date' column to datetime format
+    compiled_data = compiled_data.merge(oni_data, left_on='Date', right_on='week', how='left')\
+                                 .drop('week', axis=1)\
+                                 .rename(columns={'index': 'ONI'})
+    compiled_data = compiled_data.merge(pdo_data, left_on='Date', right_on='week', how='left')\
+                                 .drop('week', axis=1)\
+                                 .rename(columns={'index': 'PDO'})
     compiled_data['Date'] = compiled_data['Date'].apply(lambda x: f"{x}-1")
     compiled_data['Date'] = pd.to_datetime(compiled_data['Date'], format='%Y-W%W-%w')
-    
     streamflow_data['Date'] = pd.to_datetime(streamflow_data['Date'], format='%Y-W%W')
-    
-    compiled_data = compiled_data.merge(streamflow_data, on='Date', how='left').rename(columns={'Flow': 'Streamflow'})
+    compiled_data = compiled_data.merge(streamflow_data, on='Date', how='left')\
+                                 .rename(columns={'Flow': 'Streamflow'})
     return compiled_data.drop_duplicates(subset=['Date', 'Latitude', 'Longitude'])
 
 def compile_da_pn_data(lt_data, da_data, pn_data):
     da_data.rename(columns={'Year-Week': 'Date', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
     pn_data.rename(columns={'Year-Week': 'Date', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
-    
     da_data['Date'] = da_data['Date'].apply(lambda x: f"{x}-1")
     da_data['Date'] = pd.to_datetime(da_data['Date'], format='%Y-%U-%w')
     pn_data['Date'] = pn_data['Date'].apply(lambda x: f"{x}-1")
     pn_data['Date'] = pd.to_datetime(pn_data['Date'], format='%Y-%U-%w')
-    
     da_data['DA_Levels'] = pd.to_numeric(da_data['DA_Levels'], errors='coerce')
     compiled_with_da = pd.merge(lt_data, da_data, how='left', on=['Date', 'Site'])
     compiled_full = pd.merge(compiled_with_da, pn_data, how='left', on=['Date', 'Site'])
@@ -162,20 +284,22 @@ def filter_data(data, year_cutoff, week_cutoff):
     return data[mask]
 
 def process_duplicates(data):
-    return data.groupby(['Date', 'Site']).agg({
-        'latitude': 'first',
-        'longitude': 'first',
-        'BEUTI': 'mean',
-        'ONI': 'mean',
-        'PDO': 'mean',
-        'Streamflow': 'mean',
-        'DA_Levels': 'mean',
-        'PN_Levels': lambda x: x.iloc[0],
-        'chlorophyll_value': 'mean',
-        'temperature_value': 'mean',
-        'radiation_value': 'mean',
-        'fluorescence_value': 'mean'
-    }).reset_index()
+    # Build the aggregation dictionary dynamically based on available columns
+    agg_dict = {'BEUTI': 'mean',
+                'ONI': 'mean',
+                'PDO': 'mean',
+                'Streamflow': 'mean',
+                'DA_Levels': 'mean',
+                'PN_Levels': lambda x: x.iloc[0]}
+    # Add satellite columns if they exist
+    for col in ['chlorophyll_value', 'fluorescence_value', 'temperature_value', 'radiation_value']:
+        if col in data.columns:
+            agg_dict[col] = 'mean'
+    # Add latitude and longitude if they exist (we want lowercase in final output)
+    for col in ['Latitude', 'Longitude', 'latitude', 'longitude']:
+        if col in data.columns:
+            agg_dict[col] = 'first'
+    return data.groupby(['Date', 'Site']).agg(agg_dict).reset_index()
 
 def convert_and_fill(data):
     columns_to_convert = data.columns.difference(['Date', 'Site'])
@@ -186,31 +310,7 @@ def convert_and_fill(data):
 # New Satellite Data Functions
 # ------------------------------
 
-def fetch_satellite_data(url, var_name):
-    """
-    Opens a netCDF file from the given URL and converts the variable of interest to a DataFrame.
-    Renames lat/lon to 'latitude' and 'longitude', creates a Year-Week column, and drops NaN values.
-    """
-    ds = xr.open_dataset(url)
-    df = ds.to_dataframe().reset_index()
-    if 'lat' in df.columns:
-        df = df.rename(columns={'lat': 'latitude'})
-    if 'lon' in df.columns:
-        df = df.rename(columns={'lon': 'longitude'})
-    df['time'] = pd.to_datetime(df['time'])
-    df['Year-Week'] = df['time'].dt.strftime('%Y-W%W')
-    df = df.rename(columns={var_name: 'value'})
-    df = df[['Year-Week', 'latitude', 'longitude', 'value']]
-    df = df.dropna(subset=['value'])
-    return df
-
 def add_satellite_measurements(data, satellite_info):
-    """
-    For each satellite measurement type, fetch the netCDF data,
-    then assign a measurement value for each row in 'data' by matching the Year-Week
-    and using a nearest-neighbor (BallTree) search based on latitude and longitude.
-    After processing, any rows with NaN values are dropped.
-    """
     data['Year-Week'] = data['Date'].dt.strftime('%Y-W%W')
     for meas_type, (url, var_name, out_col) in satellite_info.items():
         sat_df = fetch_satellite_data(url, var_name)
@@ -231,84 +331,6 @@ def add_satellite_measurements(data, satellite_info):
     return data
 
 # ------------------------------
-# File Paths and Configuration
-# ------------------------------
-
-da_files = {
-    'twin-harbors': './da-input/twin-harbors-da.csv',
-    'long-beach': './da-input/long-beach-da.csv',
-    'quinault': './da-input/quinault-da.csv',
-    'kalaloch': './da-input/kalaloch-da.csv',
-    'copalis': './da-input/copalis-da.csv',
-    'newport': './da-input/newport-da.csv',
-    'gold-beach': './da-input/gold-beach-da.csv',
-    'coos-bay': './da-input/coos-bay-da.csv',
-    'clatsop-beach': './da-input/clatsop-beach-da.csv',
-    'cannon-beach': './da-input/cannon-beach-da.csv'
-}
-
-pn_files = {
-    "gold-beach-pn": "./pn-input/gold-beach-pn.csv",
-    "coos-bay-pn": "./pn-input/coos-bay-pn.csv",
-    "newport-pn": "./pn-input/newport-pn.csv",
-    "clatsop-beach-pn": "./pn-input/clatsop-beach-pn.csv",
-    "cannon-beach-pn": "./pn-input/cannon-beach-pn.csv",
-    "kalaloch-pn": "./pn-input/kalaloch-pn.csv",
-    "copalis-pn": "./pn-input/copalis-pn.csv",
-    "long-beach-pn": "./pn-input/long-beach-pn.csv",
-    "twin-harbors-pn": "./pn-input/twin-harbors-pn.csv",
-    "quinault-pn": "./pn-input/quinault-pn.csv"
-}
-
-sites = {
-    'Kalaloch': (47.604444, -124.370833),
-    'Quinault': (47.466944, -123.845278),
-    'Copalis': (47.117778, -124.178333),
-    'Twin Harbors': (46.856667, -124.106944),
-    'Long Beach': (46.350833, -124.053611),
-    'Clatsop Beach': (46.028889, -123.917222),
-    'Cannon Beach': (45.881944, -123.959444),
-    'Newport': (44.6, -124.05),
-    'Coos Bay': (43.376389, -124.237222),
-    'Gold Beach': (42.377222, -124.414167)
-}
-
-start_date = datetime(2002, 1, 1)
-end_date = datetime(2023, 12, 31)
-
-year_cutoff = 2002
-week_cutoff = 26
-
-# Satellite netCDF links and corresponding variable info
-# (Each tuple is: (netCDF URL, variable name in the netCDF file, output column name))
-satellite_info = {
-    'fluorescence': (
-        'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflh8day_LonPM180.nc?fluorescence%5B(2025-02-19T00:00:00Z):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D',
-        'fluorescence', 'fluorescence_value'
-    ),
-    'temperature': (
-        'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstd8day_LonPM180.nc?sst%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D',
-        'sst', 'temperature_value'
-    ),
-    'chlorophyll': (
-        'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchla8day_LonPM180.nc?chlorophyll%5B(2025-02-19T00:00:00Z):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D',
-        'chlorophyll', 'chlorophyll_value'
-    ),
-    'radiation': (
-        'https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar08day_LonPM180.nc?par%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D',
-        'par', 'radiation_value'
-    )
-}
-
-# NetCDF URLs for climate indices (replacing local CSVs)
-pdo_url = "https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-06-01&time%3C=2025-01-01T00%3A00%3A00Z"
-oni_url = "https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-06-01&time%3C=2024-12-01T00%3A00%3A00Z"
-beuti_url = "https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-06-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D"
-
-# USGS JSON URL for streamflow
-streamflow_url = "https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22"
-
-# ------------------------------
 # Data Processing Pipeline
 # ------------------------------
 
@@ -324,11 +346,52 @@ lt_data = compile_lt_data(compiled_data, beuti_data, oni_data, pdo_data, streamf
 lt_da_pn_data = compile_da_pn_data(lt_data, da_data, pn_data)
 filtered_data = filter_data(lt_da_pn_data, year_cutoff, week_cutoff)
 
-# Add satellite measurements from netCDF sources
-data_with_satellite = add_satellite_measurements(filtered_data, satellite_info)
-data_without_date_float = data_with_satellite.drop('Date Float', axis=1)
+if include_satellite:
+    data_with_satellite = add_satellite_measurements(filtered_data, satellite_info)
+    data_without_date_float = data_with_satellite.drop('Date Float', axis=1)
+else:
+    data_without_date_float = filtered_data.copy()
+
 processed_data = process_duplicates(data_without_date_float)
 final_data = convert_and_fill(processed_data)
 
-final_data.to_csv('final_output.csv', index=False)
-print("Final output saved to 'final_output.csv'")
+# ------------------------------
+# Standardize and Reorder Columns
+# ------------------------------
+
+# Rename coordinate columns to lowercase if needed
+if 'Latitude' in final_data.columns:
+    final_data = final_data.rename(columns={'Latitude': 'latitude'})
+if 'Longitude' in final_data.columns:
+    final_data = final_data.rename(columns={'Longitude': 'longitude'})
+
+# Ensure all expected columns exist; fill with NaN if missing
+desired_cols = ["Date", "Site", "latitude", "longitude", "BEUTI", "ONI", "PDO", "Streamflow",
+                "DA_Levels", "PN_Levels", "chlorophyll_value", "temperature_value", "radiation_value", "fluorescence_value"]
+for col in desired_cols:
+    if col not in final_data.columns:
+        final_data[col] = np.nan
+
+# Reorder columns
+final_data = final_data[desired_cols]
+
+# Format date as m/d/yyyy (note: %-m/%-d works on Unix; on Windows use %#m/%#d/%Y)
+final_data['Date'] = pd.to_datetime(final_data['Date']).dt.strftime("%-m/%-d/%Y")
+
+# ------------------------------
+# Save Final Output and Cleanup
+# ------------------------------
+
+final_data.to_parquet(final_output_path, index=False)
+print(f"Final output saved to '{final_output_path}'")
+
+def cleanup_downloaded_files():
+    global downloaded_files
+    for file in downloaded_files:
+        try:
+            os.remove(file)
+            print(f"Deleted downloaded file: {file}")
+        except Exception as e:
+            print(f"Could not delete file {file}: {e}")
+
+cleanup_downloaded_files()
