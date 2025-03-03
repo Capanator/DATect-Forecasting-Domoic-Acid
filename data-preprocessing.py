@@ -314,23 +314,34 @@ def convert_and_fill(data):
 
 def add_satellite_measurements(data, satellite_info, measurement_paths, satellite_data_source="url"):
     """
-    Add satellite measurements to the main dataset.
+    Add satellite measurements to the main dataset using monthly matching.
     Two options are available:
       - "url": fetch data from remote NetCDF endpoints.
       - "local": load pre-cleaned CSV files from local paths.
     """
-    data['Year-Week'] = data['Date'].dt.strftime('%Y-W%W')
+    # Create a Year-Month column for monthly matching
+    data['Year-Month'] = data['Date'].dt.strftime('%Y-%m')
     
     if satellite_data_source.lower() == "url":
         for meas_type, (url, var_name, out_col) in satellite_info.items():
             sat_df = fetch_satellite_data(url, var_name)
+            # Create a Year-Month column for satellite data.
+            # If the 'time' column exists, use it; otherwise, derive it from Year-Week.
+            if 'time' in sat_df.columns:
+                sat_df['Year-Month'] = pd.to_datetime(sat_df['time']).dt.strftime('%Y-%m')
+            else:
+                # If 'time' is not available, assume 'Year-Week' exists and convert a representative day.
+                sat_df['Year-Month'] = sat_df['Year-Week'].apply(lambda x: pd.to_datetime(x + '-1', format='%Y-W%W-%w').strftime('%Y-%m'))
+            
             values = []
+            # For each row in the main dataset, get the corresponding satellite measurement for the same month.
             for _, row in data.iterrows():
-                week = row['Year-Week']
-                subset = sat_df[sat_df['Year-Week'] == week]
+                month = row['Year-Month']
+                subset = sat_df[sat_df['Year-Month'] == month]
                 if subset.empty:
                     values.append(np.nan)
                 else:
+                    # Use spatial matching: find the nearest satellite measurement using a BallTree
                     coords_sat = np.radians(subset[['latitude', 'longitude']].values)
                     tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
                     dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
@@ -350,25 +361,34 @@ def add_satellite_measurements(data, satellite_info, measurement_paths, satellit
             except Exception as e:
                 print(f"Error reading {csv_path}: {e}")
                 continue
-            # Expect the CSV file to contain at least these columns: 'Year-Week', 'latitude', 'longitude', and the measurement column.
+            
+            # Create Year-Month column for local satellite data
+            if 'time' in sat_df.columns:
+                sat_df['Year-Month'] = pd.to_datetime(sat_df['time']).dt.strftime('%Y-%m')
+            elif 'Year-Week' in sat_df.columns:
+                sat_df['Year-Month'] = sat_df['Year-Week'].apply(lambda x: pd.to_datetime(x + '-1', format='%Y-W%W-%w').strftime('%Y-%m'))
+            else:
+                sat_df['Year-Month'] = np.nan  # or handle differently if necessary
+            
             values = []
             for _, row in data.iterrows():
-                week = row['Year-Week']
-                subset = sat_df[sat_df['Year-Week'] == week]
+                month = row['Year-Month']
+                subset = sat_df[sat_df['Year-Month'] == month]
                 if subset.empty:
                     values.append(np.nan)
                 else:
                     coords_sat = np.radians(subset[['latitude', 'longitude']].values)
                     tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
                     dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
-                    # Use the measurement column if available; otherwise, take the last column.
                     if out_col in subset.columns:
                         value = subset.iloc[ind[0][0]][out_col]
                     else:
+                        # If the specified column isn't found, use the last column as a fallback.
                         value = subset.iloc[ind[0][0]].iloc[-1]
                     values.append(value)
             data[out_col] = values
 
+    # Optionally, if you prefer not to drop rows missing satellite data, comment out the next line.
     data.dropna(inplace=True)
     return data
 
@@ -389,6 +409,7 @@ lt_da_pn_data = compile_da_pn_data(lt_data, da_data, pn_data)
 filtered_data = filter_data(lt_da_pn_data, year_cutoff, week_cutoff)
 
 if include_satellite:
+    filtered_data = filtered_data.rename(columns={'Latitude': 'latitude', 'Longitude': 'longitude'})
     data_with_satellite = add_satellite_measurements(filtered_data, satellite_info, measurement_paths, satellite_data_source)
     data_without_date_float = data_with_satellite.drop('Date Float', axis=1)
 else:

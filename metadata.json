@@ -25,22 +25,22 @@
   },
   "satellite_info": {
     "fluorescence": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflh8day_LonPM180.nc?fluorescence%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42.0):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
       "fluorescence",
       "fluorescence_value"
     ],
     "temperature": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstd8day_LonPM180.nc?sst%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
       "sst",
       "temperature_value"
     ],
     "chlorophyll": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchla8day_LonPM180.nc?chlorophyll%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
       "chlorophyll",
       "chlorophyll_value"
     ],
     "radiation": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar08day_LonPM180.nc?par%5B(2002-07-05):1:(2025-02-19T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar0mday_LonPM180.nc?par%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(49)%5D%5B(-125.5):1:(-123.5)%5D",
       "par",
       "radiation_value"
     ]
@@ -65,7 +65,7 @@
   "end_date": "2023-12-31",
   "year_cutoff": 2002,
   "week_cutoff": 26,
-  "include_satellite": false,
+  "include_satellite": true,
   "satellite_data_source": "url", 
   "measurement_paths": {
     "chlorophyll": "./short-term/chlorophyll_cleaned.csv",

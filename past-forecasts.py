@@ -35,10 +35,10 @@ ENABLE_SEASON_SPECIFIC_TRAINER = False
 ENABLE_LINEAR_LOGISTIC = False  # Set to False to disable LR code
 
 # Global flag to enable/disable random anchor forecasts (and related dashboard components)
-ENABLE_RANDOM_ANCHOR_FORECASTS = True  # Set to False to disable random anchor forecasts entirely
+ENABLE_RANDOM_ANCHOR_FORECASTS = False  # Set to False to disable random anchor forecasts entirely
 
 # New global flag to enable/disable GridSearchCV in model training.
-ENABLE_GRIDSEARCHCV = False  # Set to False to bypass GridSearchCV
+ENABLE_GRIDSEARCHCV = True  # Set to False to bypass GridSearchCV
 
 # ---------------------------------------------------------
 # Setup caching directory for intermediate data (using joblib)
@@ -495,7 +495,7 @@ def get_random_anchor_forecasts(data, forecast_func):
 # 6) Prepare Data, Predictions, and Random Anchors for Each Season
 # ---------------------------------------------------------
 print("Starting data preparation...")
-file_path = 'final_output.parquet'
+file_path = 'final_output_og.parquet'
 raw_data_annual = load_and_prepare_data(file_path, season=None)
 print("Annual data loaded.")
 
