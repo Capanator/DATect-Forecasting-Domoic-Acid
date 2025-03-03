@@ -365,14 +365,18 @@ if 'Latitude' in final_data.columns:
 if 'Longitude' in final_data.columns:
     final_data = final_data.rename(columns={'Longitude': 'longitude'})
 
-# Ensure all expected columns exist; fill with NaN if missing
+# Define desired columns based on the include_satellite flag.
 desired_cols = ["Date", "Site", "latitude", "longitude", "BEUTI", "ONI", "PDO", "Streamflow",
-                "DA_Levels", "PN_Levels", "chlorophyll_value", "temperature_value", "radiation_value", "fluorescence_value"]
+                "DA_Levels", "PN_Levels"]
+if include_satellite:
+    desired_cols += ["chlorophyll_value", "temperature_value", "radiation_value", "fluorescence_value"]
+
+# Ensure all expected columns exist; if a column is missing, add it with NaN.
 for col in desired_cols:
     if col not in final_data.columns:
         final_data[col] = np.nan
 
-# Reorder columns
+# Reorder (and drop any extra columns) so that only the desired columns remain.
 final_data = final_data[desired_cols]
 
 # Format date as m/d/yyyy (note: %-m/%-d works on Unix; on Windows use %#m/%#d/%Y)
