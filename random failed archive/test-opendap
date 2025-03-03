@@ -1,0 +1,156 @@
+import os
+import numpy as np
+import pandas as pd
+import xarray as xr
+from netCDF4 import Dataset, num2date
+from sklearn.neighbors import BallTree
+import requests
+
+# --- Utility functions for satellite data fetching ---
+
+def get_local_filename(url, ext):
+    """Generate a local filename based on the URL."""
+    base = os.path.basename(url)
+    if not base.endswith(ext):
+        base += ext
+    return base
+
+def download_file(url, local_filename):
+    """Download a file from a URL to a local path."""
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(local_filename, 'wb') as f:
+                f.write(response.content)
+            return local_filename
+        else:
+            print(f"Failed to download file from {url} (status code {response.status_code})")
+            return None
+    except Exception as e:
+        print(f"Exception during download from {url}: {e}")
+        return None
+
+def fetch_satellite_data(url, var_name):
+    """Fetch satellite data from a given URL and convert to a DataFrame."""
+    local_filename = get_local_filename(url, '.nc')
+    if not os.path.exists(local_filename):
+        if download_file(url, local_filename) is None:
+            print(f"Skipping satellite data from {url}")
+            return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(local_filename)
+    except Exception as e:
+        print(f"Error opening {local_filename}: {e}")
+        return pd.DataFrame()
+    df = ds.to_dataframe().reset_index()
+    # Rename coordinate columns if necessary
+    if 'lat' in df.columns:
+        df = df.rename(columns={'lat': 'latitude'})
+    if 'lon' in df.columns:
+        df = df.rename(columns={'lon': 'longitude'})
+    # Convert time to datetime and compute Year-Week string
+    df['time'] = pd.to_datetime(df['time'])
+    df['Year-Week'] = df['time'].dt.strftime('%Y-W%W')
+    df = df.rename(columns={var_name: 'value'})
+    df = df[['Year-Week', 'latitude', 'longitude', 'value']]
+    df = df.dropna(subset=['value'])
+    return df
+
+def add_satellite_measurements(data, satellite_info):
+    """
+    For each measurement type defined in satellite_info, fetch satellite data and 
+    add a column of values to 'data' by matching on 'Year-Week' and nearest (lat,lon).
+    """
+    data['Year-Week'] = data['Date'].dt.strftime('%Y-W%W')
+    for meas_type, (url, var_name, out_col) in satellite_info.items():
+        sat_df = fetch_satellite_data(url, var_name)
+        values = []
+        for _, row in data.iterrows():
+            week = row['Year-Week']
+            subset = sat_df[sat_df['Year-Week'] == week]
+            if subset.empty:
+                values.append(np.nan)
+            else:
+                # Build a BallTree for the satellite coordinates (in radians)
+                coords_sat = np.radians(subset[['latitude', 'longitude']].values)
+                tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
+                dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
+                value = subset.iloc[ind[0][0]]['value']
+                values.append(value)
+        data[out_col] = values
+    data.dropna(inplace=True)
+    return data
+
+# --- Main process ---
+
+def main():
+    # Open the netCDF dataset from the remote URL
+    url = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflh8day_LonPM180"
+    nc = Dataset(url, mode='r')
+    
+    # Retrieve coordinate variables and time
+    lats = nc.variables['latitude'][:]
+    lons = nc.variables['longitude'][:]
+    times = nc.variables['time'][:]  # Assume time is numeric
+    time_units = nc.variables['time'].units  # e.g., "days since 1970-01-01 00:00:00"
+    time_dates = num2date(times, units=time_units)
+
+    print("Latitude range:", lats.min(), "to", lats.max())
+    print("Longitude range:", lons.min(), "to", lons.max())
+
+    # Find index ranges for desired subset (latitudes between 42 and 49, longitudes between -126 and -123)
+    lat_indices = np.where((lats >= 42) & (lats <= 49))[0]
+    lon_indices = np.where((lons >= -126) & (lons <= -123))[0]
+
+    if lat_indices.size == 0 or lon_indices.size == 0:
+        print("No data found for the specified coordinate bounds.")
+        nc.close()
+        return
+
+    # Assuming the variable of interest is 'fluorescence' and its dimensions are [time, lat, lon]
+    fluorescence = nc.variables['fluorescence']
+    subset = fluorescence[:, lat_indices[0]:lat_indices[-1]+1,
+                           lon_indices[0]:lon_indices[-1]+1]
+    print("Subset shape:", subset.shape)
+    nc.close()
+
+    # Create coordinate arrays for the subset
+    subset_lats = lats[lat_indices[0]:lat_indices[-1]+1]
+    subset_lons = lons[lon_indices[0]:lon_indices[-1]+1]
+    # Create meshgrids of latitude and longitude
+    lon_grid, lat_grid = np.meshgrid(subset_lons, subset_lats)
+    
+    # Convert netCDF time values (cftime objects) to Pandas Timestamps
+    # Converting each cftime object to a string before conversion helps avoid errors.
+    time_dates = [pd.Timestamp(str(t)) for t in time_dates]
+
+    # Convert the 3D subset (time, lat, lon) into a DataFrame
+    records = []
+    num_times = subset.shape[0]
+    for t in range(num_times):
+        current_date = time_dates[t]  # now a Pandas Timestamp
+        for i in range(lat_grid.shape[0]):
+            for j in range(lat_grid.shape[1]):
+                record = {
+                    'Date': current_date,
+                    'latitude': lat_grid[i, j],
+                    'longitude': lon_grid[i, j],
+                    'fluorescence': subset[t, i, j]
+                }
+                records.append(record)
+    data_df = pd.DataFrame(records)
+    print("Initial data shape:", data_df.shape)
+
+    # Define satellite_info with a sample configuration.
+    # Each key maps to a tuple: (satellite data URL, variable name to extract, output column name).
+    satellite_info = {
+        'sat_measure': ('https://example.com/satellite_data.nc', 'sat_var', 'sat_value')
+    }
+
+    # Add satellite measurements to the netCDF-derived DataFrame
+    data_with_sat = add_satellite_measurements(data_df, satellite_info)
+    print("Data with satellite measurements (first few rows):")
+    print(data_with_sat.head())
+
+if __name__ == "__main__":
+    main()

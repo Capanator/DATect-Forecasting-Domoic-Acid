@@ -1,4 +1,4 @@
-# first line: 55
+# first line: 58
 @memory.cache
 def load_and_prepare_data(file_path, season=None):
     # Use Parquet with pyarrow for faster IO
@@ -13,7 +13,7 @@ def load_and_prepare_data(file_path, season=None):
     
     data = data.sort_values(['Site', 'Date']).copy()
 
-    # --- Spatial Clustering ---
+    # --- Spatial Clustering using scikit-learn KMeans ---
     kmeans = KMeans(n_clusters=5, n_init='auto', random_state=42)
     data['spatial_cluster'] = kmeans.fit_predict(data[['latitude', 'longitude']])
     data = pd.get_dummies(data, columns=['spatial_cluster'], prefix='cluster')
@@ -51,5 +51,4 @@ def load_and_prepare_data(file_path, season=None):
         else:
             return 3
     data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)
-    print(f"Loaded data for season: {season}")
     return data

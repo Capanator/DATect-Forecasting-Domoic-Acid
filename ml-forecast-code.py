@@ -19,6 +19,11 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 
 # ---------------------------------------------------------
+# Global flag to enable/disable linear/logistic regression code.
+# When False, all LR-related computations (training, forecasting, etc.) are skipped.
+ENABLE_LINEAR_LOGISTIC = False  # Set to False to disable LR code
+
+# ---------------------------------------------------------
 # Setup caching directory for intermediate data (using joblib)
 cache_dir = './cache'
 if not os.path.exists(cache_dir):
@@ -99,6 +104,7 @@ def load_and_prepare_data(file_path, season=None):
         else:
             return 3
     data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)
+    print(f"Loaded data for season: {season}")
     return data
 
 # ---------------------------------------------------------
@@ -136,7 +142,7 @@ def train_and_predict(data):
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
     drop_cols_reg = ['DA_Levels', 'Date', 'Site']
     transformer_reg, X_train_reg = create_numeric_transformer(train_set_reg, drop_cols_reg)
-    X_test_reg = train_set_reg.drop(columns=drop_cols_reg, errors='ignore')
+    X_test_reg = test_set_reg.drop(columns=drop_cols_reg, errors='ignore')
     X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = transformer_reg.transform(test_set_reg.drop(columns=drop_cols_reg, errors='ignore'))
     
@@ -417,16 +423,11 @@ raw_data_dict = {
     'fall': raw_data_fall
 }
 
+# Compute ML-based predictions/forecasts
 predictions_ml = {
     'annual': train_and_predict(raw_data_annual),
     'spring': train_and_predict(raw_data_spring),
     'fall': train_and_predict(raw_data_fall)
-}
-
-predictions_lr = {
-    'annual': train_and_predict_lr(raw_data_annual),
-    'spring': train_and_predict_lr(raw_data_spring),
-    'fall': train_and_predict_lr(raw_data_fall)
 }
 
 random_anchors_ml = {
@@ -435,11 +436,21 @@ random_anchors_ml = {
     'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date)
 }
 
-random_anchors_lr = {
-    'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date_lr),
-    'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date_lr),
-    'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date_lr)
-}
+# Conditionally compute LR-based predictions/forecasts if enabled.
+if ENABLE_LINEAR_LOGISTIC:
+    predictions_lr = {
+        'annual': train_and_predict_lr(raw_data_annual),
+        'spring': train_and_predict_lr(raw_data_spring),
+        'fall': train_and_predict_lr(raw_data_fall)
+    }
+    random_anchors_lr = {
+        'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date_lr),
+        'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date_lr),
+        'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date_lr)
+    }
+else:
+    predictions_lr = None
+    random_anchors_lr = None
 
 # ---------------------------------------------------------
 # 7) Build the Dash App Layout & Callbacks
@@ -488,12 +499,11 @@ app.layout = html.Div([
             style={'width': '30%'}
         ),
         html.Label("Select Forecast Method"),
+        # Only include the LR option if ENABLE_LINEAR_LOGISTIC is True.
         dcc.Dropdown(
             id='forecast-method-dropdown',
-            options=[
-                {'label': 'Machine Learning Forecasts', 'value': 'ml'},
-                {'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'}
-            ],
+            options=[{'label': 'Machine Learning Forecasts', 'value': 'ml'}] +
+                    ([{'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'}] if ENABLE_LINEAR_LOGISTIC else []),
             value='ml',
             style={'width': '30%', 'marginLeft': '20px'}
         )
@@ -524,10 +534,14 @@ def update_site_dropdown(selected_season):
     ]
 )
 def update_graph(selected_season, selected_forecast_type, selected_site, forecast_method):
+    # If LR is chosen but disabled, default to ML
+    if forecast_method == 'lr' and not ENABLE_LINEAR_LOGISTIC:
+        forecast_method = 'ml'
+    
     if forecast_method == 'ml':
         pred = predictions_ml[selected_season]
     else:
-        pred = predictions_lr[selected_season]
+        pred = predictions_lr[selected_season] if predictions_lr is not None else predictions_ml[selected_season]
     
     if selected_forecast_type == 'DA_Level':
         df_plot = pred['DA_Level']['test_df'].copy()
@@ -611,6 +625,10 @@ def update_graph(selected_season, selected_forecast_type, selected_site, forecas
     ]
 )
 def update_random_anchor_layout(selected_season, forecast_method):
+    # If LR is chosen but disabled, default to ML
+    if forecast_method == 'lr' and not ENABLE_LINEAR_LOGISTIC:
+        forecast_method = 'ml'
+        
     if forecast_method == 'ml':
         df_results, figs_random_site, rmse, acc = random_anchors_ml[selected_season]
     else:
