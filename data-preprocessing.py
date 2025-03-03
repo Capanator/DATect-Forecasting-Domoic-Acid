@@ -31,8 +31,10 @@ end_date = datetime.strptime(metadata["end_date"], "%Y-%m-%d")
 year_cutoff = metadata["year_cutoff"]
 week_cutoff = metadata["week_cutoff"]
 
-# Boolean flag to include satellite processing from metadata
+# Flags and additional satellite metadata
 include_satellite = metadata["include_satellite"]
+satellite_data_source = metadata.get("satellite_data_source", "url")
+measurement_paths = metadata.get("measurement_paths", {})
 
 # Final output file path
 final_output_path = metadata.get("final_output_path", "final_output.parquet")
@@ -310,23 +312,63 @@ def convert_and_fill(data):
 # New Satellite Data Functions
 # ------------------------------
 
-def add_satellite_measurements(data, satellite_info):
+def add_satellite_measurements(data, satellite_info, measurement_paths, satellite_data_source="url"):
+    """
+    Add satellite measurements to the main dataset.
+    Two options are available:
+      - "url": fetch data from remote NetCDF endpoints.
+      - "local": load pre-cleaned CSV files from local paths.
+    """
     data['Year-Week'] = data['Date'].dt.strftime('%Y-W%W')
-    for meas_type, (url, var_name, out_col) in satellite_info.items():
-        sat_df = fetch_satellite_data(url, var_name)
-        values = []
-        for _, row in data.iterrows():
-            week = row['Year-Week']
-            subset = sat_df[sat_df['Year-Week'] == week]
-            if subset.empty:
-                values.append(np.nan)
+    
+    if satellite_data_source.lower() == "url":
+        for meas_type, (url, var_name, out_col) in satellite_info.items():
+            sat_df = fetch_satellite_data(url, var_name)
+            values = []
+            for _, row in data.iterrows():
+                week = row['Year-Week']
+                subset = sat_df[sat_df['Year-Week'] == week]
+                if subset.empty:
+                    values.append(np.nan)
+                else:
+                    coords_sat = np.radians(subset[['latitude', 'longitude']].values)
+                    tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
+                    dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
+                    value = subset.iloc[ind[0][0]]['value']
+                    values.append(value)
+            data[out_col] = values
+
+    elif satellite_data_source.lower() == "local":
+        for meas_type, csv_path in measurement_paths.items():
+            # Use the output column name from satellite_info if available
+            if meas_type in satellite_info:
+                _, _, out_col = satellite_info[meas_type]
             else:
-                coords_sat = np.radians(subset[['latitude', 'longitude']].values)
-                tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
-                dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
-                value = subset.iloc[ind[0][0]]['value']
-                values.append(value)
-        data[out_col] = values
+                out_col = meas_type
+            try:
+                sat_df = pd.read_csv(csv_path)
+            except Exception as e:
+                print(f"Error reading {csv_path}: {e}")
+                continue
+            # Expect the CSV file to contain at least these columns: 'Year-Week', 'latitude', 'longitude', and the measurement column.
+            values = []
+            for _, row in data.iterrows():
+                week = row['Year-Week']
+                subset = sat_df[sat_df['Year-Week'] == week]
+                if subset.empty:
+                    values.append(np.nan)
+                else:
+                    coords_sat = np.radians(subset[['latitude', 'longitude']].values)
+                    tree = BallTree(coords_sat, leaf_size=40, metric='haversine')
+                    dist, ind = tree.query(np.radians([[row['latitude'], row['longitude']]]), k=1)
+                    # Use the measurement column if available; otherwise, take the last column.
+                    if out_col in subset.columns:
+                        value = subset.iloc[ind[0][0]][out_col]
+                    else:
+                        value = subset.iloc[ind[0][0]].iloc[-1]
+                    values.append(value)
+            data[out_col] = values
+
     data.dropna(inplace=True)
     return data
 
@@ -347,7 +389,7 @@ lt_da_pn_data = compile_da_pn_data(lt_data, da_data, pn_data)
 filtered_data = filter_data(lt_da_pn_data, year_cutoff, week_cutoff)
 
 if include_satellite:
-    data_with_satellite = add_satellite_measurements(filtered_data, satellite_info)
+    data_with_satellite = add_satellite_measurements(filtered_data, satellite_info, measurement_paths, satellite_data_source)
     data_without_date_float = data_with_satellite.drop('Date Float', axis=1)
 else:
     data_without_date_float = filtered_data.copy()
