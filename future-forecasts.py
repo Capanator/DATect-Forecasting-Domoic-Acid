@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import log_loss
@@ -42,40 +41,13 @@ def coverage(y_true, lower, upper):
 def create_forecast_row(last_row, forecast_date):
     """
     Create a synthetic forecast row based on the last available row.
-    Update date-dependent features (seasonal features, month dummies, year)
-    and remove the target values (set them to NaN) so that accuracy metrics are omitted.
+    Only the lag features and DA_Category are preserved.
+    The target values are removed.
     """
     new_row = last_row.copy()
     new_row['Date'] = forecast_date
-    # Remove actual targets for a forecast (since they are unknown)
     new_row['DA_Levels'] = np.nan
     new_row['DA_Category'] = np.nan
-
-    # Recompute cyclical features based on the forecast_date
-    day_of_year = forecast_date.timetuple().tm_yday
-    new_row['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
-    new_row['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
-    new_row['Year'] = forecast_date.year
-    new_row['Month'] = forecast_date.month
-
-    # Update Month dummy columns if present (e.g., 'Month_1', 'Month_2', …)
-    for col in new_row.index:
-        if col.startswith('Month_'):
-            try:
-                month_val = int(col.split('_')[1])
-                new_row[col] = 1 if forecast_date.month == month_val else 0
-            except:
-                pass
-
-    # Recompute the cluster interaction features (if present)
-    for col in new_row.index:
-        if col.startswith('cluster_') and ('_sin_day_of_year' not in col and '_cos_day_of_year' not in col):
-            sin_col = f"{col}_sin_day_of_year"
-            cos_col = f"{col}_cos_day_of_year"
-            if sin_col in new_row.index:
-                new_row[sin_col] = new_row[col] * new_row['sin_day_of_year']
-            if cos_col in new_row.index:
-                new_row[cos_col] = new_row[col] * new_row['cos_day_of_year']
     return new_row
 
 # ================================
@@ -87,32 +59,13 @@ def load_and_prepare_data(file_path):
     data['Date'] = pd.to_datetime(data['Date'])
     data.sort_values(['Site', 'Date'], inplace=True)
 
-    # Spatial Clustering
-    kmeans = KMeans(n_clusters=5, random_state=42)
-    data['spatial_cluster'] = kmeans.fit_predict(data[['latitude', 'longitude']])
-    data = pd.get_dummies(data, columns=['spatial_cluster'], prefix='cluster')
-
-    # Seasonal features (sin/cos)
+    # Only keep Lag Features for DA_Levels.
+    for lag in [1, 2, 3, 7, 14, 28, 56]:
+        data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
+    
     day_of_year = data['Date'].dt.dayofyear
     data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
     data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
-
-    # Month (one-hot)
-    data['Month'] = data['Date'].dt.month
-    data = pd.get_dummies(data, columns=['Month'], prefix='Month')
-
-    # Year
-    data['Year'] = data['Date'].dt.year
-
-    # Lag Features
-    for lag in [1, 2, 3, 7, 14]:
-        data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
-
-    # Interaction: cluster * cyclical
-    cluster_cols = [col for col in data.columns if col.startswith('cluster_') and ('_sin_day_of_year' not in col and '_cos_day_of_year' not in col)]
-    for col in cluster_cols:
-        data[f'{col}_sin_day_of_year'] = data[col] * data['sin_day_of_year']
-        data[f'{col}_cos_day_of_year'] = data[col] * data['cos_day_of_year']
 
     # Categorize DA_Levels -> DA_Category
     def categorize_da_levels(x):
