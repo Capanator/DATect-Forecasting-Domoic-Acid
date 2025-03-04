@@ -3,8 +3,8 @@ import numpy as np
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression  # Changed from RandomForest
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 from sklearn.pipeline import Pipeline
@@ -65,10 +65,10 @@ def load_and_prepare_data(file_path):
     return data
 
 # ---------------------------------------------------------
-# 2) Original Analysis: Train & Predict (Full Split)
+# 2) Improved Analysis: Train & Predict (Time-Series CV + GridSearchCV)
 # ---------------------------------------------------------
 def train_and_predict(data):
-    # --- Regression Setup using Linear Regression ---
+    # --- Regression Setup ---
     data_reg = data.drop(['DA_Category'], axis=1)
     train_set_reg, test_set_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
 
@@ -90,9 +90,18 @@ def train_and_predict(data):
     X_train_reg_processed = preprocessor_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = preprocessor_reg.transform(X_test_reg)
 
-    lin_regressor = LinearRegression()
-    lin_regressor.fit(X_train_reg_processed, y_train_reg)
-    y_pred_reg = lin_regressor.predict(X_test_reg_processed)
+    # Define time series cross-validation and hyperparameter grid for regression
+    tscv = TimeSeriesSplit(n_splits=5)
+    grid_search_reg = GridSearchCV(
+        estimator=LinearRegression(),  # Changed to LinearRegression
+        param_grid={},  # No hyperparameters to tune for LinearRegression
+        cv=tscv,
+        scoring='r2',
+        n_jobs=-1
+    )
+    grid_search_reg.fit(X_train_reg_processed, y_train_reg)
+    best_reg = grid_search_reg.best_estimator_
+    y_pred_reg = best_reg.predict(X_test_reg_processed)
 
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
@@ -107,7 +116,7 @@ def train_and_predict(data):
         })
     )
 
-    # --- Classification Setup using Logistic Regression ---
+    # --- Classification Setup ---
     data_cls = data.drop(['DA_Levels'], axis=1)
     train_set_cls, test_set_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
 
@@ -129,9 +138,20 @@ def train_and_predict(data):
     X_train_cls_processed = preprocessor_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = preprocessor_cls.transform(X_test_cls)
 
-    log_reg_classifier = LogisticRegression(random_state=42, max_iter=1000, multi_class='multinomial')
-    log_reg_classifier.fit(X_train_cls_processed, y_train_cls)
-    y_pred_cls = log_reg_classifier.predict(X_test_cls_processed)
+    # Define time series cross-validation and hyperparameter grid for classification
+    grid_search_cls = GridSearchCV(
+        estimator=LogisticRegression(random_state=42),  # Changed to LogisticRegression
+        param_grid={
+            'C': [0.1, 1, 10],  # Regularization parameter
+            'solver': ['liblinear', 'lbfgs']
+        },
+        cv=tscv,
+        scoring='accuracy',
+        n_jobs=-1
+    )
+    grid_search_cls.fit(X_train_cls_processed, y_train_cls)
+    best_cls = grid_search_cls.best_estimator_
+    y_pred_cls = best_cls.predict(X_test_cls_processed)
 
     test_set_cls = test_set_cls.copy()
     test_set_cls['Predicted_DA_Category'] = y_pred_cls
@@ -156,7 +176,7 @@ def train_and_predict(data):
     }
 
 # ---------------------------------------------------------
-# 3) Time-Based Forecast Function
+# 3) Time-Based Forecast Function (Optional: Using Best Models)
 # ---------------------------------------------------------
 def forecast_next_date(df, anchor_date, site):
     df_site = df[df['Site'] == site].copy()
@@ -178,7 +198,7 @@ def forecast_next_date(df, anchor_date, site):
     if df_test.empty:
         return None
 
-    # --- Train Regression (DA_Levels) using Linear Regression ---
+    # --- Train Regression (DA_Levels) ---
     drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
     X_train_reg = df_train.drop(columns=drop_cols_reg, errors='ignore')
     y_train_reg = df_train['DA_Levels']
@@ -197,11 +217,12 @@ def forecast_next_date(df, anchor_date, site):
     X_train_reg_processed = col_trans_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = col_trans_reg.transform(X_test_reg)
 
-    lin_regressor = LinearRegression()
-    lin_regressor.fit(X_train_reg_processed, y_train_reg)
-    y_pred_reg = lin_regressor.predict(X_test_reg_processed)
+    # Use LinearRegression for forecasting
+    reg_model = LinearRegression()  # Changed to LinearRegression
+    reg_model.fit(X_train_reg_processed, y_train_reg)
+    y_pred_reg = reg_model.predict(X_test_reg_processed)
 
-    # --- Train Classification (DA_Category) using Logistic Regression ---
+    # --- Train Classification (DA_Category) ---
     drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
     X_train_cls = df_train.drop(columns=drop_cols_cls, errors='ignore')
     y_train_cls = df_train['DA_Category']
@@ -220,9 +241,10 @@ def forecast_next_date(df, anchor_date, site):
     X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = col_trans_cls.transform(X_test_cls)
 
-    log_reg_classifier = LogisticRegression(random_state=42, max_iter=1000, multi_class='multinomial')
-    log_reg_classifier.fit(X_train_cls_processed, y_train_cls)
-    y_pred_cls = log_reg_classifier.predict(X_test_cls_processed)
+    # Use LogisticRegression for classification
+    cls_model = LogisticRegression(random_state=42)  # Changed to LogisticRegression
+    cls_model.fit(X_train_cls_processed, y_train_cls)
+    y_pred_cls = cls_model.predict(X_test_cls_processed)
 
     return {
         'AnchorDate': anchor_date,
@@ -243,7 +265,7 @@ app = dash.Dash(__name__)
 file_path = 'final_output.csv'
 raw_data = load_and_prepare_data(file_path)
 
-# 1) Run original "train_and_predict" for the overall analysis
+# 1) Run improved "train_and_predict" for the overall analysis
 predictions = train_and_predict(raw_data)
 
 # ----------------------------------------------------------
@@ -258,7 +280,7 @@ pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
 
 # Group by site and sample up to NUM_RANDOM_ANCHORS for each site
 df_random_anchors = pairs_after_2010.groupby('Site').apply(
-    lambda x: x.sample(n=min(NUM_RANDOM_ANCHORS, len(x)), random_state=42)
+    lambda x: x[['Site', 'Date']].sample(n=min(NUM_RANDOM_ANCHORS, len(x)), random_state=42)
 ).reset_index(drop=True)
 
 results_list = []
