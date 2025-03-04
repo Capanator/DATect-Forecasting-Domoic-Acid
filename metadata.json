@@ -24,54 +24,33 @@
     "quinault-pn": "./pn-input/quinault-pn.csv"
   },
   "satellite_info": {
-    "fluorescence": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42.0):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
-      "fluorescence",
-      "fluorescence_value"
-    ],
-    "temperature": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
-      "sst",
-      "temperature_value"
-    ],
-    "chlorophyll": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
-      "chlorophyll",
-      "chlorophyll_value"
-    ],
-    "radiation": [
-      "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar0mday_LonPM180.nc?par%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(49)%5D%5B(-125.5):1:(-123.5)%5D",
-      "par",
-      "radiation_value"
-    ]
+    "fluorescence_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42.0):1:(48.75)%5D%5B(-125.5):1:(-123.5)%5D",
+    "temperature_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
+    "chlorophyll_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(-125.5):1:(-123.5)%5D",
+    "chlorophyll_change": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:(2025-01-16T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(235.0):1:(236.2)%5D",
+    "temperature_change": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:(2025-01-16T00:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(48.5)%5D%5B(235.0):1:(236.2)%5D ",
+    "radiation_url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar0mday_LonPM180.nc?par%5B(2002-07-16T12:00:00Z):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(42):1:(49)%5D%5B(-125.5):1:(-123.5)%5D"
   },
   "pdo_url": "https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-06-01&time%3C=2025-01-01T00%3A00%3A00Z",
   "oni_url": "https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-06-01&time%3C=2024-12-01T00%3A00%3A00Z",
   "beuti_url": "https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-06-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D",
   "streamflow_url": "https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22",
   "sites": {
-    "Kalaloch": [47.604444, -124.370833],
-    "Quinault": [47.466944, -123.845278],
-    "Copalis": [47.117778, -124.178333],
-    "Twin Harbors": [46.856667, -124.106944],
-    "Long Beach": [46.350833, -124.053611],
-    "Clatsop Beach": [46.028889, -123.917222],
-    "Cannon Beach": [45.881944, -123.959444],
-    "Newport": [44.6, -124.05],
-    "Coos Bay": [43.376389, -124.237222],
-    "Gold Beach": [42.377222, -124.414167]
+    "Kalaloch": [47.604444, 235.629167],
+    "Quinault": [47.466944, 236.154722],
+    "Copalis": [47.117778, 235.821667],
+    "Twin Harbors": [46.856667, 235.893056],
+    "Long Beach": [46.350833, 235.946389],
+    "Clatsop Beach": [46.028889, 236.082778],
+    "Cannon Beach": [45.881944, 236.040556],
+    "Newport": [44.6, 235.95],
+    "Coos Bay": [43.376389, 235.762778],
+    "Gold Beach": [42.377222, 235.585833]
   },
-  "start_date": "2002-01-01",
+  "start_date": "2003-01-01",
   "end_date": "2023-12-31",
   "year_cutoff": 2002,
   "week_cutoff": 26,
   "include_satellite": true,
-  "satellite_data_source": "url", 
-  "measurement_paths": {
-    "chlorophyll": "./short-term/chlorophyll_cleaned.csv",
-    "temperature": "./short-term/temperature_cleaned.csv",
-    "radiation": "./short-term/radiation_cleaned.csv",
-    "fluorescence": "./short-term/fluorescence_cleaned.csv"
-  },
   "final_output_path": "final_output.parquet"
 }

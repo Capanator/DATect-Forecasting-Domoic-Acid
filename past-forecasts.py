@@ -19,14 +19,6 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 
 # ---------------------------------------------------------
-# Global flags for feature engineering steps
-ENABLE_SPATIAL_CLUSTERING    = False
-ENABLE_SEASONAL_FEATURES     = True
-ENABLE_MONTH_ONE_HOT         = False
-ENABLE_YEAR_FEATURE          = False
-ENABLE_LAG_FEATURES          = True
-ENABLE_INTERACTION_FEATURES  = False
-ENABLE_DA_CATEGORY           = True
 
 # Global flag for season-specific trainer (i.e. seasonal filtering)
 ENABLE_SEASON_SPECIFIC_TRAINER = False
@@ -38,7 +30,7 @@ ENABLE_LINEAR_LOGISTIC = False  # Set to False to disable LR code
 ENABLE_RANDOM_ANCHOR_FORECASTS = False  # Set to False to disable random anchor forecasts entirely
 
 # New global flag to enable/disable GridSearchCV in model training.
-ENABLE_GRIDSEARCHCV = True  # Set to False to bypass GridSearchCV
+ENABLE_GRIDSEARCHCV = False  # Set to False to bypass GridSearchCV
 
 # ---------------------------------------------------------
 # Setup caching directory for intermediate data (using joblib)
@@ -92,59 +84,23 @@ def load_and_prepare_data(file_path, season=None):
     print("Sorting data by 'Site' and 'Date'...")
     data = data.sort_values(['Site', 'Date']).copy()
     
-    # --- Spatial Clustering ---
-    if ENABLE_SPATIAL_CLUSTERING:
-        print("Performing spatial clustering...")
-        kmeans = KMeans(n_clusters=5, n_init='auto', random_state=42)
-        data['spatial_cluster'] = kmeans.fit_predict(data[['latitude', 'longitude']])
-        data = pd.get_dummies(data, columns=['spatial_cluster'], prefix='cluster')
+    day_of_year = data['Date'].dt.dayofyear
+    data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
+    data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
+        
+    for lag in [1, 2, 3]:
+        data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
     
-    # --- Seasonal Features (sin/cos) ---
-    if ENABLE_SEASONAL_FEATURES:
-        print("Creating seasonal features (sin/cos)...")
-        day_of_year = data['Date'].dt.dayofyear
-        data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
-        data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
-    
-    # --- Month (one-hot) ---
-    if ENABLE_MONTH_ONE_HOT:
-        print("Creating one-hot encoded month feature...")
-        data['Month'] = data['Date'].dt.month
-        data = pd.get_dummies(data, columns=['Month'], prefix='Month')
-    
-    # --- Year ---
-    if ENABLE_YEAR_FEATURE:
-        print("Adding Year feature...")
-        data['Year'] = data['Date'].dt.year
-    
-    # --- Lag Features ---
-    if ENABLE_LAG_FEATURES:
-        print("Generating lag features...")
-        for lag in [1, 2, 3, 7, 14]:
-            data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
-    
-    # --- Interaction: cluster * cyclical ---
-    if ENABLE_INTERACTION_FEATURES:
-        print("Creating interaction features between clusters and seasonal features...")
-        if ENABLE_SPATIAL_CLUSTERING and ENABLE_SEASONAL_FEATURES:
-            cluster_cols = [col for col in data.columns if col.startswith('cluster_')]
-            for col in cluster_cols:
-                data[f'{col}_sin_day_of_year'] = data[col] * data['sin_day_of_year']
-                data[f'{col}_cos_day_of_year'] = data[col] * data['cos_day_of_year']
-    
-    # --- DA_Category Based on DA_Levels ---
-    if ENABLE_DA_CATEGORY:
-        print("Categorizing DA_Levels into DA_Category...")
-        def categorize_da_levels(x):
-            if x <= 5:
-                return 0
-            elif x <= 20:
-                return 1
-            elif x <= 40:
-                return 2
-            else:
-                return 3
-        data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)
+    def categorize_da_levels(x):
+        if x <= 5:
+            return 0
+        elif x <= 20:
+            return 1
+        elif x <= 40:
+            return 2
+        else:
+            return 3
+    data['DA_Category'] = data['DA_Levels'].apply(categorize_da_levels)  
     
     print(f"Data loading and preparation complete for season: {season}")
     return data
