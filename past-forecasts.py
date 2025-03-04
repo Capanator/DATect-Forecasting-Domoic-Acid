@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, mean_absolute_error
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
@@ -19,21 +19,13 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 
 # ---------------------------------------------------------
+# Global flags and caching settings
 
-# Global flag for season-specific trainer (i.e. seasonal filtering)
 ENABLE_SEASON_SPECIFIC_TRAINER = False
-
-# Global flag to enable/disable linear/logistic regression code.
 ENABLE_LINEAR_LOGISTIC = False  # Set to False to disable LR code
-
-# Global flag to enable/disable random anchor forecasts (and related dashboard components)
 ENABLE_RANDOM_ANCHOR_FORECASTS = False  # Set to False to disable random anchor forecasts entirely
-
-# New global flag to enable/disable GridSearchCV in model training.
 ENABLE_GRIDSEARCHCV = False  # Set to False to bypass GridSearchCV
 
-# ---------------------------------------------------------
-# Setup caching directory for intermediate data (using joblib)
 print("Setting up caching directory...")
 cache_dir = './cache'
 if not os.path.exists(cache_dir):
@@ -68,12 +60,10 @@ def create_numeric_transformer(df, drop_cols):
 @memory.cache
 def load_and_prepare_data(file_path, season=None):
     print(f"Loading data from {file_path}...")
-    # Use Parquet with pyarrow for faster IO
     data = pd.read_parquet(file_path, engine='pyarrow')
     print("Converting 'Date' column to datetime...")
     data['Date'] = pd.to_datetime(data['Date'])
     
-    # Seasonal filtering if season-specific trainer is enabled.
     if season is not None and ENABLE_SEASON_SPECIFIC_TRAINER:
         print(f"Applying seasonal filtering for season: {season}...")
         if season == 'spring':
@@ -110,7 +100,6 @@ def load_and_prepare_data(file_path, season=None):
 # ---------------------------------------------------------
 def train_model(model, X_train, y_train, X_test, model_type='regression', cv=None, param_grid=None):
     print("Training model...")
-    # Only perform GridSearchCV if enabled AND a parameter grid is provided.
     if param_grid is not None and ENABLE_GRIDSEARCHCV:
         print("Starting GridSearchCV...")
         grid_search = GridSearchCV(
@@ -124,7 +113,6 @@ def train_model(model, X_train, y_train, X_test, model_type='regression', cv=Non
         best_model = grid_search.best_estimator_
         print("GridSearchCV complete. Best parameters used:", grid_search.best_params_)
     else:
-        # Otherwise, just train the model directly.
         model.fit(X_train, y_train)
         best_model = model
         if param_grid is not None:
@@ -167,13 +155,13 @@ def train_and_predict(data):
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
     overall_r2_reg = r2_score(test_set_reg['DA_Levels'], y_pred_reg)
-    overall_rmse_reg = np.sqrt(mean_squared_error(test_set_reg['DA_Levels'], y_pred_reg))
+    overall_mae_reg = mean_absolute_error(test_set_reg['DA_Levels'], y_pred_reg)
     print("Regression model training and prediction complete.")
     
     site_stats_reg = test_set_reg[['DA_Levels', 'Predicted_DA_Levels']].groupby(test_set_reg['Site']).apply(
         lambda x: pd.Series({
             'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
-            'rmse': np.sqrt(mean_squared_error(x['DA_Levels'], x['Predicted_DA_Levels']))
+            'mae': mean_absolute_error(x['DA_Levels'], x['Predicted_DA_Levels'])
         })
     )
     
@@ -214,7 +202,7 @@ def train_and_predict(data):
             "test_df": test_set_reg,
             "site_stats": site_stats_reg,
             "overall_r2": overall_r2_reg,
-            "overall_rmse": overall_rmse_reg
+            "overall_mae": overall_mae_reg
         },
         "DA_Category": {
             "test_df": test_set_cls,
@@ -244,13 +232,13 @@ def train_and_predict_lr(data):
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
     overall_r2_reg = r2_score(test_set_reg['DA_Levels'], y_pred_reg)
-    overall_rmse_reg = np.sqrt(mean_squared_error(test_set_reg['DA_Levels'], y_pred_reg))
+    overall_mae_reg = mean_absolute_error(test_set_reg['DA_Levels'], y_pred_reg)
     print("Linear regression complete.")
     
     site_stats_reg = test_set_reg[['DA_Levels', 'Predicted_DA_Levels']].groupby(test_set_reg['Site']).apply(
         lambda x: pd.Series({
             'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
-            'rmse': np.sqrt(mean_squared_error(x['DA_Levels'], x['Predicted_DA_Levels']))
+            'mae': mean_absolute_error(x['DA_Levels'], x['Predicted_DA_Levels'])
         })
     )
     
@@ -282,7 +270,7 @@ def train_and_predict_lr(data):
             "test_df": test_set_reg,
             "site_stats": site_stats_reg,
             "overall_r2": overall_r2_reg,
-            "overall_rmse": overall_rmse_reg
+            "overall_mae": overall_mae_reg
         },
         "DA_Category": {
             "test_df": test_set_cls,
@@ -417,13 +405,13 @@ def get_random_anchor_forecasts(data, forecast_func):
     df_results_anchors = pd.DataFrame(results_list)
 
     if not df_results_anchors.empty:
-        rmse_anchors = np.sqrt(mean_squared_error(
+        mae_anchors = mean_absolute_error(
             df_results_anchors['Actual_DA_Levels'],
             df_results_anchors['Predicted_DA_Levels']
-        ))
+        )
         acc_anchors = (df_results_anchors['Actual_DA_Category'] == df_results_anchors['Predicted_DA_Category']).mean()
     else:
-        rmse_anchors = None
+        mae_anchors = None
         acc_anchors = None
 
     figs_random_site = {}
@@ -445,7 +433,7 @@ def get_random_anchor_forecasts(data, forecast_func):
             fig.update_layout(xaxis_title="Next Date", yaxis_title="DA Level")
             figs_random_site[site] = fig
     print("Random anchor forecasts generated.")
-    return df_results_anchors, figs_random_site, rmse_anchors, acc_anchors
+    return df_results_anchors, figs_random_site, mae_anchors, acc_anchors
 
 # ---------------------------------------------------------
 # 6) Prepare Data, Predictions, and Random Anchors for Each Season
@@ -510,33 +498,26 @@ else:
 print("Setting up Dash app layout...")
 app = dash.Dash(__name__)
 
-# Define the season dropdown conditionally.
 if ENABLE_SEASON_SPECIFIC_TRAINER:
     season_dropdown = dcc.Dropdown(
         id='season-dropdown',
-        options=[
-            {'label': 'Annual', 'value': 'annual'},
-            {'label': 'Spring Bloom', 'value': 'spring'},
-            {'label': 'Fall Bloom', 'value': 'fall'}
-        ],
+        options=[{'label': 'Annual', 'value': 'annual'},
+                 {'label': 'Spring Bloom', 'value': 'spring'},
+                 {'label': 'Fall Bloom', 'value': 'fall'}],
         value='annual',
         style={'width': '30%'}
     )
 else:
     season_dropdown = None
 
-# Add a dummy store to trigger callbacks when season dropdown is not used.
 dummy_store = dcc.Store(id='dummy-store', data='initial')
 
-# Analysis layout – includes forecast type and site selection.
 analysis_layout = html.Div([
     html.H3("Overall Analysis (Time-Series)"),
     dcc.Dropdown(
         id='forecast-type-dropdown',
-        options=[
-            {'label': 'DA Levels', 'value': 'DA_Level'},
-            {'label': 'DA Category', 'value': 'DA_Category'}
-        ],
+        options=[{'label': 'DA Levels', 'value': 'DA_Level'},
+                 {'label': 'DA Category', 'value': 'DA_Category'}],
         value='DA_Level',
         style={'width': '50%'}
     ),
@@ -548,7 +529,6 @@ analysis_layout = html.Div([
     dcc.Graph(id='analysis-graph')
 ])
 
-# Random Anchor Forecast layout.
 if ENABLE_RANDOM_ANCHOR_FORECASTS:
     random_anchors_layout = html.Div([
         html.H3("Random Anchor Dates Forecast -> Next Date by Site"),
@@ -559,7 +539,6 @@ else:
         html.H3("Random Anchor Forecasts are disabled.")
     ])
 
-# Build the global layout.
 tabs_children = [dcc.Tab(label='Analysis', children=[analysis_layout])]
 if ENABLE_RANDOM_ANCHOR_FORECASTS:
     tabs_children.append(dcc.Tab(label='Random Anchor Forecast', children=[random_anchors_layout]))
@@ -578,7 +557,7 @@ layout_children = [
         )
     ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
     dcc.Tabs(id="tabs", children=tabs_children),
-    dummy_store  # Add dummy store so callbacks have an Input even if season dropdown is absent.
+    dummy_store
 ]
 app.layout = html.Div(layout_children)
 print("Dash app layout is set.")
@@ -643,7 +622,7 @@ def update_graph(forecast_type, selected_site, forecast_method, *season):
         df_plot = pred['DA_Level']['test_df'].copy()
         site_stats = pred['DA_Level']['site_stats']
         overall_r2 = pred['DA_Level']['overall_r2']
-        overall_rmse = pred['DA_Level']['overall_rmse']
+        overall_mae = pred['DA_Level']['overall_mae']
         y_axis_title = 'Domoic Acid Levels'
         df_plot_melted = pd.melt(
             df_plot,
@@ -652,12 +631,12 @@ def update_graph(forecast_type, selected_site, forecast_method, *season):
             var_name='Metric', value_name='Value'
         )
         if selected_site is None or selected_site == 'All Sites':
-            performance_text = f"Overall R² = {overall_r2:.2f}, RMSE = {overall_rmse:.2f}"
+            performance_text = f"Overall R² = {overall_r2:.2f}, MAE = {overall_mae:.2f}"
         else:
             if selected_site in site_stats.index:
                 site_r2 = site_stats.loc[selected_site, 'r2']
-                site_rmse = site_stats.loc[selected_site, 'rmse']
-                performance_text = f"R² = {site_r2:.2f}, RMSE = {site_rmse:.2f}"
+                site_mae = site_stats.loc[selected_site, 'mae']
+                performance_text = f"R² = {site_r2:.2f}, MAE = {site_mae:.2f}"
             else:
                 performance_text = "No data for selected site."
     else:
@@ -733,14 +712,14 @@ if ENABLE_RANDOM_ANCHOR_FORECASTS:
             forecast_method = 'ml'
             
         if forecast_method == 'ml':
-            df_results, figs_random_site, rmse, acc = random_anchors_ml[selected_season]
+            df_results, figs_random_site, mae, acc = random_anchors_ml[selected_season]
         else:
-            df_results, figs_random_site, rmse, acc = random_anchors_lr[selected_season]
+            df_results, figs_random_site, mae, acc = random_anchors_lr[selected_season]
         graphs = [dcc.Graph(figure=fig) for site, fig in figs_random_site.items()]
         metrics = html.Div([
             html.H4("Overall Performance on These Forecasts"),
             html.Ul([
-                html.Li(f"RMSE (DA Levels): {rmse:.3f}") if rmse is not None else html.Li("No RMSE (no data)"),
+                html.Li(f"MAE (DA Levels): {mae:.3f}") if mae is not None else html.Li("No MAE (no data)"),
                 html.Li(f"Accuracy (DA Category): {acc:.3f}") if acc is not None else html.Li("No Accuracy (no data)")
             ])
         ], style={'marginTop': 20})

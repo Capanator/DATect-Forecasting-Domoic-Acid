@@ -1,13 +1,11 @@
-# first line: 68
+# first line: 60
 @memory.cache
 def load_and_prepare_data(file_path, season=None):
     print(f"Loading data from {file_path}...")
-    # Use Parquet with pyarrow for faster IO
     data = pd.read_parquet(file_path, engine='pyarrow')
     print("Converting 'Date' column to datetime...")
     data['Date'] = pd.to_datetime(data['Date'])
     
-    # Seasonal filtering if season-specific trainer is enabled.
     if season is not None and ENABLE_SEASON_SPECIFIC_TRAINER:
         print(f"Applying seasonal filtering for season: {season}...")
         if season == 'spring':
