@@ -1,4 +1,4 @@
-Date,Site,latitude,longitude,BEUTI,ONI,PDO,Streamflow,DA_Levels,PN_Levels,chlorophyll_value,temperature_value,radiation_value,fluorescence_value
+Date,Site,lat,lon,BEUTI,ONI,PDO,Streamflow,DA Levels,PN Levels,chl-a,sst,par,cflh
 6/24/2002,Cannon Beach,45.881944,-123.959444,0.091219229,0.65,-0.7,0,5.7,0,13.6998,8.505,33.801144,0.0345
 6/24/2002,Clatsop Beach,46.028889,-123.917222,0.098155882,0.65,-0.7,0,4.4,0,20.43909443,15.06,23.460571,0.001
 6/24/2002,Coos Bay,43.376389,-124.237222,0.267227879,0.65,-0.7,0,4.15,0,7.517,9.235,38.634,0.028
