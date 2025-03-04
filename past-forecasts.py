@@ -18,6 +18,9 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
+# Import XGBoost models
+from xgboost import XGBRegressor, XGBClassifier
+
 # ---------------------------------------------------------
 # Global flags and caching settings
 
@@ -123,10 +126,10 @@ def train_model(model, X_train, y_train, X_test, model_type='regression', cv=Non
     return best_model, predictions
 
 # ---------------------------------------------------------
-# 3a) Train & Predict Function (Machine Learning Approach)
+# 3a) Train & Predict Function (Machine Learning Approach with Ensemble)
 # ---------------------------------------------------------
 def train_and_predict(data):
-    print("Starting ML-based train and predict...")
+    print("Starting ML-based train and predict with ensemble (Random Forest + XGBoost)...")
     tscv = TimeSeriesSplit(n_splits=5)
     
     # Regression Setup
@@ -139,24 +142,25 @@ def train_and_predict(data):
     X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = transformer_reg.transform(test_set_reg.drop(columns=drop_cols_reg, errors='ignore'))
     
+    # Train Random Forest for Regression
     print("Training RandomForestRegressor...")
-    param_grid_reg = {
-        'n_estimators': [200, 300],
-        'max_depth': [10, 15],
-        'min_samples_split': [2, 5],
-        'min_samples_leaf': [1, 2]
-    }
-    best_reg, y_pred_reg = train_model(RandomForestRegressor(random_state=42),
-                                       X_train_reg_processed, train_set_reg['DA_Levels'],
-                                       X_test_reg_processed,
-                                       model_type='regression',
-                                       cv=tscv,
-                                       param_grid=param_grid_reg)
+    rf_reg = RandomForestRegressor(random_state=42)
+    rf_reg.fit(X_train_reg_processed, train_set_reg['DA_Levels'])
+    rf_pred_reg = rf_reg.predict(X_test_reg_processed)
+    
+    # Train XGBoost for Regression
+    print("Training XGBRegressor...")
+    xgb_reg = XGBRegressor(random_state=42, verbosity=0)
+    xgb_reg.fit(X_train_reg_processed, train_set_reg['DA_Levels'])
+    xgb_pred_reg = xgb_reg.predict(X_test_reg_processed)
+    
+    # Ensemble Regression: average predictions
+    y_pred_reg = (rf_pred_reg + xgb_pred_reg) / 2.0
     test_set_reg = test_set_reg.copy()
     test_set_reg['Predicted_DA_Levels'] = y_pred_reg
     overall_r2_reg = r2_score(test_set_reg['DA_Levels'], y_pred_reg)
     overall_mae_reg = mean_absolute_error(test_set_reg['DA_Levels'], y_pred_reg)
-    print("Regression model training and prediction complete.")
+    print("Ensemble regression model training and prediction complete.")
     
     site_stats_reg = test_set_reg[['DA_Levels', 'Predicted_DA_Levels']].groupby(test_set_reg['Site']).apply(
         lambda x: pd.Series({
@@ -175,28 +179,34 @@ def train_and_predict(data):
     X_train_cls_processed = transformer_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = transformer_cls.transform(test_set_cls.drop(columns=drop_cols_cls, errors='ignore'))
     
+    # Train Random Forest for Classification
     print("Training RandomForestClassifier...")
-    best_cls, y_pred_cls = train_model(RandomForestClassifier(random_state=42),
-                                       X_train_cls_processed, train_set_cls['DA_Category'],
-                                       X_test_cls_processed,
-                                       model_type='classification',
-                                       cv=tscv,
-                                       param_grid={
-                                           'n_estimators': [200, 300],
-                                           'max_depth': [10, 15],
-                                           'min_samples_split': [2, 5],
-                                           'min_samples_leaf': [1, 2]
-                                       })
+    rf_cls = RandomForestClassifier(random_state=42)
+    rf_cls.fit(X_train_cls_processed, train_set_cls['DA_Category'])
+    rf_pred_cls = rf_cls.predict(X_test_cls_processed)
+    
+    # Train XGBoost for Classification
+    print("Training XGBClassifier...")
+    xgb_cls = XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss')
+    xgb_cls.fit(X_train_cls_processed, train_set_cls['DA_Category'])
+    xgb_pred_cls = xgb_cls.predict(X_test_cls_processed)
+    
+    # Ensemble Classification: majority vote (resolve ties by using the RF prediction)
+    ensemble_pred_cls = []
+    for a, b in zip(rf_pred_cls, xgb_pred_cls):
+        ensemble_pred_cls.append(a if a == b else a)
+    ensemble_pred_cls = np.array(ensemble_pred_cls)
+    
     test_set_cls = test_set_cls.copy()
-    test_set_cls['Predicted_DA_Category'] = y_pred_cls
-    overall_accuracy_cls = accuracy_score(test_set_cls['DA_Category'], y_pred_cls)
-    print("Classification model training and prediction complete.")
+    test_set_cls['Predicted_DA_Category'] = ensemble_pred_cls
+    overall_accuracy_cls = accuracy_score(test_set_cls['DA_Category'], ensemble_pred_cls)
+    print("Ensemble classification model training and prediction complete.")
     
     site_stats_cls = test_set_cls[['DA_Category', 'Predicted_DA_Category']].groupby(test_set_cls['Site']).apply(
         lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category'])
     )
     
-    print("ML train and predict function complete.")
+    print("ML train and predict ensemble function complete.")
     return {
         "DA_Level": {
             "test_df": test_set_reg,
@@ -212,7 +222,7 @@ def train_and_predict(data):
     }
 
 # ---------------------------------------------------------
-# 3b) Train & Predict Function (Linear & Logistic Regression)
+# 3b) Train & Predict Function (Linear & Logistic Regression) remains unchanged
 # ---------------------------------------------------------
 def train_and_predict_lr(data):
     print("Starting LR-based train and predict...")
@@ -280,10 +290,10 @@ def train_and_predict_lr(data):
     }
 
 # ---------------------------------------------------------
-# 4a) Time-Based Forecast Function for Random Anchor Dates (ML)
+# 4a) Time-Based Forecast Function for Random Anchor Dates (ML Ensemble)
 # ---------------------------------------------------------
 def forecast_next_date(df, anchor_date, site):
-    print(f"Forecasting next date for site: {site} after anchor date: {anchor_date} (ML)...")
+    print(f"Forecasting next date for site: {site} after anchor date: {anchor_date} (ML Ensemble)...")
     df_site = df[df['Site'] == site].copy().sort_values('Date')
     df_future = df_site[df_site['Date'] > anchor_date]
     if df_future.empty:
@@ -299,39 +309,56 @@ def forecast_next_date(df, anchor_date, site):
         print("No test data available for the next date.")
         return None
 
-    # Regression forecast
-    print("Forecasting DA Levels using RandomForestRegressor...")
+    # Regression forecast: ensemble of RF and XGBoost
+    print("Forecasting DA Levels using ensemble (RandomForestRegressor + XGBRegressor)...")
     drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
     transformer_reg, X_train_reg = create_numeric_transformer(df_train, drop_cols_reg)
     X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
     X_test_reg_processed  = transformer_reg.transform(df_test.drop(columns=drop_cols_reg, errors='ignore'))
-    reg_model = RandomForestRegressor(random_state=42, n_estimators=100, max_depth=None)
-    reg_model.fit(X_train_reg_processed, df_train['DA_Levels'])
-    y_pred_reg = reg_model.predict(X_test_reg_processed)
+    
+    rf_reg = RandomForestRegressor(random_state=42, n_estimators=100, max_depth=None)
+    rf_reg.fit(X_train_reg_processed, df_train['DA_Levels'])
+    rf_pred = rf_reg.predict(X_test_reg_processed)
+    
+    xgb_reg = XGBRegressor(random_state=42, n_estimators=100, max_depth=None, verbosity=0)
+    xgb_reg.fit(X_train_reg_processed, df_train['DA_Levels'])
+    xgb_pred = xgb_reg.predict(X_test_reg_processed)
+    
+    ensemble_pred = (rf_pred + xgb_pred) / 2.0
 
-    # Classification forecast
-    print("Forecasting DA Category using RandomForestClassifier...")
+    # Classification forecast: ensemble of RF and XGBoost via majority vote
+    print("Forecasting DA Category using ensemble (RandomForestClassifier + XGBClassifier)...")
     drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
     transformer_cls, X_train_cls = create_numeric_transformer(df_train, drop_cols_cls)
     X_train_cls_processed = transformer_cls.fit_transform(X_train_cls)
     X_test_cls_processed  = transformer_cls.transform(df_test.drop(columns=drop_cols_cls, errors='ignore'))
-    cls_model = RandomForestClassifier(random_state=42, n_estimators=100, max_depth=None)
-    cls_model.fit(X_train_cls_processed, df_train['DA_Category'])
-    y_pred_cls = cls_model.predict(X_test_cls_processed)
+    
+    rf_cls = RandomForestClassifier(random_state=42, n_estimators=100, max_depth=None)
+    rf_cls.fit(X_train_cls_processed, df_train['DA_Category'])
+    rf_pred_cls = rf_cls.predict(X_test_cls_processed)
+    
+    xgb_cls = XGBClassifier(random_state=42, n_estimators=100, max_depth=None, use_label_encoder=False, eval_metric='logloss')
+    xgb_cls.fit(X_train_cls_processed, df_train['DA_Category'])
+    xgb_pred_cls = xgb_cls.predict(X_test_cls_processed)
+    
+    ensemble_pred_cls = []
+    for a, b in zip(rf_pred_cls, xgb_pred_cls):
+        ensemble_pred_cls.append(a if a == b else a)
+    ensemble_pred_cls = np.array(ensemble_pred_cls)
 
-    print("Forecast complete for ML method.")
+    print("Forecast complete for ML Ensemble method.")
     return {
         'AnchorDate': anchor_date,
         'Site': site,
         'NextDate': next_date,
-        'Predicted_DA_Levels': float(y_pred_reg[0]),
+        'Predicted_DA_Levels': float(ensemble_pred[0]),
         'Actual_DA_Levels': float(df_test['DA_Levels'].iloc[0]) if not df_test.empty else None,
-        'Predicted_DA_Category': int(y_pred_cls[0]),
+        'Predicted_DA_Category': int(ensemble_pred_cls[0]),
         'Actual_DA_Category': int(df_test['DA_Category'].iloc[0]) if not df_test.empty else None
     }
 
 # ---------------------------------------------------------
-# 4b) Time-Based Forecast Function for Random Anchor Dates (LR)
+# 4b) Time-Based Forecast Function for Random Anchor Dates (LR) remains unchanged
 # ---------------------------------------------------------
 def forecast_next_date_lr(df, anchor_date, site):
     print(f"Forecasting next date for site: {site} after anchor date: {anchor_date} (LR)...")
@@ -350,7 +377,6 @@ def forecast_next_date_lr(df, anchor_date, site):
         print("No test data available for the next date.")
         return None
 
-    # Regression using LinearRegression
     print("Forecasting DA Levels using LinearRegression...")
     drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
     transformer_reg, X_train_reg = create_numeric_transformer(df_train, drop_cols_reg)
@@ -360,7 +386,6 @@ def forecast_next_date_lr(df, anchor_date, site):
     lin_model.fit(X_train_reg_processed, df_train['DA_Levels'])
     y_pred_reg = lin_model.predict(X_test_reg_processed)
 
-    # Classification using LogisticRegression
     print("Forecasting DA Category using LogisticRegression...")
     drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
     transformer_cls, X_train_cls = create_numeric_transformer(df_train, drop_cols_cls)
@@ -456,7 +481,7 @@ else:
     raw_data_dict = {'annual': raw_data_annual}
     print("Season-specific trainer is disabled. Using annual data only.")
 
-print("Computing ML-based predictions/forecasts...")
+print("Computing ML-based predictions/forecasts using ensemble...")
 predictions_ml = {
     'annual': train_and_predict(raw_data_annual),
     'spring': train_and_predict(raw_data_spring) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
