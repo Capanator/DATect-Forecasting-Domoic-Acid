@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, mean_absolute_error
+from sklearn.metrics import r2_score, accuracy_score, mean_absolute_error
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
@@ -26,7 +26,7 @@ from xgboost import XGBRegressor, XGBClassifier
 
 ENABLE_SEASON_SPECIFIC_TRAINER = False
 ENABLE_LINEAR_LOGISTIC = False  # Set to False to disable LR code
-ENABLE_RANDOM_ANCHOR_FORECASTS = False  # Set to False to disable random anchor forecasts entirely
+ENABLE_RANDOM_ANCHOR_FORECASTS = True  # Set to False to disable random anchor forecasts entirely
 ENABLE_GRIDSEARCHCV = False  # Set to False to bypass GridSearchCV
 
 print("Setting up caching directory...")
@@ -411,7 +411,7 @@ def forecast_next_date_lr(df, anchor_date, site):
 # ---------------------------------------------------------
 def get_random_anchor_forecasts(data, forecast_func):
     print("Generating random anchor forecasts...")
-    NUM_RANDOM_ANCHORS = 50
+    NUM_RANDOM_ANCHORS = 10
     df_after_2010 = data[data['Date'].dt.year >= 2010].copy().sort_values(['Site', 'Date'])
     pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
     df_random_anchors = pd.concat([
