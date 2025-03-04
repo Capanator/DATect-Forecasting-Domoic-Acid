@@ -1,4 +1,4 @@
-# first line: 60
+# first line: 63
 @memory.cache
 def load_and_prepare_data(file_path, season=None):
     print(f"Loading data from {file_path}...")
