@@ -51,6 +51,6 @@
   "end_date": "2023-12-31",
   "year_cutoff": 2002,
   "week_cutoff": 26,
-  "include_satellite": true,
+  "include_satellite": false,
   "final_output_path": "final_output.parquet"
 }

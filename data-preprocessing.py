@@ -1,181 +1,270 @@
-import os
-import json
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
+import os, json, requests
+import pandas as pd, numpy as np
+from datetime import datetime
 from scipy.interpolate import griddata
 from scipy.spatial import KDTree
 import xarray as xr
-import requests
 
-# Load metadata
-with open('metadata.json', 'r') as f:
+# ------------------------------
+# Load Metadata
+# ------------------------------
+with open('metadata.json') as f:
     metadata = json.load(f)
 
-# File paths for original CSVs (DA and PN) from metadata
+# Metadata elements
 original_da_files = metadata["original_da_files"]
 original_pn_files = metadata["original_pn_files"]
-
-# URLs from metadata
 pdo_url = metadata["pdo_url"]
 oni_url = metadata["oni_url"]
 beuti_url = metadata["beuti_url"]
 streamflow_url = metadata["streamflow_url"]
-
-# Sites and date range from metadata
 sites = metadata["sites"]
 start_date = datetime.strptime(metadata["start_date"], "%Y-%m-%d")
 end_date = datetime.strptime(metadata["end_date"], "%Y-%m-%d")
 year_cutoff = metadata["year_cutoff"]
 week_cutoff = metadata["week_cutoff"]
-
-# Final output file path
 final_output_path = metadata.get("final_output_path", "final_output.parquet")
 
-# Global list to track downloaded files
-downloaded_files = []
+downloaded_files = []  # To track temporary downloads
 
 # ------------------------------
 # Helper Functions
 # ------------------------------
-
-def download_file(url, local_filename):
-    """Download a file from the given URL to a local filename."""
-    global downloaded_files
+def download_file(url, filename):
     try:
-        print(f"Downloading {url} to {local_filename}...")
-        response = requests.get(url)
-        response.raise_for_status()
-        with open(local_filename, 'wb') as f:
-            f.write(response.content)
-        downloaded_files.append(local_filename)
-        return local_filename
-    except requests.exceptions.HTTPError as e:
-        print(f"Failed to download {url}: {e}")
-        return None
+        print(f"Downloading {url} to {filename}...")
+        r = requests.get(url)
+        r.raise_for_status()
+        with open(filename, 'wb') as f:
+            f.write(r.content)
+        downloaded_files.append(filename)
+        return filename
     except Exception as e:
-        print(f"Unexpected error downloading {url}: {e}")
+        print(f"Error downloading {url}: {e}")
         return None
 
-def get_local_filename(url, default_ext):
-    """Generate a local filename based on the URL."""
+def local_filename(url, ext):
     base = url.split('?')[0].split('/')[-1]
-    if not base.endswith(default_ext):
-        base += default_ext
-    return base
+    return base if base.endswith(ext) else base + ext
 
-def convert_csv_to_parquet(csv_path, parquet_path):
+def csv_to_parquet(csv_path):
     df = pd.read_csv(csv_path, low_memory=False)
+    parquet_path = csv_path.replace('.csv', '.parquet')
     df.to_parquet(parquet_path, index=False)
     return parquet_path
 
 # ------------------------------
-# File Paths and Conversion
+# File Conversion
 # ------------------------------
-
-# Convert DA CSVs to Parquet and update file paths
-da_files = {name: convert_csv_to_parquet(csv_path, csv_path.replace('.csv', '.parquet'))
-            for name, csv_path in original_da_files.items()}
-
-# Convert PN CSVs to Parquet and update file paths
-pn_files = {name: convert_csv_to_parquet(csv_path, csv_path.replace('.csv', '.parquet'))
-            for name, csv_path in original_pn_files.items()}
+# Convert DA and PN CSVs to Parquet
+da_files = {k: csv_to_parquet(v) for k, v in original_da_files.items()}
+pn_files = {k: csv_to_parquet(v) for k, v in original_pn_files.items()}
 
 # ------------------------------
 # Data Processing Functions
 # ------------------------------
-
-def process_da(da_files):
-    da_dfs = {name: pd.read_parquet(path) for name, path in da_files.items()}
-    for name, df in da_dfs.items():
-        df['Year-Week'] = pd.to_datetime(df['CollectDate']).dt.strftime('%Y-%U')
-        df['DA'] = df['Domoic Result']
-        df['Location'] = name.replace('-', ' ').title()
-    return pd.concat([df[['Year-Week', 'DA', 'Location']] for df in da_dfs.values()], ignore_index=True)
-
-def process_pn(pn_files):
-    pn_dfs = []
-    for name, path in pn_files.items():
+def process_da(files):
+    dfs = []
+    for name, path in files.items():
         df = pd.read_parquet(path)
-        df['Year-Week'] = pd.to_datetime(df['Date'], format='%m/%d/%Y', errors='coerce').dt.strftime('%Y-%U')
-        df['PN'] = df[[col for col in df.columns if "Pseudo-nitzschia" in col][0]]
+        if 'CollectDate' in df.columns:
+            df['Year-Week'] = pd.to_datetime(df['CollectDate']).dt.strftime('%Y-%U')
+            df['DA'] = df['Domoic Result']
+        else:
+            df['CollectDate'] = df.apply(
+                lambda x: f"{x['Harvest Month']} {x['Harvest Date']}, {x['Harvest Year']}", axis=1
+            )
+            df['Year-Week'] = pd.to_datetime(df['CollectDate'], format='%B %d, %Y').dt.strftime('%Y-%U')
+            df['DA'] = df['Domoic Acid']
+        df['Location'] = name.replace('-', ' ').title()
+        dfs.append(df[['Year-Week', 'DA', 'Location']])
+    return pd.concat(dfs, ignore_index=True)
+
+def process_pn(files):
+    dfs = []
+    for name, path in files.items():
+        df = pd.read_parquet(path)
+        df['Date'] = df['Date'].astype(str)
+        pn_col = [c for c in df.columns if "Pseudo-nitzschia" in c][0]
+        sample_date = df.loc[df['Date'] != 'nan', 'Date'].iloc[0]
+        fmt = '%m/%d/%Y' if sample_date.count('/') == 2 and len(sample_date.split('/')[-1]) == 4 else '%m/%d/%y'
+        df['Year-Week'] = pd.to_datetime(df['Date'], format=fmt, errors='coerce').dt.strftime('%Y-%U')
+        df['PN'] = df[pn_col]
         df['Location'] = name.replace('-pn', '').replace('-', ' ').title()
-        pn_dfs.append(df[['Year-Week', 'PN', 'Location']].dropna(subset=['Year-Week']))
-    return pd.concat(pn_dfs, ignore_index=True)
+        dfs.append(df[['Year-Week', 'PN', 'Location']].dropna(subset=['Year-Week']))
+    return pd.concat(dfs, ignore_index=True)
 
-def fetch_climate_index_netcdf(url, var_name):
-    local_filename = get_local_filename(url, '.nc')
-    if not os.path.exists(local_filename):
-        if download_file(url, local_filename) is None:
-            print(f"Skipping climate index data from {url}")
-            return pd.DataFrame()
+def process_streamflow(url):
+    fname = local_filename(url, '.json')
+    if not os.path.exists(fname) and download_file(url, fname) is None:
+        return pd.DataFrame(columns=['Date', 'Flow'])
     try:
-        ds = xr.open_dataset(local_filename)
-        df = ds.to_dataframe().reset_index()
-        df['week'] = pd.to_datetime(df['time']).dt.strftime('%Y-W%W')
-        return df[['week', var_name]].rename(columns={var_name: 'index'})
+        with open(fname) as f:
+            data = json.load(f)
     except Exception as e:
-        print(f"Error opening {local_filename}: {e}")
+        print(e)
+        return pd.DataFrame(columns=['Date', 'Flow'])
+    ts = data.get('value', {}).get('timeSeries', [{}])[0]
+    values = ts.get('values', [{}])[0].get('value', [])
+    records = []
+    for item in values:
+        dt_str = item.get('dateTime')
+        try:
+            flow = float(item.get('value'))
+        except:
+            flow = np.nan
+        records.append((dt_str, flow))
+    df = pd.DataFrame(records, columns=['Date', 'Flow'])
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['Year-Week'] = df['Date'].dt.strftime('%Y-W%W')
+    weekly = df.groupby('Year-Week')['Flow'].mean().reset_index()
+    weekly['Date'] = weekly['Year-Week'].apply(lambda x: pd.to_datetime(x + '-1', format='%Y-W%W-%w'))
+    return weekly[['Date', 'Flow']]
+
+def fetch_climate_index(url, var_name):
+    fname = local_filename(url, '.nc')
+    if not os.path.exists(fname) and download_file(url, fname) is None:
         return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(fname)
+    except Exception as e:
+        print(e)
+        return pd.DataFrame()
+    df = ds.to_dataframe().reset_index()
+    df['time'] = pd.to_datetime(df['time'])
+    df = df[['time', var_name]].dropna().rename(columns={'time': 'datetime', var_name: 'index'})
+    df['week'] = df['datetime'].dt.strftime('%Y-W%W')
+    return df.groupby('week')['index'].mean().reset_index()
 
-def generate_compiled_data(sites, start_date, end_date):
-    weeks = [current_week.strftime('%Y-W%W') for current_week in pd.date_range(start_date, end_date, freq='W')]
-    return pd.DataFrame([{'Date': week, 'Site': site, 'Latitude': lat, 'Longitude': lon} 
-                         for week in weeks for site, (lat, lon) in sites.items()])
+def fetch_beuti(url):
+    fname = local_filename(url, '.nc')
+    if not os.path.exists(fname) and download_file(url, fname) is None:
+        return pd.DataFrame()
+    try:
+        ds = xr.open_dataset(fname)
+    except Exception as e:
+        print(e)
+        return pd.DataFrame()
+    df = ds.to_dataframe().reset_index()
+    df['time'] = pd.to_datetime(df['time'])
+    if 'lat' in df.columns:
+        df.rename(columns={'lat': 'latitude'}, inplace=True)
+    df['Year-Week'] = df['time'].dt.strftime('%Y-W%W')
+    df = df[['Year-Week', 'latitude', 'BEUTI']].dropna(subset=['BEUTI'])
+    return df.groupby(['latitude', 'Year-Week'])['BEUTI'].mean().reset_index()
 
-def compile_da_pn_data(compiled_data, da_data, pn_data):
-    da_data.rename(columns={'Year-Week': 'Date', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
-    pn_data.rename(columns={'Year-Week': 'Date', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
-    compiled_full = pd.merge(pd.merge(compiled_data, da_data, how='left', on=['Date', 'Site']),
-                             pn_data, how='left', on=['Date', 'Site'])
-    return compiled_full.fillna({'DA_Levels': 0, 'PN_Levels': 0})
+def generate_compiled_data(sites, start, end):
+    weeks = [d.strftime('%Y-W%W') for d in pd.date_range(start, end, freq='W')]
+    return pd.DataFrame([
+        {'Date': week, 'Site': site, 'Latitude': lat, 'Longitude': lon}
+        for week in weeks for site, (lat, lon) in sites.items()
+    ])
+
+def compile_lt(compiled, beuti, oni, pdo, streamflow):
+    # Convert week strings to a float for interpolation
+    compiled['Date Float'] = compiled['Date'].apply(lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
+    beuti['Date Float'] = beuti['Year-Week'].apply(lambda x: float(x.split('-')[0]) + float(x.split('-')[1][1:]) / 52)
+    
+    pts = beuti[['latitude', 'Date Float']].values
+    vals = beuti['BEUTI'].values
+    compiled['BEUTI'] = griddata(pts, vals, compiled[['Latitude', 'Date Float']].values, method='linear')
+    
+    # Replace any NaNs with nearest neighbor from a KDTree
+    tree = KDTree(pts)
+    for idx in compiled[compiled['BEUTI'].isna()].index:
+        row = compiled.loc[idx]
+        _, nearest = tree.query([row['Latitude'], row['Date Float']])
+        compiled.at[idx, 'BEUTI'] = vals[nearest]
+    
+    compiled = compiled.merge(oni, left_on='Date', right_on='week', how='left')\
+                       .drop('week', axis=1)\
+                       .rename(columns={'index': 'ONI'})
+    compiled = compiled.merge(pdo, left_on='Date', right_on='week', how='left')\
+                       .drop('week', axis=1)\
+                       .rename(columns={'index': 'PDO'})
+    
+    compiled['Date'] = pd.to_datetime(compiled['Date'] + '-1', format='%Y-W%W-%w')
+    streamflow['Date'] = pd.to_datetime(streamflow['Date'], format='%Y-W%W')
+    compiled = compiled.merge(streamflow, on='Date', how='left')\
+                       .rename(columns={'Flow': 'Streamflow'})
+    return compiled.drop_duplicates(subset=['Date', 'Latitude', 'Longitude'])
+
+def compile_da_pn(lt, da, pn):
+    da.rename(columns={'Year-Week': 'Date', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
+    pn.rename(columns={'Year-Week': 'Date', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
+    da['Date'] = pd.to_datetime(da['Date'] + '-1', format='%Y-%U-%w')
+    pn['Date'] = pd.to_datetime(pn['Date'] + '-1', format='%Y-%U-%w')
+    da['DA_Levels'] = pd.to_numeric(da['DA_Levels'], errors='coerce')
+    
+    merged = lt.merge(da, on=['Date', 'Site'], how='left')\
+               .merge(pn, on=['Date', 'Site'], how='left')
+    merged['DA_Levels'] = merged['DA_Levels'].interpolate(method='linear')
+    merged['PN_Levels'] = merged['PN_Levels'].interpolate(method='linear')
+    merged.fillna({'DA_Levels': 0, 'PN_Levels': 0}, inplace=True)
+    merged['DA_Levels'] = merged['DA_Levels'].apply(lambda x: 0 if x < 1 else x)
+    return merged.loc[:, ~merged.columns.duplicated()]
+
+def filter_data(data, cutoff_year, cutoff_week):
+    data['Year'] = data['Date'].dt.year
+    data['Week'] = data['Date'].dt.isocalendar().week
+    return data[(data['Year'] > cutoff_year) | ((data['Year'] == cutoff_year) & (data['Week'] >= cutoff_week))]
 
 def process_duplicates(data):
-    return data.groupby(['Date', 'Site']).agg({'BEUTI': 'mean', 'ONI': 'mean', 'PDO': 'mean',
-                                               'DA_Levels': 'mean', 'PN_Levels': 'first'}).reset_index()
+    agg = {
+        'BEUTI': 'mean',
+        'ONI': 'mean',
+        'PDO': 'mean',
+        'Streamflow': 'mean',
+        'DA_Levels': 'mean',
+        'PN_Levels': lambda x: x.iloc[0]
+    }
+    for col in ['Latitude', 'Longitude', 'latitude', 'longitude']:
+        if col in data.columns:
+            agg[col] = 'first'
+    return data.groupby(['Date', 'Site']).agg(agg).reset_index()
 
 def convert_and_fill(data):
+    cols = data.columns.difference(['Date', 'Site'])
+    data[cols] = data[cols].apply(pd.to_numeric, errors='coerce')
     return data.fillna(0)
 
 # ------------------------------
 # Data Processing Pipeline
 # ------------------------------
-
 da_data = process_da(da_files)
 pn_data = process_pn(pn_files)
-pdo_data = fetch_climate_index_netcdf(pdo_url, 'PDO')
-oni_data = fetch_climate_index_netcdf(oni_url, 'ONI')
+streamflow_data = process_streamflow(streamflow_url)
+pdo_data = fetch_climate_index(pdo_url, 'PDO')
+oni_data = fetch_climate_index(oni_url, 'ONI')
+beuti_data = fetch_beuti(beuti_url)
 
-compiled_data = generate_compiled_data(sites, start_date, end_date)
-lt_da_pn_data = compile_da_pn_data(compiled_data, da_data, pn_data)
-processed_data = process_duplicates(lt_da_pn_data)
-final_data = convert_and_fill(processed_data)
+compiled = generate_compiled_data(sites, start_date, end_date)
+lt_data = compile_lt(compiled, beuti_data, oni_data, pdo_data, streamflow_data)
+lt_da_pn = compile_da_pn(lt_data, da_data, pn_data)
+filtered = filter_data(lt_da_pn, year_cutoff, week_cutoff)
+processed = process_duplicates(filtered)
+final_data = convert_and_fill(processed)
 
-# ------------------------------
-# Save Final Output and Cleanup
-# ------------------------------
+# Standardize column names and order
+if 'Latitude' in final_data.columns:
+    final_data.rename(columns={'Latitude': 'latitude'}, inplace=True)
+if 'Longitude' in final_data.columns:
+    final_data.rename(columns={'Longitude': 'longitude'}, inplace=True)
+desired_cols = ["Date", "Site", "latitude", "longitude", "BEUTI", "ONI", "PDO", "Streamflow", "DA_Levels", "PN_Levels"]
+for col in desired_cols:
+    if col not in final_data.columns:
+        final_data[col] = np.nan
+final_data = final_data[desired_cols]
+final_data['Date'] = pd.to_datetime(final_data['Date']).dt.strftime("%-m/%-d/%Y")
 
+# Save the final output
 final_data.to_parquet(final_output_path, index=False)
 print(f"Final output saved to '{final_output_path}'")
 
-def cleanup_downloaded_files():
-    global downloaded_files
-
-    # Delete downloaded climate index files
-    for file in downloaded_files:
-        try:
-            os.remove(file)
-            print(f"Deleted downloaded file: {file}")
-        except Exception as e:
-            print(f"Could not delete file {file}: {e}")
-
-    # Delete DA and PN parquet files
-    parquet_files = list(da_files.values()) + list(pn_files.values())
-    for file in parquet_files:
-        try:
-            os.remove(file)
-            print(f"Deleted intermediate parquet file: {file}")
-        except Exception as e:
-            print(f"Could not delete parquet file {file}: {e}")
-
-cleanup_downloaded_files()
+# Clean up downloaded temporary files
+for f in downloaded_files:
+    try:
+        os.remove(f)
+        print(f"Deleted {f}")
+    except Exception as e:
+        print(f"Error deleting {f}: {e}")
