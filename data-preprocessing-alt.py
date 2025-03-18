@@ -19,15 +19,15 @@ pdo_url = metadata["pdo_url"]
 oni_url = metadata["oni_url"]
 beuti_url = metadata["beuti_url"]
 streamflow_url = metadata["streamflow_url"]
-sites = metadata["sites"]
+sites = metadata["sites"]  # Expecting {site_name: (lat, lon), ...}
 start_date = datetime.strptime(metadata["start_date"], "%Y-%m-%d")
 end_date = datetime.strptime(metadata["end_date"], "%Y-%m-%d")
 year_cutoff = metadata["year_cutoff"]
 week_cutoff = metadata["week_cutoff"]
 final_output_path = metadata.get("final_output_path", "final_output.parquet")
 
-downloaded_files = []  # To track temporary downloads
-generated_parquet_files = []  # To track parquet files created from CSVs
+downloaded_files = []         # To track downloaded temporary files
+generated_parquet_files = []  # To track parquet files generated from CSVs
 
 # ------------------------------
 # Helper Functions
@@ -57,7 +57,7 @@ def csv_to_parquet(csv_path):
 
 def convert_files_to_parquet(files):
     """
-    Given a dictionary of file paths, convert CSV files to Parquet if necessary.
+    Given a dictionary of file paths, convert CSV files to Parquet if needed.
     Returns a new dictionary with Parquet file paths.
     """
     new_files = {}
@@ -74,6 +74,24 @@ def convert_files_to_parquet(files):
 # Convert DA and PN files to Parquet (if they are CSVs)
 da_files = convert_files_to_parquet(original_da_files)
 pn_files = convert_files_to_parquet(original_pn_files)
+
+# ------------------------------
+# Spatial Interpolation Helper
+# ------------------------------
+def idw_interpolation(x, y, values, x0, y0, power=2):
+    """
+    Perform Inverse Distance Weighting (IDW) interpolation.
+    x, y: arrays of coordinates from the data.
+    values: corresponding data values.
+    x0, y0: target coordinates.
+    power: the power parameter for IDW.
+    """
+    distances = np.sqrt((x - x0)**2 + (y - y0)**2)
+    # If the target exactly matches a data point, return its value.
+    if np.any(distances == 0):
+        return values[distances == 0][0]
+    weights = 1.0 / distances**power
+    return np.sum(weights * values) / np.sum(weights)
 
 # ------------------------------
 # Data Processing Functions
@@ -212,7 +230,14 @@ def convert_and_fill(data):
     data[cols] = data[cols].apply(pd.to_numeric, errors='coerce')
     return data.fillna(0)
 
-def fetch_beuti_data(url, sites):
+# ------------------------------
+# New: BEUTI Data with IDW Spatial Interpolation
+# ------------------------------
+def fetch_beuti_data_idw(url, sites, power=2):
+    """
+    For each unique date in the BEUTI dataset, use IDW interpolation to estimate
+    the BEUTI value at the exact site coordinates.
+    """
     fname = local_filename(url, '.nc')
     if not os.path.exists(fname) and download_file(url, fname) is None:
         return pd.DataFrame()
@@ -224,28 +249,31 @@ def fetch_beuti_data(url, sites):
     df = ds.to_dataframe().reset_index()
     if 'time' in df.columns:
         df.rename(columns={'time': 'datetime'}, inplace=True)
+    # Create a Date column from datetime
     df['Date'] = pd.to_datetime(df['datetime']).dt.date
     df['Date'] = pd.to_datetime(df['Date'])
-
-    # --- Find Closest Latitude ---
-    beuti_values = []
-    for site, (site_lat, _) in sites.items():
-        site_beuti = []
-        for date in df['Date'].unique():
-            date_df = df[df['Date'] == date]
-            lats = date_df['latitude'].values
-            closest_lat_idx = np.argmin(np.abs(lats - site_lat))
-            closest_beuti = date_df['BEUTI'].iloc[closest_lat_idx]
-            site_beuti.append(closest_beuti)
-        site_data = pd.DataFrame({
-            'Date': df['Date'].unique(),
-            'Site': site,
-            'BEUTI': site_beuti,
-            'latitude': site_lat
-        })
-        beuti_values.append(site_data)
-    beuti_closest_df = pd.concat(beuti_values)
-    return beuti_closest_df
+    
+    # Ensure the dataframe contains 'latitude', 'longitude', and 'BEUTI'
+    if not set(['latitude', 'longitude', 'BEUTI']).issubset(df.columns):
+        print("BEUTI dataset does not contain the required spatial columns.")
+        return pd.DataFrame()
+    
+    results = []
+    for date in sorted(df['Date'].unique()):
+        date_df = df[df['Date'] == date]
+        lats = date_df['latitude'].values
+        lons = date_df['longitude'].values
+        values = date_df['BEUTI'].values
+        for site, (site_lat, site_lon) in sites.items():
+            interp_val = idw_interpolation(lats, lons, values, site_lat, site_lon, power=power)
+            results.append({
+                'Date': date,
+                'Site': site,
+                'BEUTI': interp_val,
+                'latitude': site_lat,
+                'longitude': site_lon
+            })
+    return pd.DataFrame(results)
 
 # ------------------------------
 # Data Processing Pipeline
@@ -255,7 +283,9 @@ pn_data = process_pn(pn_files)
 streamflow_data = process_streamflow(streamflow_url)
 pdo_data = fetch_climate_index(pdo_url, 'PDO')
 oni_data = fetch_climate_index(oni_url, 'ONI')
-beuti_data = fetch_beuti_data(beuti_url, sites)
+
+# Use the new IDW-based BEUTI function
+beuti_data = fetch_beuti_data_idw(beuti_url, sites, power=2)
 
 compiled = generate_compiled_data(sites, start_date, end_date)
 lt_data = compile_data(compiled, oni_data, pdo_data, streamflow_data)
@@ -277,14 +307,14 @@ final_data = final_data[desired_cols]
 final_data['Date'] = final_data['Date'].dt.strftime("%-m/%-d/%Y")
 
 # ------------------------------
-# Integrate BEUTI data
+# Integrate BEUTI data with IDW results
 # ------------------------------
 
-# Merge with final_data
-final_data['Date'] = pd.to_datetime(final_data['Date'])  # Ensure Date is datetime
+# Ensure final_data's Date column is datetime before merge
+final_data['Date'] = pd.to_datetime(final_data['Date'])
 final_data = pd.merge(final_data, beuti_data, on=['Date', 'Site'], how='left')
 
-# Handle missing BEUTI values (no interpolation)
+# Handle missing BEUTI values (e.g., no interpolation)
 final_data['BEUTI'] = final_data['BEUTI'].fillna(0)
 
 # Standardize column names and order again

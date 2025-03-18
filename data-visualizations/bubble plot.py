@@ -1,40 +1,59 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import matplotlib.dates as mdates
 
-# Load the dataset
-file_path = "data-visualizations/final_output.csv"  # Update this if needed
-df = pd.read_csv(file_path)
+# Read CSV data
+df = pd.read_csv("data-visualizations/final_output.csv")
 
-# Convert Date column to datetime
-df["Date"] = pd.to_datetime(df["Date"])
+# Convert the 'Date' column to datetime (adjust format if necessary)
+df['Date'] = pd.to_datetime(df['Date'])
 
-# Define normalization to shift red appearance aggressively at 50 ppm
-norm = mcolors.Normalize(vmin=df["DA Levels"].min(), vmax=50)
+# Create a mapping from latitude to its corresponding site (assumes one site per unique lat)
+lat_to_site = df.groupby('lat')['Site'].first().to_dict()
 
-# Create the bubble plot
-fig, ax = plt.subplots(figsize=(12, 6))
-scatter = ax.scatter(
-    df["Date"], df["lat"], s=df["DA Levels"] * 5, c=df["DA Levels"], 
-    cmap=plt.cm.coolwarm, norm=norm, alpha=0.6, edgecolors="black", linewidth=0.5, marker="x"
-)
+# Sort unique latitudes in descending order (largest to smallest)
+unique_lats = sorted(df['lat'].unique(), reverse=True)
 
-# Add colorbar with customized labels
-cbar = plt.colorbar(scatter, ax=ax)
-cbar.set_label("DA Levels (ppm)")
-cbar.set_ticks([0, 10, 20, 30, 40, 50])
-cbar.ax.set_yticklabels(["0", "10", "20", "30", "40", "≥50"])  # Adjust labels
+plt.figure(figsize=(10, 7))
 
-# Set labels and title
-ax.set_xlabel("Date")
-ax.set_ylabel("Latitude")
-ax.set_title("Time Series of DA Levels by Latitude (Bubble Size Represents DA Levels)")
-ax.tick_params(axis='x', rotation=45)
-ax.grid(True, linestyle="--", alpha=0.5)
+# Adjust these factors:
+scaling_factor_da = 0.1   # Reduce the scale of DA Levels
+baseline_multiplier = 15  # Increase the scale of latitude for greater vertical spacing
 
-# Export as PDF
-pdf_filename = "data-visualizations/DA_Levels_Bubble_Plot.pdf"
-plt.savefig(pdf_filename, format="pdf", bbox_inches="tight")
+# Plot each latitude group separately with its own vertical baseline
+for lat in unique_lats:
+    group = df[df['lat'] == lat].sort_values(by='Date')
+    
+    # Convert Date to matplotlib's numeric format
+    time_nums = mdates.date2num(group['Date'])
+    
+    # Extract DA Levels values
+    da_values = group['DA Levels']
+    
+    # The baseline is the latitude multiplied by the baseline_multiplier.
+    baseline = lat * baseline_multiplier
+    y_values = baseline + scaling_factor_da * da_values
+    
+    # Use the site name from the mapping instead of the latitude value
+    plt.plot_date(time_nums, y_values, '-', label=lat_to_site[lat])
+
+# Format the x-axis to display dates nicely
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.gcf().autofmt_xdate()
+
+# Label the axes
+plt.xlabel("Date")
+plt.ylabel("Scaled Latitude + Scaled DA Levels (Latitude X 10 + DA Levels X 0.1)")
+
+# Optionally, add horizontal dashed lines at each latitude baseline for reference
+for lat in unique_lats:
+    plt.axhline(y=lat * baseline_multiplier, color='gray', linestyle='--', linewidth=0.5)
+
+# Adjust the legend so it spans the full width and appears on two rows
+# Change 'ncol=4' as needed to fit your number of sites
+plt.legend(loc='lower center', bbox_to_anchor=(0, -0.3, 1, 0.3), mode="expand", ncol=4)
+
+# Save the figure as a vector PDF
+plt.savefig("data-visualizations/waterfall_plot.pdf", format="pdf")
+
 plt.show()
-
-print(f"Plot saved as {pdf_filename}")
