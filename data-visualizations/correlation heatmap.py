@@ -1,50 +1,57 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # required for 3D plotting
-import matplotlib.dates as mdates
 
-# Read CSV data
-df = pd.read_csv("final_output.csv")
+# Load the CSV file
+file_path = "final_output.parquet"
+df = pd.read_parquet(file_path)
 
-# Convert the time column to datetime (adjust format if necessary)
-df['time'] = pd.to_datetime(df['time'])
+# Drop 'longitude' and 'latitude' columns if they exist
+cols_to_drop = [col for col in ['longitude', 'latitude'] if col in df.columns]
+if cols_to_drop:
+    df = df.drop(columns=cols_to_drop)
 
-# Group data by latitude
-groups = df.groupby('latitude')
+# Select numeric columns only
+numeric_df = df.select_dtypes(include=['number'])
 
-# Create 3D figure
-fig = plt.figure(figsize=(10, 7))
-ax = fig.add_subplot(111, projection='3d')
+# Compute correlation matrix
+corr_matrix = numeric_df.corr()
 
-# Plot a line for each latitude group to simulate a waterfall plot
-for lat, group in groups:
-    # Sort by time for each group
-    group = group.sort_values(by='time')
-    
-    # Convert datetime to matplotlib’s numeric date format for proper scaling
-    time_nums = mdates.date2num(group['time'])
-    
-    # Extract y values (da)
-    da_values = group['da']
-    
-    # For the z-axis, use the constant latitude for each group
-    lat_values = [lat] * len(group)
-    
-    ax.plot(time_nums, da_values, lat_values, label=f'Lat {lat}')
+# Create the figure and axis
+fig, ax = plt.subplots(figsize=(10, 8))
 
-# Set axis labels
-ax.set_xlabel("Time")
-ax.set_ylabel("da")
-ax.set_zlabel("Latitude")
+# Create the heatmap using imshow with the RdBu colormap
+cax = ax.imshow(corr_matrix, cmap='RdBu', vmin=-1, vmax=1)
 
-# Format the x-axis to show dates nicely
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-fig.autofmt_xdate()
+# Set tick marks and labels
+ax.set_xticks(np.arange(len(corr_matrix.columns)))
+ax.set_yticks(np.arange(len(corr_matrix.index)))
+ax.set_xticklabels(corr_matrix.columns, fontsize=12, rotation=-45)
+ax.set_yticklabels(corr_matrix.index, fontsize=12)
 
-# Optional: add a legend (can be omitted if there are many latitudes)
-ax.legend()
+# Title and axis labels
+ax.set_title('Correlation Heatmap', fontsize=20, pad=20)
+ax.set_xlabel('Variable', fontsize=14)
+ax.set_ylabel('Variable', fontsize=14)
 
-# Save the plot as a vector PDF
-plt.savefig("waterfall_plot.pdf", format="pdf")
+# Annotate each cell with the correlation value (rounded to 2 decimals)
+for i in range(len(corr_matrix.index)):
+    for j in range(len(corr_matrix.columns)):
+        value = corr_matrix.iloc[i, j]
+        # Use white text for correlation 1 (or very close to it), black otherwise
+        color = "white" if np.isclose(value, 1.0) else "black"
+        ax.text(j, i, f"{value:.2f}", ha="center", va="center", color=color, fontsize=10)
 
+# Add colorbar
+cbar = fig.colorbar(cax, ax=ax)
+cbar.ax.tick_params(labelsize=12)
+
+# Adjust layout
+plt.tight_layout()
+
+# Save the figure as a high-resolution PDF
+pdf_path = "data-visualizations/correlation_heatmap.pdf"
+plt.savefig(pdf_path, format="pdf")
 plt.show()
+
+print(f"High-resolution PDF saved at: {pdf_path}")

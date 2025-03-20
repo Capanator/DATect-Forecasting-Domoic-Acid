@@ -2,7 +2,7 @@ import os
 import json
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import xarray as xr
 import numpy as np
 
@@ -90,29 +90,40 @@ pn_files = convert_files_to_parquet(original_pn_files)
 def process_da(files):
     """
     Process Domoic Acid (DA) data from the given files.
-    Returns a concatenated DataFrame with 'Year-Week', 'DA', and 'Location'.
+    Returns a concatenated DataFrame with 'Biweek', 'DA', and 'Location'.
     """
     data_frames = []
     for name, path in files.items():
         df = pd.read_parquet(path)
         if 'CollectDate' in df.columns:
-            df['Year-Week'] = pd.to_datetime(df['CollectDate']).dt.strftime('%Y-%U')
-            df['DA'] = df['Domoic Result']
+            df['Date'] = pd.to_datetime(df['CollectDate'])
         else:
             # Build date from separate Harvest columns
             df['CollectDate'] = df.apply(
                 lambda x: f"{x['Harvest Month']} {x['Harvest Date']}, {x['Harvest Year']}", axis=1
             )
-            df['Year-Week'] = pd.to_datetime(df['CollectDate'], format='%B %d, %Y').dt.strftime('%Y-%U')
+            df['Date'] = pd.to_datetime(df['CollectDate'], format='%B %d, %Y')
+        
+        # Calculate biweekly period - every two weeks
+        df['Year'] = df['Date'].dt.year
+        df['BiweekNum'] = ((df['Date'].dt.dayofyear - 1) // 14) + 1
+        df['Biweek'] = df['Year'].astype(str) + '-B' + df['BiweekNum'].astype(str).str.zfill(2)
+        
+        # Set DA column
+        if 'Domoic Result' in df.columns:
+            df['DA'] = df['Domoic Result']
+        else:
             df['DA'] = df['Domoic Acid']
+            
         df['Location'] = name.replace('-', ' ').title()
-        data_frames.append(df[['Year-Week', 'DA', 'Location']])
+        data_frames.append(df[['Biweek', 'DA', 'Location', 'Date']])
+    
     return pd.concat(data_frames, ignore_index=True)
 
 def process_pn(files):
     """
     Process Pseudo-nitzschia (PN) data from the given files.
-    Returns a concatenated DataFrame with 'Year-Week', 'PN', and 'Location'.
+    Returns a concatenated DataFrame with 'Biweek', 'PN', and 'Location'.
     """
     data_frames = []
     for name, path in files.items():
@@ -122,16 +133,23 @@ def process_pn(files):
         pn_col = [c for c in df.columns if "Pseudo-nitzschia" in c][0]
         sample_date = df.loc[df['Date'] != 'nan', 'Date'].iloc[0]
         fmt = '%m/%d/%Y' if sample_date.count('/') == 2 and len(sample_date.split('/')[-1]) == 4 else '%m/%d/%y'
-        df['Year-Week'] = pd.to_datetime(df['Date'], format=fmt, errors='coerce').dt.strftime('%Y-%U')
+        df['Date'] = pd.to_datetime(df['Date'], format=fmt, errors='coerce')
+        
+        # Calculate biweekly period - every two weeks
+        df['Year'] = df['Date'].dt.year
+        df['BiweekNum'] = ((df['Date'].dt.dayofyear - 1) // 14) + 1
+        df['Biweek'] = df['Year'].astype(str) + '-B' + df['BiweekNum'].astype(str).str.zfill(2)
+        
         df['PN'] = df[pn_col]
         df['Location'] = name.replace('-pn', '').replace('-', ' ').title()
-        data_frames.append(df[['Year-Week', 'PN', 'Location']].dropna(subset=['Year-Week']))
+        data_frames.append(df[['Biweek', 'PN', 'Location', 'Date']].dropna(subset=['Biweek']))
+    
     return pd.concat(data_frames, ignore_index=True)
 
 def process_streamflow(url):
     """
     Download and process streamflow data from the given URL.
-    Returns a DataFrame with weekly average streamflow.
+    Returns a DataFrame with biweekly average streamflow.
     """
     fname = local_filename(url, '.json')
     if not os.path.exists(fname) and download_file(url, fname) is None:
@@ -157,16 +175,26 @@ def process_streamflow(url):
     
     df = pd.DataFrame(records, columns=['Date', 'Flow'])
     df['Date'] = pd.to_datetime(df['Date'])
-    df['Year-Week'] = df['Date'].dt.strftime('%Y-W%W')
     
-    weekly = df.groupby('Year-Week')['Flow'].mean().reset_index()
-    weekly['Date'] = weekly['Year-Week'].apply(lambda x: pd.to_datetime(x + '-1', format='%Y-W%W-%w'))
-    return weekly[['Date', 'Flow']]
+    # Calculate biweekly period
+    df['Year'] = df['Date'].dt.year
+    df['BiweekNum'] = ((df['Date'].dt.dayofyear - 1) // 14) + 1
+    df['Biweek'] = df['Year'].astype(str) + '-B' + df['BiweekNum'].astype(str).str.zfill(2)
+    
+    biweekly = df.groupby('Biweek')['Flow'].mean().reset_index()
+    
+    # Create a representative date for each biweek (first day of the biweek)
+    biweekly['Date'] = biweekly['Biweek'].apply(
+        lambda x: datetime(int(x.split('-B')[0]), 1, 1) + 
+                 timedelta(days=(int(x.split('-B')[1]) - 1) * 14)
+    )
+    
+    return biweekly[['Date', 'Flow', 'Biweek']]
 
 def fetch_climate_index(url, var_name):
     """
     Download and process a climate index (e.g., ONI or PDO) from the given URL.
-    Returns a DataFrame with weekly average index values.
+    Returns a DataFrame with biweekly average index values.
     """
     fname = local_filename(url, '.nc')
     if not os.path.exists(fname) and download_file(url, fname) is None:
@@ -180,85 +208,115 @@ def fetch_climate_index(url, var_name):
     df = ds.to_dataframe().reset_index()
     df['time'] = pd.to_datetime(df['time'])
     df = df[['time', var_name]].dropna().rename(columns={'time': 'datetime', var_name: 'index'})
-    df['week'] = df['datetime'].dt.strftime('%Y-W%W')
-    return df.groupby('week')['index'].mean().reset_index()
+    
+    # Calculate biweekly period
+    df['Year'] = df['datetime'].dt.year
+    df['BiweekNum'] = ((df['datetime'].dt.dayofyear - 1) // 14) + 1
+    df['Biweek'] = df['Year'].astype(str) + '-B' + df['BiweekNum'].astype(str).str.zfill(2)
+    
+    return df.groupby('Biweek')['index'].mean().reset_index()
 
 def generate_compiled_data(sites, start, end):
     """
-    Generate a DataFrame with all week and site combinations within the specified date range.
+    Generate a DataFrame with all biweek and site combinations within the specified date range.
     """
-    weeks = [d.strftime('%Y-W%W') for d in pd.date_range(start, end, freq='W')]
+    # Create biweekly periods
+    date_range = pd.date_range(start, end, freq='2W')
+    biweeks = []
+    
+    for d in date_range:
+        year = d.year
+        biweek_num = ((d.dayofyear - 1) // 14) + 1
+        biweek = f"{year}-B{biweek_num:02d}"
+        biweeks.append((biweek, d))
+    
     return pd.DataFrame([
-        {'Date': week, 'Site': site, 'Latitude': lat, 'Longitude': lon}
-        for week in weeks for site, (lat, lon) in sites.items()
+        {'Date': date, 'Biweek': biweek, 'Site': site, 'Latitude': lat, 'Longitude': lon}
+        for biweek, date in biweeks for site, (lat, lon) in sites.items()
     ])
 
 def compile_data(compiled, oni, pdo, streamflow):
     """
-    Merge the compiled site-week data with climate indices (ONI, PDO) and streamflow data.
+    Merge the compiled site-biweek data with climate indices (ONI, PDO) and streamflow data.
     """
-    compiled = compiled.merge(oni, left_on='Date', right_on='week', how='left') \
-                       .drop('week', axis=1) \
+    compiled = compiled.merge(oni, on='Biweek', how='left') \
                        .rename(columns={'index': 'ONI'})
-    compiled = compiled.merge(pdo, left_on='Date', right_on='week', how='left') \
-                       .drop('week', axis=1) \
+    compiled = compiled.merge(pdo, on='Biweek', how='left') \
                        .rename(columns={'index': 'PDO'})
     
-    # Convert week string to actual date
-    compiled['Date'] = pd.to_datetime(compiled['Date'] + '-1', format='%Y-W%W-%w')
-    streamflow['Date'] = pd.to_datetime(streamflow['Date'], format='%Y-W%W')
-    compiled = compiled.merge(streamflow, on='Date', how='left') \
+    compiled = compiled.merge(streamflow[['Biweek', 'Flow']], on='Biweek', how='left') \
                        .rename(columns={'Flow': 'Streamflow'})
+    
     return compiled.drop_duplicates(subset=['Date', 'Latitude', 'Longitude'])
 
 def compile_da_pn(lt, da, pn):
     """
     Merge DA and PN data with the main dataset.
     """
-    da.rename(columns={'Year-Week': 'Date', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
-    pn.rename(columns={'Year-Week': 'Date', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
+    da.rename(columns={'Biweek': 'Biweek', 'DA': 'DA_Levels', 'Location': 'Site'}, inplace=True)
+    pn.rename(columns={'Biweek': 'Biweek', 'PN': 'PN_Levels', 'Location': 'Site'}, inplace=True)
     
-    da['Date'] = pd.to_datetime(da['Date'] + '-1', format='%Y-%U-%w')
-    pn['Date'] = pd.to_datetime(pn['Date'] + '-1', format='%Y-%U-%w')
     da['DA_Levels'] = pd.to_numeric(da['DA_Levels'], errors='coerce')
     
-    merged = lt.merge(da, on=['Date', 'Site'], how='left') \
-               .merge(pn, on=['Date', 'Site'], how='left')
-    merged['DA_Levels'] = merged['DA_Levels'].interpolate(method='linear')
-    merged['PN_Levels'] = merged['PN_Levels'].interpolate(method='linear')
-    merged.fillna({'DA_Levels': 0, 'PN_Levels': 0}, inplace=True)
+    # Merge using Biweek instead of Date to minimize interpolation needs
+    merged = lt.merge(da[['Biweek', 'Site', 'DA_Levels']], on=['Biweek', 'Site'], how='left') \
+               .merge(pn[['Biweek', 'Site', 'PN_Levels']], on=['Biweek', 'Site'], how='left')
+    
+    # Much less interpolation should be needed now since we're on biweekly schedule
+    # matching DA collection frequency
+    merged['DA_Levels'] = merged['DA_Levels'].fillna(0)
+    merged['PN_Levels'] = merged['PN_Levels'].fillna(0)
     merged['DA_Levels'] = merged['DA_Levels'].apply(lambda x: 0 if x < 1 else x)
+    
     return merged.loc[:, ~merged.columns.duplicated()]
 
 def filter_data(data, cutoff_year, cutoff_week):
     """
     Filter the data to include only records after the specified cutoff year and week.
+    For biweekly data, we'll convert the week cutoff to a biweek cutoff.
     """
     data['Year'] = data['Date'].dt.year
-    data['Week'] = data['Date'].dt.isocalendar().week
-    return data[(data['Year'] > cutoff_year) | ((data['Year'] == cutoff_year) & (data['Week'] >= cutoff_week))]
+    biweek_cutoff = (cutoff_week + 1) // 2  # Convert week to biweek (approximate)
+    
+    return data[(data['Year'] > cutoff_year) | 
+                ((data['Year'] == cutoff_year) & 
+                 (data['Biweek'].str.split('-B').str[1].astype(int) >= biweek_cutoff))]
 
 def process_duplicates(data):
     """
     Aggregate duplicate entries by averaging numeric values and taking the first value for coordinates.
     """
-    agg = {
-        'ONI': 'mean',
-        'PDO': 'mean',
-        'Streamflow': 'mean',
-        'DA_Levels': 'mean',
-        'PN_Levels': lambda x: x.iloc[0]
-    }
+    # Create a new DataFrame for the aggregated results
+    result = data.groupby(['Biweek', 'Site'])['Date'].first().reset_index()
+    
+    # Add each numeric column one by one
+    for col in ['ONI', 'PDO', 'Streamflow', 'DA_Levels', 'PN_Levels']:
+        if col in data.columns:
+            try:
+                # Convert to numeric and calculate mean
+                numeric_data = pd.to_numeric(data[col], errors='coerce')
+                aggregated = data.groupby(['Biweek', 'Site'])[col].mean()
+                result = result.merge(aggregated.reset_index(), on=['Biweek', 'Site'], how='left')
+            except Exception as e:
+                print(f"Error processing column {col}: {e}")
+                # Use first value as fallback
+                aggregated = data.groupby(['Biweek', 'Site'])[col].first()
+                result = result.merge(aggregated.reset_index(), on=['Biweek', 'Site'], how='left')
+    
+    # Add coordinate columns
     for col in ['Latitude', 'Longitude']:
         if col in data.columns:
-            agg[col] = 'first'
-    return data.groupby(['Date', 'Site']).agg(agg).reset_index()
+            aggregated = data.groupby(['Biweek', 'Site'])[col].first()
+            result = result.merge(aggregated.reset_index(), on=['Biweek', 'Site'], how='left')
+            
+    return result
+
 
 def convert_and_fill(data):
     """
-    Convert all columns (except Date and Site) to numeric and fill missing values with zeros.
+    Convert all columns (except Date, Biweek, and Site) to numeric and fill missing values with zeros.
     """
-    cols = data.columns.difference(['Date', 'Site'])
+    cols = data.columns.difference(['Date', 'Biweek', 'Site'])
     data[cols] = data[cols].apply(pd.to_numeric, errors='coerce')
     return data.fillna(0)
 
@@ -272,7 +330,7 @@ def fetch_beuti_data(url, sites, power=2):
         power (float): Power parameter for the IDW interpolation (default is 2).
     
     Returns:
-        pd.DataFrame: DataFrame with columns ['Date', 'Site', 'BEUTI', 'beuti_latitude']
+        pd.DataFrame: DataFrame with columns ['Date', 'Biweek', 'Site', 'BEUTI', 'beuti_latitude']
     """
     fname = local_filename(url, '.nc')
     if not os.path.exists(fname) and download_file(url, fname) is None:
@@ -291,35 +349,48 @@ def fetch_beuti_data(url, sites, power=2):
     df['Date'] = pd.to_datetime(df['datetime']).dt.date
     df['Date'] = pd.to_datetime(df['Date'])
     
-    beuti_values = []
-    unique_dates = np.sort(df['Date'].unique())
+    # Calculate biweekly period
+    df['Year'] = df['Date'].dt.year
+    df['BiweekNum'] = ((df['Date'].dt.dayofyear - 1) // 14) + 1
+    df['Biweek'] = df['Year'].astype(str) + '-B' + df['BiweekNum'].astype(str).str.zfill(2)
     
-    # Iterate over each site and perform IDW interpolation by date
+    beuti_values = []
+    
+    # Group by biweek for the interpolation
+    biweek_groups = df.groupby('Biweek')
+    unique_biweeks = sorted(df['Biweek'].unique())
+    
+    # Iterate over each site and perform IDW interpolation by biweek
     for site, (site_lat, _) in sites.items():
         site_beuti = []
-        for date in unique_dates:
-            date_df = df[df['Date'] == date]
-            if date_df.empty:
-                site_beuti.append(np.nan)
+        for biweek in unique_biweeks:
+            biweek_df = biweek_groups.get_group(biweek) if biweek in biweek_groups.groups else pd.DataFrame()
+            if biweek_df.empty:
+                site_beuti.append((biweek, np.nan))
                 continue
             
             # If an observation matches the site latitude, use it directly
-            exact_match = date_df[np.isclose(date_df['latitude'], site_lat)]
+            exact_match = biweek_df[np.isclose(biweek_df['latitude'], site_lat)]
             if not exact_match.empty:
-                site_beuti.append(exact_match['BEUTI'].iloc[0])
+                site_beuti.append((biweek, exact_match['BEUTI'].iloc[0]))
             else:
-                distances = np.abs(date_df['latitude'] - site_lat)
+                distances = np.abs(biweek_df['latitude'] - site_lat)
                 if np.any(distances == 0):
-                    site_beuti.append(date_df.loc[distances.idxmin(), 'BEUTI'])
+                    site_beuti.append((biweek, biweek_df.loc[distances.idxmin(), 'BEUTI']))
                 else:
                     weights = 1 / (distances ** power)
-                    weighted_value = np.sum(date_df['BEUTI'] * weights) / np.sum(weights)
-                    site_beuti.append(weighted_value)
-                    
+                    weighted_value = np.sum(biweek_df['BEUTI'] * weights) / np.sum(weights)
+                    site_beuti.append((biweek, weighted_value))
+        
+        # Get a representative date for each biweek
+        biweek_dates = {biweek: df[df['Biweek'] == biweek]['Date'].min() 
+                       for biweek in unique_biweeks if biweek in df['Biweek'].values}
+        
         site_data = pd.DataFrame({
-            'Date': unique_dates,
+            'Biweek': [b for b, _ in site_beuti],
+            'Date': [biweek_dates.get(b, pd.NaT) for b, _ in site_beuti],
             'Site': site,
-            'BEUTI': site_beuti,
+            'BEUTI': [v for _, v in site_beuti],
             'beuti_latitude': site_lat
         })
         beuti_values.append(site_data)
@@ -349,7 +420,7 @@ if 'Latitude' in final_data.columns:
 if 'Longitude' in final_data.columns:
     final_data.rename(columns={'Longitude': 'longitude'}, inplace=True)
 
-desired_cols = ["Date", "Site", "latitude", "longitude", "ONI", "PDO", "Streamflow", "DA_Levels", "PN_Levels"]
+desired_cols = ["Date", "Biweek", "Site", "latitude", "longitude", "ONI", "PDO", "Streamflow", "DA_Levels", "PN_Levels"]
 for col in desired_cols:
     if col not in final_data.columns:
         final_data[col] = np.nan
@@ -360,26 +431,27 @@ final_data['Date'] = final_data['Date'].dt.strftime("%-m/%-d/%Y")
 # Integrate BEUTI Data
 # =============================================================================
 final_data['Date'] = pd.to_datetime(final_data['Date'])  # Ensure Date is datetime
-final_data = pd.merge(final_data, beuti_data, on=['Date', 'Site'], how='left')
-
-# Optionally remove the beuti_latitude column if not needed
-if 'beuti_latitude' in final_data.columns:
-    final_data.drop(columns=['beuti_latitude'], inplace=True)
+final_data = pd.merge(final_data, beuti_data[['Biweek', 'Site', 'BEUTI']], on=['Biweek', 'Site'], how='left')
 
 final_data['BEUTI'] = final_data['BEUTI'].fillna(0)
 
+# Standardize columns and order again
 # Standardize columns and order again
 if 'Latitude' in final_data.columns:
     final_data.rename(columns={'Latitude': 'latitude'}, inplace=True)
 if 'Longitude' in final_data.columns:
     final_data.rename(columns={'Longitude': 'longitude'}, inplace=True)
 
-desired_cols = ["Date", "Site", "latitude", "longitude", "ONI", "PDO", "Streamflow", "DA_Levels", "PN_Levels", "BEUTI"]
-for col in desired_cols:
+# Include Biweek during processing
+processing_cols = ["Date", "Biweek", "Site", "latitude", "longitude", "ONI", "PDO", "Streamflow", "DA_Levels", "PN_Levels", "BEUTI"]
+for col in processing_cols:
     if col not in final_data.columns:
         final_data[col] = np.nan
-final_data = final_data[desired_cols]
+final_data = final_data[processing_cols]
 final_data['Date'] = final_data['Date'].dt.strftime("%-m/%-d/%Y")
+
+# Before saving, drop the Biweek column
+final_data = final_data.drop(columns=['Biweek'])
 
 # Save final output to Parquet
 final_data.to_parquet(final_output_path, index=False)

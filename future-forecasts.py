@@ -1,11 +1,14 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
+from sklearn.ensemble import (RandomForestClassifier, GradientBoostingRegressor, 
+                             GradientBoostingClassifier, StackingClassifier)
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import log_loss
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LogisticRegression
+import xgboost as xgb
 
 import plotly.express as px
 import plotly.graph_objs as go
@@ -201,7 +204,18 @@ def forecast_for_date(df, forecast_date, site):
     X_train_cls_processed = col_trans_cls.fit_transform(X_train_cls)
     X_forecast_cls_processed = col_trans_cls.transform(X_forecast_cls)
 
-    cls_model = RandomForestClassifier(random_state=42)
+    # Replace RandomForestClassifier with Stacking Ensemble
+    base_models_cls = [
+        ('rf', RandomForestClassifier(random_state=42, n_estimators=100)),
+        ('gbc', GradientBoostingClassifier(random_state=42, n_estimators=100)),
+        ('xgb', xgb.XGBClassifier(random_state=42, n_estimators=100, learning_rate=0.1))
+    ]
+    cls_model = StackingClassifier(
+        estimators=base_models_cls,
+        final_estimator=LogisticRegression(max_iter=1000, random_state=42),
+        cv=3
+    )
+    
     cls_model.fit(X_train_cls_processed, y_train_cls)
 
     y_pred_cls = cls_model.predict(X_forecast_cls_processed)

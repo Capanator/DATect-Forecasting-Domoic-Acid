@@ -12,9 +12,9 @@ from SALib.sample import saltelli, morris as morris_sample
 from SALib.analyze import sobol, morris as morris_analyze
 
 # ----------------------------------------
-# Load and Prepare the Dataset
+# Load and Prepare the Dataset from Parquet
 # ----------------------------------------
-df = pd.read_csv("data-visualizations/final_output.csv")
+df = pd.read_parquet("data-visualizations/final_output_v2.parquet")
 
 # Drop non-essential columns if they exist
 cols_to_drop = [col for col in ['lon', 'lat', 'Site'] if col in df.columns]
@@ -25,7 +25,7 @@ if cols_to_drop:
 numeric_df = df.select_dtypes(include=['number'])
 
 # Ensure the target variable "DA Levels" exists
-target_var = 'DA Levels'
+target_var = 'DA_Levels'
 if target_var not in numeric_df.columns:
     raise ValueError(f"Column '{target_var}' not found in the dataset.")
 
@@ -43,19 +43,18 @@ plt.ylabel("Absolute Pearson Correlation", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
 corr_pdf = "data-visualizations/correlation_sensitivity_analysis.pdf"
-plt.savefig(corr_pdf, format='pdf', dpi=300)
-plt.show()
+plt.savefig(corr_pdf, format='pdf')
+plt.close()  # Close the figure to free memory
 print(f"Correlation sensitivity PDF saved at: {corr_pdf}")
 
 # ----------------------------------------
 # Prepare Data for Model-Based Methods
 # ----------------------------------------
-# Define features and target for the following tests
 X = numeric_df.drop(columns=[target_var])
 y = numeric_df[target_var]
 feature_names = X.columns.tolist()
 
-# Split the data for training a surrogate model (used in permutation importance)
+# Split data for training a surrogate model (used in permutation importance)
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
 # Train a simple linear regression model
@@ -94,8 +93,8 @@ plt.ylabel("First Order Sobol Index", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
 sobol_pdf = "data-visualizations/sobol_sensitivity_analysis.pdf"
-plt.savefig(sobol_pdf, format='pdf', dpi=300)
-plt.show()
+plt.savefig(sobol_pdf, format='pdf')
+plt.close()
 print(f"Sobol sensitivity PDF saved at: {sobol_pdf}")
 
 # ----------------------------------------
@@ -103,7 +102,7 @@ print(f"Sobol sensitivity PDF saved at: {sobol_pdf}")
 # ----------------------------------------
 # Define parameters for the Morris method
 num_levels = 4   # number of levels in the grid
-num_trajectories = 10  # number of trajectories (can be adjusted)
+num_trajectories = 10  # number of trajectories (adjustable)
 
 # Generate samples for the Morris method
 morris_samples = morris_sample.sample(problem, N=num_trajectories, num_levels=num_levels, optimal_trajectories=None)
@@ -113,8 +112,6 @@ Y_morris = model_wrapper(morris_samples)
 
 # Analyze the Morris results
 morris_results = morris_analyze.analyze(problem, morris_samples, Y_morris, num_levels=num_levels, print_to_console=False)
-
-# Use mu_star: the mean of the absolute elementary effects as sensitivity
 mu_star = morris_results['mu_star']
 
 plt.figure(figsize=(10, 6))
@@ -125,8 +122,8 @@ plt.ylabel("mu* (Mean Absolute Elementary Effects)", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
 morris_pdf = "data-visualizations/morris_sensitivity_analysis.pdf"
-plt.savefig(morris_pdf, format='pdf', dpi=300)
-plt.show()
+plt.savefig(morris_pdf, format='pdf')
+plt.close()
 print(f"Morris sensitivity PDF saved at: {morris_pdf}")
 
 # ----------------------------------------
@@ -144,8 +141,8 @@ plt.ylabel("Decrease in Model Score", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
 perm_pdf = "data-visualizations/permutation_importance.pdf"
-plt.savefig(perm_pdf, format='pdf', dpi=300)
-plt.show()
+plt.savefig(perm_pdf, format='pdf')
+plt.close()
 print(f"Permutation importance PDF saved at: {perm_pdf}")
 
 # ----------------------------------------
@@ -167,6 +164,6 @@ plt.ylabel("Absolute Standardized Coefficient", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
 regression_pdf = "data-visualizations/regression_sensitivity_analysis.pdf"
-plt.savefig(regression_pdf, format='pdf', dpi=300)
-plt.show()
+plt.savefig(regression_pdf, format='pdf')
+plt.close()
 print(f"Regression-based sensitivity PDF saved at: {regression_pdf}")

@@ -1,0 +1,6 @@
+
+		begin
+      f = addfile("/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/erdBEUTIdaily.nc","r")
+      print(f)
+		end
+    
