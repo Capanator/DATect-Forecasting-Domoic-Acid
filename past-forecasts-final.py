@@ -5,14 +5,16 @@ import pandas as pd
 
 from joblib import Memory
 
+from sklearn.cluster import KMeans
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (RandomForestClassifier, RandomForestRegressor, StackingClassifier, StackingRegressor, GradientBoostingClassifier, GradientBoostingRegressor)
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import (LinearRegression, LogisticRegression, RidgeCV)
-from sklearn.metrics import (accuracy_score, mean_absolute_error, r2_score)
+from sklearn.metrics import (accuracy_score, mean_absolute_error,r2_score)
 from sklearn.model_selection import (GridSearchCV, TimeSeriesSplit, train_test_split)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import SVC, SVR
 
 import xgboost as xgb
 
@@ -25,6 +27,7 @@ import plotly.express as px
 # ---------------------------------------------------------
 # Global Flags and Caching Settings
 # ---------------------------------------------------------
+ENABLE_SEASON_SPECIFIC_TRAINER = False
 ENABLE_LINEAR_LOGISTIC = True
 ENABLE_RANDOM_ANCHOR_FORECASTS = False
 ENABLE_GRIDSEARCHCV = True
@@ -71,10 +74,10 @@ def create_numeric_transformer(df: pd.DataFrame, drop_cols: list):
 # 2) Data Loading & Feature Engineering (cached)
 # ---------------------------------------------------------
 @memory.cache
-def load_and_prepare_data(file_path: str) -> pd.DataFrame:
+def load_and_prepare_data(file_path: str, season: str = None) -> pd.DataFrame:
     """
-    Loads data from a Parquet file, adds time-based features, 
-    and creates lag features & categories.
+    Loads data from a Parquet file, applies optional seasonal filtering,
+    adds time-based features, and creates lag features & categories.
     """
     print(f"[INFO] Loading data from {file_path}")
     data = pd.read_parquet(file_path, engine='pyarrow')
@@ -82,6 +85,14 @@ def load_and_prepare_data(file_path: str) -> pd.DataFrame:
     # Convert and sort by date
     data['Date'] = pd.to_datetime(data['Date'])
     data.sort_values(['Site', 'Date'], inplace=True)
+    
+    # Optional seasonal subset
+    if season and ENABLE_SEASON_SPECIFIC_TRAINER:
+        print(f"[INFO] Applying seasonal filter for '{season}'")
+        if season == 'spring':
+            data = data[data['Date'].dt.month.isin([3, 4, 5, 6, 7])]
+        elif season == 'fall':
+            data = data[data['Date'].dt.month.isin([9, 10, 11, 12])]
     
     # Cyclical day-of-year transformations
     day_of_year = data['Date'].dt.dayofyear
@@ -140,7 +151,115 @@ def train_model(model, X_train, y_train, X_test, model_type='regression',
 
 
 # ---------------------------------------------------------
-# 4) Linear & Logistic Regression Train & Predict
+# 4) Core Train & Predict Functions (Random Forest, etc.)
+# ---------------------------------------------------------
+def train_and_predict(data: pd.DataFrame):
+    """
+    Splits the data into train/test sets, trains both a RandomForest regressor
+    (for DA_Levels) and a RandomForest classifier (for DA_Category), and returns
+    predictions and performance metrics.
+    """
+    print("[INFO] Training RandomForest models (regression & classification)...")
+    tscv = TimeSeriesSplit(n_splits=5)
+
+    # ------------------ Regression Setup ------------------
+    data_reg = data.drop(['DA_Category'], axis=1)
+    train_reg, test_reg = train_test_split(data_reg, test_size=0.2, random_state=42)
+    drop_cols_reg = ['DA_Levels', 'Date', 'Site']
+
+    transformer_reg, X_train_reg = create_numeric_transformer(train_reg, drop_cols_reg)
+    X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
+    X_test_reg_processed = transformer_reg.transform(
+        test_reg.drop(columns=drop_cols_reg, errors='ignore')
+    )
+
+    # RandomForest Regressor
+    param_grid_reg = {
+        'n_estimators': [200, 300],
+        'max_depth': [10, 15],
+        'min_samples_split': [2, 5],
+        'min_samples_leaf': [1, 2]
+    }
+    best_reg, y_pred_reg = train_model(
+        RandomForestRegressor(random_state=42),
+        X_train_reg_processed,
+        train_reg['DA_Levels'],
+        X_test_reg_processed,
+        model_type='regression',
+        cv=tscv,
+        param_grid=param_grid_reg
+    )
+
+    test_reg = test_reg.copy()
+    test_reg['Predicted_DA_Levels'] = y_pred_reg
+    overall_r2_reg = r2_score(test_reg['DA_Levels'], y_pred_reg)
+    overall_mae_reg = mean_absolute_error(test_reg['DA_Levels'], y_pred_reg)
+
+    # Per-site performance for regression
+    site_stats_reg = (
+        test_reg.groupby('Site')[['DA_Levels', 'Predicted_DA_Levels']]
+        .apply(lambda x: pd.Series({
+            'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
+            'mae': mean_absolute_error(x['DA_Levels'], x['Predicted_DA_Levels'])
+        }))
+    )
+
+    # ------------------ Classification Setup ------------------
+    data_cls = data.drop(['DA_Levels'], axis=1)
+    train_cls, test_cls = train_test_split(data_cls, test_size=0.2, random_state=42)
+    drop_cols_cls = ['DA_Category', 'Date', 'Site']
+
+    transformer_cls, X_train_cls = create_numeric_transformer(train_cls, drop_cols_cls)
+    X_train_cls_processed = transformer_cls.fit_transform(X_train_cls)
+    X_test_cls_processed = transformer_cls.transform(
+        test_cls.drop(columns=drop_cols_cls, errors='ignore')
+    )
+
+    # RandomForest Classifier
+    param_grid_cls = {
+        'n_estimators': [200, 300],
+        'max_depth': [10, 15],
+        'min_samples_split': [2, 5],
+        'min_samples_leaf': [1, 2]
+    }
+    best_cls, y_pred_cls = train_model(
+        RandomForestClassifier(random_state=42),
+        X_train_cls_processed,
+        train_cls['DA_Category'],
+        X_test_cls_processed,
+        model_type='classification',
+        cv=tscv,
+        param_grid=param_grid_cls
+    )
+
+    test_cls = test_cls.copy()
+    test_cls['Predicted_DA_Category'] = y_pred_cls
+    overall_accuracy_cls = accuracy_score(test_cls['DA_Category'], y_pred_cls)
+
+    # Per-site performance for classification
+    site_stats_cls = (
+        test_cls.groupby('Site')[['DA_Category', 'Predicted_DA_Category']]
+        .apply(lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category']))
+    )
+
+    print("[INFO] RandomForest training complete.")
+    return {
+        "DA_Level": {
+            "test_df": test_reg,
+            "site_stats": site_stats_reg,
+            "overall_r2": overall_r2_reg,
+            "overall_mae": overall_mae_reg
+        },
+        "DA_Category": {
+            "test_df": test_cls,
+            "site_stats": site_stats_cls,
+            "overall_accuracy": overall_accuracy_cls
+        }
+    }
+
+
+# ---------------------------------------------------------
+# 5) Linear & Logistic Regression Train & Predict
 # ---------------------------------------------------------
 def train_and_predict_lr(data: pd.DataFrame):
     """
@@ -217,6 +336,61 @@ def train_and_predict_lr(data: pd.DataFrame):
     }
 
 
+# ---------------------------------------------------------
+# 6) Forecast Functions (Random Anchor) for Various Models
+# ---------------------------------------------------------
+def forecast_next_date(df: pd.DataFrame, anchor_date, site):
+    """
+    Forecasts the next date's DA_Levels and DA_Category (if it exists) for
+    a given site after anchor_date using RandomForest models.
+    """
+    print(f"[INFO] Forecasting next date for site '{site}' after '{anchor_date}' - ML")
+    df_site = df[df['Site'] == site].copy().sort_values('Date')
+    df_future = df_site[df_site['Date'] > anchor_date]
+    if df_future.empty:
+        return None
+
+    next_date = df_future['Date'].iloc[0]
+    df_train = df_site[df_site['Date'] <= anchor_date].copy()
+    df_test = df_site[df_site['Date'] == next_date].copy()
+    if df_train.empty or df_test.empty:
+        return None
+
+    # Regression (RandomForest)
+    drop_cols_reg = ['DA_Levels', 'DA_Category', 'Date', 'Site']
+    transformer_reg, X_train_reg = create_numeric_transformer(df_train, drop_cols_reg)
+    X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
+    X_test_reg_processed = transformer_reg.transform(
+        df_test.drop(columns=drop_cols_reg, errors='ignore')
+    )
+
+    reg_model = RandomForestRegressor(random_state=42, n_estimators=100)
+    reg_model.fit(X_train_reg_processed, df_train['DA_Levels'])
+    y_pred_reg = reg_model.predict(X_test_reg_processed)
+
+    # Classification (RandomForest)
+    drop_cols_cls = ['DA_Category', 'DA_Levels', 'Date', 'Site']
+    transformer_cls, X_train_cls = create_numeric_transformer(df_train, drop_cols_cls)
+    X_train_cls_processed = transformer_cls.fit_transform(X_train_cls)
+    X_test_cls_processed = transformer_cls.transform(
+        df_test.drop(columns=drop_cols_cls, errors='ignore')
+    )
+
+    cls_model = RandomForestClassifier(random_state=42, n_estimators=100)
+    cls_model.fit(X_train_cls_processed, df_train['DA_Category'])
+    y_pred_cls = cls_model.predict(X_test_cls_processed)
+
+    return {
+        'AnchorDate': anchor_date,
+        'Site': site,
+        'NextDate': next_date,
+        'Predicted_DA_Levels': float(y_pred_reg[0]),
+        'Actual_DA_Levels': float(df_test['DA_Levels'].iloc[0]),
+        'Predicted_DA_Category': int(y_pred_cls[0]),
+        'Actual_DA_Category': int(df_test['DA_Category'].iloc[0])
+    }
+
+
 def forecast_next_date_lr(df: pd.DataFrame, anchor_date, site):
     """
     Forecasts the next date's DA_Levels and DA_Category for a given site
@@ -270,7 +444,7 @@ def forecast_next_date_lr(df: pd.DataFrame, anchor_date, site):
 
 
 # ---------------------------------------------------------
-# 5) Stacking Ensemble Train & Predict + Forecast
+# 7) Stacking Ensemble Train & Predict + Forecast
 # ---------------------------------------------------------
 def train_stacking_ensemble(X_train, y_train, X_test, model_type='regression',
                             cv=None, param_grid=None):
@@ -284,7 +458,8 @@ def train_stacking_ensemble(X_train, y_train, X_test, model_type='regression',
         base_models = [
             ('rf', RandomForestRegressor(random_state=42, n_estimators=200)),
             ('gbr', GradientBoostingRegressor(random_state=42, n_estimators=100)),
-            ('xgb', xgb.XGBRegressor(random_state=42, n_estimators=100, learning_rate=0.1))
+            ('xgb', xgb.XGBRegressor(random_state=42, n_estimators=100, learning_rate=0.1)),
+            ('svr', SVR(kernel='rbf', C=1.0, epsilon=0.1))
         ]
         stacking_model = StackingRegressor(
             estimators=base_models,
@@ -315,7 +490,8 @@ def train_stacking_ensemble(X_train, y_train, X_test, model_type='regression',
     base_models = [
         ('rf', RandomForestClassifier(random_state=42, n_estimators=200)),
         ('gbc', GradientBoostingClassifier(random_state=42, n_estimators=100)),
-        ('xgb', xgb.XGBClassifier(random_state=42, n_estimators=100, learning_rate=0.1))
+        ('xgb', xgb.XGBClassifier(random_state=42, n_estimators=100, learning_rate=0.1)),
+        ('svc', SVC(probability=True, random_state=42))
     ]
     stacking_model = StackingClassifier(
         estimators=base_models,
@@ -499,7 +675,7 @@ def forecast_next_date_stacking(df: pd.DataFrame, anchor_date, site):
 
 
 # ---------------------------------------------------------
-# 6) Random Anchor Forecast Helper
+# 8) Random Anchor Forecast Helper
 # ---------------------------------------------------------
 def get_random_anchor_forecasts(data: pd.DataFrame, forecast_func):
     """
@@ -561,23 +737,51 @@ def get_random_anchor_forecasts(data: pd.DataFrame, forecast_func):
 
 
 # ---------------------------------------------------------
-# 7) Prepare Data & Predictions
+# 9) Prepare Data & Predictions
 # ---------------------------------------------------------
 print("[INFO] Loading and preparing data...")
 file_path = 'final_output_og.parquet'
 
-# Load data
-raw_data = load_and_prepare_data(file_path)
-raw_data_dict = {'annual': raw_data}
+# Annual data
+raw_data_annual = load_and_prepare_data(file_path, season=None)
+raw_data_dict = {'annual': raw_data_annual}
+
+# Optional seasonal data
+if ENABLE_SEASON_SPECIFIC_TRAINER:
+    raw_data_spring = load_and_prepare_data(file_path, season='spring')
+    raw_data_fall = load_and_prepare_data(file_path, season='fall')
+    raw_data_dict.update({'spring': raw_data_spring, 'fall': raw_data_fall})
+
+# Random Forest / ML predictions
+print("[INFO] Computing ML-based predictions...")
+predictions_ml = {
+    'annual': train_and_predict(raw_data_annual),
+    'spring': train_and_predict(raw_data_spring) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+    'fall': train_and_predict(raw_data_fall) if ENABLE_SEASON_SPECIFIC_TRAINER else None
+}
+
+random_anchors_ml = None
+if ENABLE_RANDOM_ANCHOR_FORECASTS:
+    random_anchors_ml = {
+        'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date),
+        'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+        'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date) if ENABLE_SEASON_SPECIFIC_TRAINER else None
+    }
 
 # Stacking Ensemble predictions
 print("[INFO] Computing Stacking Ensemble-based predictions...")
-predictions_stacking = {'annual': train_and_predict_stacking(raw_data)}
+predictions_stacking = {
+    'annual': train_and_predict_stacking(raw_data_annual),
+    'spring': train_and_predict_stacking(raw_data_spring) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+    'fall': train_and_predict_stacking(raw_data_fall) if ENABLE_SEASON_SPECIFIC_TRAINER else None
+}
 
 random_anchors_stacking = None
 if ENABLE_RANDOM_ANCHOR_FORECASTS:
     random_anchors_stacking = {
-        'annual': get_random_anchor_forecasts(raw_data, forecast_next_date_stacking)
+        'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date_stacking),
+        'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date_stacking) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+        'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date_stacking) if ENABLE_SEASON_SPECIFIC_TRAINER else None
     }
 
 # Linear/Logistic Regression predictions
@@ -586,20 +790,40 @@ random_anchors_lr = None
 
 if ENABLE_LINEAR_LOGISTIC:
     print("[INFO] Computing LR-based predictions...")
-    predictions_lr = {'annual': train_and_predict_lr(raw_data)}
+    predictions_lr = {
+        'annual': train_and_predict_lr(raw_data_annual),
+        'spring': train_and_predict_lr(raw_data_spring) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+        'fall': train_and_predict_lr(raw_data_fall) if ENABLE_SEASON_SPECIFIC_TRAINER else None
+    }
     if ENABLE_RANDOM_ANCHOR_FORECASTS:
         random_anchors_lr = {
-            'annual': get_random_anchor_forecasts(raw_data, forecast_next_date_lr)
+            'annual': get_random_anchor_forecasts(raw_data_annual, forecast_next_date_lr),
+            'spring': get_random_anchor_forecasts(raw_data_spring, forecast_next_date_lr) if ENABLE_SEASON_SPECIFIC_TRAINER else None,
+            'fall': get_random_anchor_forecasts(raw_data_fall, forecast_next_date_lr) if ENABLE_SEASON_SPECIFIC_TRAINER else None
         }
 else:
     print("[INFO] Linear/Logistic Regression is disabled.")
 
 
 # ---------------------------------------------------------
-# 8) Dash App Setup
+# 10) Dash App Setup
 # ---------------------------------------------------------
 print("[INFO] Setting up the Dash app layout.")
 app = dash.Dash(__name__)
+
+# Season Dropdown (if seasonal trainer is enabled)
+season_dropdown = None
+if ENABLE_SEASON_SPECIFIC_TRAINER:
+    season_dropdown = dcc.Dropdown(
+        id='season-dropdown',
+        options=[
+            {'label': 'Annual', 'value': 'annual'},
+            {'label': 'Spring Bloom', 'value': 'spring'},
+            {'label': 'Fall Bloom', 'value': 'fall'}
+        ],
+        value='annual',
+        style={'width': '30%'}
+    )
 
 dummy_store = dcc.Store(id='dummy-store', data='initial')
 
@@ -643,19 +867,22 @@ if ENABLE_RANDOM_ANCHOR_FORECASTS:
 layout_children = [
     html.H1("Domoic Acid Forecast Dashboard"),
     html.Div([
+        season_dropdown if season_dropdown else html.Div(),  # Show only if enabled
         html.Label("Select Forecast Method"),
         dcc.Dropdown(
             id='forecast-method-dropdown',
             options=(
                 [
-                    {'label': 'Stacking Ensemble Forecasts', 'value': 'stacking'},
-                    {'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'}
+                    {'label': 'Machine Learning Forecasts', 'value': 'ml'},
+                    {'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'},
+                    {'label': 'Stacking Ensemble Forecasts', 'value': 'stacking'}
                 ] if ENABLE_LINEAR_LOGISTIC else
                 [
+                    {'label': 'Machine Learning Forecasts', 'value': 'ml'},
                     {'label': 'Stacking Ensemble Forecasts', 'value': 'stacking'}
                 ]
             ),
-            value='stacking',
+            value='ml',
             style={'width': '30%', 'marginLeft': '20px'}
         )
     ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
@@ -667,18 +894,31 @@ app.layout = html.Div(layout_children)
 
 
 # ---------------------------------------------------------
-# 9) Dash Callbacks
+# 11) Dash Callbacks
 # ---------------------------------------------------------
-@app.callback(
-    Output('site-dropdown', 'options'),
-    [Input('dummy-store', 'data')]
-)
-def update_site_dropdown(_):
-    data = raw_data_dict['annual']
-    options = [{'label': 'All Sites', 'value': 'All Sites'}] + [
-        {'label': site, 'value': site} for site in data['Site'].unique()
-    ]
-    return options
+if ENABLE_SEASON_SPECIFIC_TRAINER:
+    @app.callback(
+        Output('site-dropdown', 'options'),
+        [Input('season-dropdown', 'value')]
+    )
+    def update_site_dropdown(selected_season):
+        data = raw_data_dict[selected_season]
+        options = [{'label': 'All Sites', 'value': 'All Sites'}] + [
+            {'label': site, 'value': site} for site in data['Site'].unique()
+        ]
+        return options
+else:
+    @app.callback(
+        Output('site-dropdown', 'options'),
+        [Input('dummy-store', 'data')]
+    )
+    def update_site_dropdown(_):
+        # Always "annual" when no seasons
+        data = raw_data_dict['annual']
+        options = [{'label': 'All Sites', 'value': 'All Sites'}] + [
+            {'label': site, 'value': site} for site in data['Site'].unique()
+        ]
+        return options
 
 
 @app.callback(
@@ -687,23 +927,28 @@ def update_site_dropdown(_):
         Input('forecast-type-dropdown', 'value'),
         Input('site-dropdown', 'value'),
         Input('forecast-method-dropdown', 'value')
-    ]
+    ] + ([Input('season-dropdown', 'value')] if ENABLE_SEASON_SPECIFIC_TRAINER else [])
 )
-def update_graph(forecast_type, selected_site, forecast_method):
+def update_graph(forecast_type, selected_site, forecast_method, *season):
     """
     Updates the main analysis graph based on forecast type (DA_Level or DA_Category),
-    site, and forecast method.
+    site, forecast method, and season (if enabled).
     """
-    selected_season = 'annual'
+    if ENABLE_SEASON_SPECIFIC_TRAINER:
+        selected_season = season[0] if season else 'annual'
+    else:
+        selected_season = 'annual'
     
     # Choose predictions dictionary
-    if forecast_method == 'stacking':
-        pred = predictions_stacking[selected_season]
+    if forecast_method == 'ml':
+        pred = predictions_ml[selected_season]
     elif forecast_method == 'lr':
         pred = (predictions_lr[selected_season]
-                if predictions_lr else predictions_stacking[selected_season])
+                if predictions_lr else predictions_ml[selected_season])
+    elif forecast_method == 'stacking':
+        pred = predictions_stacking[selected_season]
     else:
-        pred = predictions_stacking[selected_season]  # Default fallback
+        pred = predictions_ml[selected_season]  # Default fallback
 
     if forecast_type == 'DA_Level':
         df_plot = pred['DA_Level']['test_df'].copy()
@@ -788,20 +1033,27 @@ def update_graph(forecast_type, selected_site, forecast_method):
 if ENABLE_RANDOM_ANCHOR_FORECASTS:
     @app.callback(
         Output('random-anchor-container', 'children'),
-        [Input('forecast-method-dropdown', 'value')]
+        [
+            Input('forecast-method-dropdown', 'value')
+        ] + ([Input('season-dropdown', 'value')] if ENABLE_SEASON_SPECIFIC_TRAINER else [])
     )
-    def update_random_anchor_layout(forecast_method):
+    def update_random_anchor_layout(forecast_method, *season):
         """
         Displays forecast graphs for random anchor dates using the chosen method.
         """
-        selected_season = 'annual'
+        if ENABLE_SEASON_SPECIFIC_TRAINER:
+            selected_season = season[0] if season else 'annual'
+        else:
+            selected_season = 'annual'
 
-        # If LR is selected but disabled, fall back to Stacking
+        # If LR is selected but disabled, fall back to ML
         if forecast_method == 'lr' and not ENABLE_LINEAR_LOGISTIC:
-            forecast_method = 'stacking'
+            forecast_method = 'ml'
 
         # Retrieve random anchor forecasts based on selected method
-        if forecast_method == 'stacking':
+        if forecast_method == 'ml':
+            df_results, figs_random_site, mae, acc = random_anchors_ml[selected_season]
+        elif forecast_method == 'stacking':
             df_results, figs_random_site, mae, acc = random_anchors_stacking[selected_season]
         else:
             df_results, figs_random_site, mae, acc = random_anchors_lr[selected_season]
@@ -820,7 +1072,7 @@ if ENABLE_RANDOM_ANCHOR_FORECASTS:
 
 
 # ---------------------------------------------------------
-# 10) Run the Dash App
+# 12) Run the Dash App
 # ---------------------------------------------------------
 if __name__ == '__main__':
     print("[INFO] Starting Dash app on port 8071")

@@ -63,7 +63,7 @@ def load_and_prepare_data(file_path):
     data.sort_values(['Site', 'Date'], inplace=True)
 
     # Only keep Lag Features for DA_Levels.
-    for lag in [1, 2, 3, 7, 14, 28, 56]:
+    for lag in [1, 2, 3, 7, 14]:
         data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
     
     day_of_year = data['Date'].dt.dayofyear

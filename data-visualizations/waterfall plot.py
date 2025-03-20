@@ -3,16 +3,16 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # Read CSV data
-df = pd.read_csv("data-visualizations/final_output.csv")
+df = pd.read_parquet("final_output.parquet")
 
 # Convert the 'Date' column to datetime (adjust format if necessary)
 df['Date'] = pd.to_datetime(df['Date'])
 
 # Create a mapping from latitude to its corresponding site (assumes one site per unique lat)
-lat_to_site = df.groupby('lat')['Site'].first().to_dict()
+lat_to_site = df.groupby('latitude')['Site'].first().to_dict()
 
 # Sort unique latitudes in descending order (largest to smallest)
-unique_lats = sorted(df['lat'].unique(), reverse=True)
+unique_lats = sorted(df['latitude'].unique(), reverse=True)
 
 plt.figure(figsize=(10, 7))
 
@@ -22,13 +22,13 @@ baseline_multiplier = 15  # Increase the scale of latitude for greater vertical 
 
 # Plot each latitude group separately with its own vertical baseline
 for lat in unique_lats:
-    group = df[df['lat'] == lat].sort_values(by='Date')
+    group = df[df['latitude'] == lat].sort_values(by='Date')
     
     # Convert Date to matplotlib's numeric format
     time_nums = mdates.date2num(group['Date'])
     
     # Extract DA Levels values
-    da_values = group['DA Levels']
+    da_values = group['DA_Levels']
     
     # The baseline is the latitude multiplied by the baseline_multiplier.
     baseline = lat * baseline_multiplier
