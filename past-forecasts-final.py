@@ -8,15 +8,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit, train_test_split
+from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score
 from sklearn.ensemble import (
-    RandomForestClassifier, RandomForestRegressor, StackingClassifier,
-    StackingRegressor, GradientBoostingClassifier, GradientBoostingRegressor
+    RandomForestClassifier, RandomForestRegressor
 )
-from sklearn.linear_model import LinearRegression, LogisticRegression, RidgeCV
-from sklearn.svm import SVR, SVC
-import xgboost as xgb
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import dash
 from dash import dcc, html
@@ -27,13 +24,12 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
-    "ENABLE_LINEAR_LOGISTIC": True,
-    "ENABLE_RANDOM_ANCHOR_FORECASTS": False,
-    "ENABLE_GRIDSEARCHCV": True,
+    "ENABLE_LINEAR_LOGISTIC": False,
+    "ENABLE_RANDOM_ANCHOR_FORECASTS": True,
     "CACHE_DIR": './cache',
     "DATA_FILE": 'final_output_og.parquet',
     "PORT": 8071,
-    "NUM_RANDOM_ANCHORS": 50,
+    "NUM_RANDOM_ANCHORS": 20,
     "TEST_SIZE": 0.2
 }
 
@@ -98,30 +94,11 @@ def load_and_prepare_data(file_path: str) -> pd.DataFrame:
 # ---------------------------------------------------------
 # Model Training Functions
 # ---------------------------------------------------------
-def run_model(model, X_train, y_train, X_test, model_type='regression', 
-             cv=None, param_grid=None):
-    """Generic model training function with optional grid search"""
-    if param_grid is not None and CONFIG["ENABLE_GRIDSEARCHCV"]:
-        print("[INFO] Running GridSearchCV...")
-        scoring = 'r2' if model_type == 'regression' else 'accuracy'
-        grid_search = GridSearchCV(
-            estimator=model,
-            param_grid=param_grid,
-            cv=cv,
-            scoring=scoring,
-            n_jobs=-1
-        )
-        grid_search.fit(X_train, y_train)
-        best_model = grid_search.best_estimator_
-        print(f"[INFO] Best params: {grid_search.best_params_}")
-    else:
-        model.fit(X_train, y_train)
-        best_model = model
-        if param_grid is not None:
-            print("[INFO] GridSearchCV disabled; using default parameters.")
-    
-    predictions = best_model.predict(X_test)
-    return best_model, predictions
+def run_model(model, X_train, y_train, X_test, model_type='regression'):
+    """Generic model training function"""
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    return model, predictions
 
 def create_model_configs():
     """Create model configurations for different methods"""
@@ -129,83 +106,33 @@ def create_model_configs():
     
     rf_reg_config = {
         'model': RandomForestRegressor(random_state=42),
-        'param_grid': {
-            'n_estimators': [200, 300],
-            'max_depth': [10, 15],
-            'min_samples_split': [2, 5],
-            'min_samples_leaf': [1, 2]
-        } if CONFIG["ENABLE_GRIDSEARCHCV"] else None,
         'cv': tscv
     }
     
     rf_cls_config = {
         'model': RandomForestClassifier(random_state=42),
-        'param_grid': {
-            'n_estimators': [200, 300],
-            'max_depth': [10, 15],
-            'min_samples_split': [2, 5],
-            'min_samples_leaf': [1, 2]
-        } if CONFIG["ENABLE_GRIDSEARCHCV"] else None,
         'cv': tscv
     }
     
     lr_reg_config = {
         'model': LinearRegression(),
-        'param_grid': None,
         'cv': None
     }
     
     lr_cls_config = {
         'model': LogisticRegression(solver='lbfgs', max_iter=1000, random_state=42),
-        'param_grid': None,
         'cv': None
-    }
-    
-    # Stacking configurations
-    base_models_reg = [
-        ('rf', RandomForestRegressor(random_state=42, n_estimators=200)),
-        ('gbr', GradientBoostingRegressor(random_state=42, n_estimators=100)),
-        ('xgb', xgb.XGBRegressor(random_state=42, n_estimators=100, learning_rate=0.1)),
-        ('svr', SVR(kernel='rbf', C=1.0, epsilon=0.1))
-    ]
-    
-    stack_reg_config = {
-        'model': StackingRegressor(
-            estimators=base_models_reg,
-            final_estimator=RidgeCV(alphas=[0.1, 1.0, 10.0]),
-            cv=5, n_jobs=-1
-        ),
-        'param_grid': None,
-        'cv': tscv
-    }
-    
-    base_models_cls = [
-        ('rf', RandomForestClassifier(random_state=42, n_estimators=200)),
-        ('gbc', GradientBoostingClassifier(random_state=42, n_estimators=100)),
-        ('xgb', xgb.XGBClassifier(random_state=42, n_estimators=100, learning_rate=0.1)),
-        ('svc', SVC(probability=True, random_state=42))
-    ]
-    
-    stack_cls_config = {
-        'model': StackingClassifier(
-            estimators=base_models_cls,
-            final_estimator=LogisticRegression(max_iter=1000, random_state=42),
-            cv=5, n_jobs=-1
-        ),
-        'param_grid': None,
-        'cv': tscv
     }
     
     return {
         'ml': {'reg': rf_reg_config, 'cls': rf_cls_config},
-        'lr': {'reg': lr_reg_config, 'cls': lr_cls_config},
-        'stacking': {'reg': stack_reg_config, 'cls': stack_cls_config}
+        'lr': {'reg': lr_reg_config, 'cls': lr_cls_config}
     }
 
 def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     """
     Generic training function that handles both regression and classification
-    for any of the specified methods (ml, lr, stacking).
+    for any of the specified methods (ml, lr).
     """
     if test_size is None:
         test_size = CONFIG["TEST_SIZE"]
@@ -237,7 +164,7 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     
     best_reg, y_pred_reg = run_model(
         reg_config['model'], X_train_reg, y_train_reg, X_test_reg,
-        model_type='regression', cv=reg_config['cv'], param_grid=reg_config['param_grid']
+        model_type='regression'
     )
     
     test_reg_with_pred = test_reg.copy()
@@ -269,7 +196,7 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     
     best_cls, y_pred_cls = run_model(
         cls_config['model'], X_train_cls, y_train_cls, X_test_cls,
-        model_type='classification', cv=cls_config['cv'], param_grid=cls_config['param_grid']
+        model_type='classification'
     )
     
     test_cls_with_pred = test_cls.copy()
@@ -414,9 +341,6 @@ def prepare_all_predictions(data):
     # ML predictions
     predictions['ml'] = train_and_evaluate(data, method='ml')
     
-    # Stacking predictions
-    predictions['stacking'] = train_and_evaluate(data, method='stacking')
-    
     # Linear/Logistic predictions if enabled
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
         predictions['lr'] = train_and_evaluate(data, method='lr')
@@ -424,7 +348,6 @@ def prepare_all_predictions(data):
     # Random anchor forecasts if enabled
     if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
         random_anchors['ml'] = get_random_anchor_forecasts(data, method='ml')
-        random_anchors['stacking'] = get_random_anchor_forecasts(data, method='stacking')
         
         if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
             random_anchors['lr'] = get_random_anchor_forecasts(data, method='lr')
@@ -475,11 +398,10 @@ def create_dash_app(predictions, random_anchors, data):
     
     # Setup forecast method dropdown options
     forecast_methods = [
-        {'label': 'Machine Learning Forecasts', 'value': 'ml'},
-        {'label': 'Stacking Ensemble Forecasts', 'value': 'stacking'}
+        {'label': 'Machine Learning Forecasts', 'value': 'ml'}
     ]
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-        forecast_methods.insert(1, {'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'})
+        forecast_methods.append({'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'})
     
     # Create layout
     app.layout = html.Div([
