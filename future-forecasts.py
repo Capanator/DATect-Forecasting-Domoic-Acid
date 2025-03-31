@@ -21,7 +21,7 @@ def load_and_prepare_data(file_path):
     data.sort_values(['Site', 'Date'], inplace=True)
 
     # Create lag features and seasonal components
-    for lag in [1, 2, 3, 7, 14]:
+    for lag in [1, 2, 3]:
         data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
     
     day_of_year = data['Date'].dt.dayofyear
