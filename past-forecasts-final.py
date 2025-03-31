@@ -30,7 +30,7 @@ import plotly.express as px
 ENABLE_SEASON_SPECIFIC_TRAINER = False
 ENABLE_LINEAR_LOGISTIC = True
 ENABLE_RANDOM_ANCHOR_FORECASTS = False
-ENABLE_GRIDSEARCHCV = True
+ENABLE_GRIDSEARCHCV = False
 
 cache_dir = './cache'
 if not os.path.exists(cache_dir):
