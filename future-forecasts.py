@@ -17,20 +17,20 @@ from dash.dependencies import Input, Output
 def load_and_prepare_data(file_path):
     """Load and prepare data with essential features."""
     data = pd.read_parquet(file_path)
-    data['Date'] = pd.to_datetime(data['Date'])
-    data.sort_values(['Site', 'Date'], inplace=True)
+    data['date'] = pd.to_datetime(data['date'])
+    data.sort_values(['site', 'date'], inplace=True)
 
     # Create lag features and seasonal components
     for lag in [1, 2, 3]:
-        data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
+        data[f'da_lag_{lag}'] = data.groupby('site')['da'].shift(lag)
     
-    day_of_year = data['Date'].dt.dayofyear
+    day_of_year = data['date'].dt.dayofyear
     data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
     data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
 
     # Create category feature
-    data['DA_Category'] = pd.cut(
-        data['DA_Levels'], 
+    data['da-category'] = pd.cut(
+        data['da'], 
         bins=[-float('inf'), 5, 20, 40, float('inf')],
         labels=[0, 1, 2, 3]
     ).astype(int)
@@ -42,34 +42,34 @@ def load_and_prepare_data(file_path):
 # ================================
 def get_training_forecast_data(df, forecast_date, site):
     """Extract training and forecast data for the specified date and site."""
-    df_site = df[df['Site'] == site].copy()
-    df_site.sort_values('Date', inplace=True)
+    df_site = df[df['site'] == site].copy()
+    df_site.sort_values('date', inplace=True)
     
     # Must have historical data
-    df_before = df_site[df_site['Date'] < forecast_date]
+    df_before = df_site[df_site['date'] < forecast_date]
     if df_before.empty:
         return None, None, None, None
         
     # Training anchor and test dates
-    anchor_date = df_before['Date'].max()
-    df_after = df_site[df_site['Date'] >= forecast_date]
-    test_date = df_after['Date'].min() if not df_after.empty else None
+    anchor_date = df_before['date'].max()
+    df_after = df_site[df_site['date'] >= forecast_date]
+    test_date = df_after['date'].min() if not df_after.empty else None
     
     # Get forecast row (real or synthetic)
-    if forecast_date in df_site['Date'].values:
-        df_forecast = df_site[df_site['Date'] == forecast_date].copy()
+    if forecast_date in df_site['date'].values:
+        df_forecast = df_site[df_site['date'] == forecast_date].copy()
     elif test_date is not None:
-        df_forecast = df_site[df_site['Date'] == test_date].copy()
+        df_forecast = df_site[df_site['date'] == test_date].copy()
     else:
         # Create synthetic forecast row
-        last_row = df_site[df_site['Date'] == anchor_date].iloc[0]
+        last_row = df_site[df_site['date'] == anchor_date].iloc[0]
         new_row = last_row.copy()
-        new_row['Date'] = forecast_date
-        new_row['DA_Levels'] = new_row['DA_Category'] = np.nan
+        new_row['date'] = forecast_date
+        new_row['da'] = new_row['da-category'] = np.nan
         df_forecast = pd.DataFrame([new_row])
     
     # Training data
-    df_train = df_site[df_site['Date'] <= anchor_date].copy()
+    df_train = df_site[df_site['date'] <= anchor_date].copy()
     
     return df_train, df_forecast, anchor_date, test_date
 
@@ -82,7 +82,7 @@ def forecast_for_date(df, forecast_date, site):
     df_train, df_forecast, anchor_date, test_date = result
     
     # Common feature processing
-    drop_cols = ['Date', 'Site', 'DA_Levels', 'DA_Category']
+    drop_cols = ['date', 'site', 'da', 'da-category']
     numeric_processor = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
@@ -90,11 +90,11 @@ def forecast_for_date(df, forecast_date, site):
     
     # REGRESSION FORECAST
     X_train_reg = df_train.drop(columns=drop_cols)
-    y_train_reg = df_train['DA_Levels']
+    y_train_reg = df_train['da']
     X_forecast_reg = df_forecast.drop(columns=drop_cols)
     
     # Check if actual target exists in forecast row
-    y_test_reg = None if df_forecast['DA_Levels'].isnull().all() else df_forecast['DA_Levels']
+    y_test_reg = None if df_forecast['da'].isnull().all() else df_forecast['da']
     
     # Preprocess features
     num_cols = X_train_reg.select_dtypes(include=[np.number]).columns
@@ -126,9 +126,9 @@ def forecast_for_date(df, forecast_date, site):
     
     # CLASSIFICATION FORECAST
     X_train_cls = X_train_reg  # Reuse the same features
-    y_train_cls = df_train['DA_Category']
+    y_train_cls = df_train['da-category']
     X_forecast_cls = X_forecast_reg
-    y_test_cls = None if df_forecast['DA_Category'].isnull().all() else df_forecast['DA_Category']
+    y_test_cls = None if df_forecast['da-category'].isnull().all() else df_forecast['da-category']
     
     # Use a simpler classifier (no need for stacking)
     clf = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
@@ -146,19 +146,19 @@ def forecast_for_date(df, forecast_date, site):
     
     return {
         'ForecastPoint': forecast_date,
-        'AnchorDate': anchor_date,
-        'TestDate': test_date,
+        'Anchordate': anchor_date,
+        'Testdate': test_date,
         # Regression results
-        'Predicted_DA_Levels_Q05': preds['q05'],
-        'Predicted_DA_Levels_Q50': preds['q50'],
-        'Predicted_DA_Levels_Q95': preds['q95'],
-        'Actual_DA_Levels': actual_levels,
-        'SingleDateCoverage': single_coverage,
+        'Predicted_da_Q05': preds['q05'],
+        'Predicted_da_Q50': preds['q50'],
+        'Predicted_da_Q95': preds['q95'],
+        'Actual_da': actual_levels,
+        'SingledateCoverage': single_coverage,
         # Classification results
-        'Predicted_DA_Category': pred_cat,
+        'Predicted_da-category': pred_cat,
         'Probabilities': prob_list,
-        'Actual_DA_Category': actual_cat,
-        'SingleDateLogLoss': single_logloss,
+        'Actual_da-category': actual_cat,
+        'SingledateLogLoss': single_logloss,
     }
 
 # ================================
@@ -263,30 +263,30 @@ def format_forecast_output(result):
     """Format forecast results as text for display."""
     CATEGORY_LABELS = ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)']
     
-    q05 = result['Predicted_DA_Levels_Q05']
-    q50 = result['Predicted_DA_Levels_Q50']
-    q95 = result['Predicted_DA_Levels_Q95']
-    actual_levels = result['Actual_DA_Levels']
+    q05 = result['Predicted_da_Q05']
+    q50 = result['Predicted_da_Q50']
+    q95 = result['Predicted_da_Q95']
+    actual_levels = result['Actual_da']
     prob_list = result['Probabilities']
     
     lines = [
-        f"Forecast Date (target): {result['ForecastPoint'].date()}",
-        f"Anchor Date (training cutoff): {result['AnchorDate'].date()}",
+        f"Forecast date (target): {result['ForecastPoint'].date()}",
+        f"Anchor date (training cutoff): {result['Anchordate'].date()}",
     ]
     
-    if result['TestDate'] is not None:
-        lines.append(f"Test Date (for accuracy): {result['TestDate'].date()}")
+    if result['Testdate'] is not None:
+        lines.append(f"Test date (for accuracy): {result['Testdate'].date()}")
     else:
-        lines.append("Test Date (for accuracy): N/A")
+        lines.append("Test date (for accuracy): N/A")
     
     lines += [
         "",
-        "--- Regression (DA_Levels) ---",
+        "--- Regression (da) ---",
         f"Predicted Range: {q05:.2f} (Q05) – {q50:.2f} (Q50) – {q95:.2f} (Q95)",
     ]
     
     if actual_levels is not None:
-        within_range = result['SingleDateCoverage']
+        within_range = result['SingledateCoverage']
         status = 'Within Range ✅' if within_range else 'Outside Range ❌'
         lines.append(f"Actual Value: {actual_levels:.2f} ({status})")
     else:
@@ -294,17 +294,17 @@ def format_forecast_output(result):
     
     lines += [
         "",
-        "--- Classification (DA_Category) ---",
-        f"Predicted: {CATEGORY_LABELS[result['Predicted_DA_Category']]}",
+        "--- Classification (da-category) ---",
+        f"Predicted: {CATEGORY_LABELS[result['Predicted_da-category']]}",
         "Probabilities: " + ", ".join([
             f"{label}: {prob*100:.1f}%" 
             for label, prob in zip(CATEGORY_LABELS, prob_list)
         ])
     ]
     
-    if result['Actual_DA_Category'] is not None:
-        actual_cat = result['Actual_DA_Category']
-        match_status = "✅ MATCH" if result['Predicted_DA_Category'] == actual_cat else "❌ MISMATCH"
+    if result['Actual_da-category'] is not None:
+        actual_cat = result['Actual_da-category']
+        match_status = "✅ MATCH" if result['Predicted_da-category'] == actual_cat else "❌ MISMATCH"
         lines.append(f"Actual: {CATEGORY_LABELS[actual_cat]} {match_status}")
     else:
         lines.append("Actual Category: N/A")
@@ -315,7 +315,7 @@ def format_forecast_output(result):
 # DASH APP
 # ================================
 # Load data
-file_path = 'final_output_og.parquet'
+file_path = 'final_output.parquet'
 raw_data = load_and_prepare_data(file_path)
 min_forecast_date = pd.to_datetime("2010-01-01")
 
@@ -323,17 +323,17 @@ app = dash.Dash(__name__)
 
 # Original UI Layout
 app.layout = html.Div([
-    html.H3("Forecast by Specific Date & Site"),
+    html.H3("Forecast by Specific date & site"),
     
-    html.Label("Choose a Site:"),
+    html.Label("Choose a site:"),
     dcc.Dropdown(
         id='site-dropdown-forecast',
-        options=[{'label': s, 'value': s} for s in raw_data['Site'].unique()],
-        value=raw_data['Site'].unique()[0],
+        options=[{'label': s, 'value': s} for s in raw_data['site'].unique()],
+        value=raw_data['site'].unique()[0],
         style={'width': '50%'}
     ),
 
-    html.Label("Pick a Forecast Date (≥ 2010):"),
+    html.Label("Pick a Forecast date (≥ 2010):"),
     dcc.DatePickerSingle(
         id='forecast-date-picker',
         min_date_allowed=min_forecast_date,
@@ -379,23 +379,23 @@ def update_forecast(forecast_date_str, site):
     result = forecast_for_date(raw_data, forecast_date, site)
     
     if not result:
-        msg = (f"No forecast possible for Site={site} using Forecast Date={forecast_date.date()}.\n"
+        msg = (f"No forecast possible for site={site} using Forecast date={forecast_date.date()}.\n"
                "Possibly not enough training data.")
         return (msg, go.Figure(), go.Figure())
     
     text_output = format_forecast_output(result)
     
     level_fig = create_level_range_graph(
-        result['Predicted_DA_Levels_Q05'],
-        result['Predicted_DA_Levels_Q50'],
-        result['Predicted_DA_Levels_Q95'],
-        result['Actual_DA_Levels']
+        result['Predicted_da_Q05'],
+        result['Predicted_da_Q50'],
+        result['Predicted_da_Q95'],
+        result['Actual_da']
     )
     
     category_fig = create_category_graph(
         result['Probabilities'],
-        result['Predicted_DA_Category'],
-        result['Actual_DA_Category']
+        result['Predicted_da-category'],
+        result['Actual_da-category']
     )
     
     return (text_output, level_fig, category_fig)

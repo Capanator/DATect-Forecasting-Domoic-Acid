@@ -70,21 +70,21 @@ def load_and_prepare_data(file_path: str) -> pd.DataFrame:
     """Load and prepare data with feature engineering"""
     print(f"[INFO] Loading data from {file_path}")
     data = pd.read_parquet(file_path, engine='pyarrow')
-    data['Date'] = pd.to_datetime(data['Date'])
-    data.sort_values(['Site', 'Date'], inplace=True)
+    data['date'] = pd.to_datetime(data['date'])
+    data.sort_values(['site', 'date'], inplace=True)
     
     # Create cyclical features for day-of-year
-    day_of_year = data['Date'].dt.dayofyear
+    day_of_year = data['date'].dt.dayofyear
     data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
     data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
     
-    # Create lag features for DA_Levels
+    # Create lag features for da
     for lag in [1, 2, 3]:
-        data[f'DA_Levels_lag_{lag}'] = data.groupby('Site')['DA_Levels'].shift(lag)
+        data[f'da_lag_{lag}'] = data.groupby('site')['da'].shift(lag)
     
-    # Categorize DA_Levels
-    data['DA_Category'] = pd.cut(
-        data['DA_Levels'], 
+    # Categorize da
+    data['da-category'] = pd.cut(
+        data['da'], 
         bins=[-float('inf'), 5, 20, 40, float('inf')],
         labels=[0, 1, 2, 3]
     ).astype(int)
@@ -148,9 +148,9 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     cls_config = model_configs[method]['cls']
     
     # Common column lists
-    common_cols = ['Date', 'Site']
-    reg_drop_cols = common_cols + ['DA_Levels', 'DA_Category']
-    cls_drop_cols = common_cols + ['DA_Levels', 'DA_Category']
+    common_cols = ['date', 'site']
+    reg_drop_cols = common_cols + ['da', 'da-category']
+    cls_drop_cols = common_cols + ['da', 'da-category']
     
     # Results dictionary
     results = {}
@@ -160,7 +160,7 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     data_reg = data.copy()
     train_reg, test_reg = train_test_split(data_reg, test_size=test_size, random_state=42)
     X_train_reg, X_test_reg = transform_data(train_reg, test_reg, reg_drop_cols)
-    y_train_reg, y_test_reg = train_reg['DA_Levels'], test_reg['DA_Levels']
+    y_train_reg, y_test_reg = train_reg['da'], test_reg['da']
     
     best_reg, y_pred_reg = run_model(
         reg_config['model'], X_train_reg, y_train_reg, X_test_reg,
@@ -168,14 +168,14 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     )
     
     test_reg_with_pred = test_reg.copy()
-    test_reg_with_pred['Predicted_DA_Levels'] = y_pred_reg
+    test_reg_with_pred['Predicted_da'] = y_pred_reg
     overall_r2_reg = r2_score(y_test_reg, y_pred_reg)
     overall_mae_reg = mean_absolute_error(y_test_reg, y_pred_reg)
     
-    site_stats_reg = test_reg_with_pred.groupby('Site')[['DA_Levels', 'Predicted_DA_Levels']].apply(
+    site_stats_reg = test_reg_with_pred.groupby('site')[['da', 'Predicted_da']].apply(
         lambda x: pd.Series({
-            'r2': r2_score(x['DA_Levels'], x['Predicted_DA_Levels']),
-            'mae': mean_absolute_error(x['DA_Levels'], x['Predicted_DA_Levels'])
+            'r2': r2_score(x['da'], x['Predicted_da']),
+            'mae': mean_absolute_error(x['da'], x['Predicted_da'])
         })
     )
     
@@ -192,7 +192,7 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     data_cls = data.copy()
     train_cls, test_cls = train_test_split(data_cls, test_size=test_size, random_state=42)
     X_train_cls, X_test_cls = transform_data(train_cls, test_cls, cls_drop_cols)
-    y_train_cls, y_test_cls = train_cls['DA_Category'], test_cls['DA_Category']
+    y_train_cls, y_test_cls = train_cls['da-category'], test_cls['da-category']
     
     best_cls, y_pred_cls = run_model(
         cls_config['model'], X_train_cls, y_train_cls, X_test_cls,
@@ -200,14 +200,14 @@ def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
     )
     
     test_cls_with_pred = test_cls.copy()
-    test_cls_with_pred['Predicted_DA_Category'] = y_pred_cls
+    test_cls_with_pred['Predicted_da-category'] = y_pred_cls
     overall_accuracy_cls = accuracy_score(y_test_cls, y_pred_cls)
     
-    site_stats_cls = test_cls_with_pred.groupby('Site')[['DA_Category', 'Predicted_DA_Category']].apply(
-        lambda x: accuracy_score(x['DA_Category'], x['Predicted_DA_Category'])
+    site_stats_cls = test_cls_with_pred.groupby('site')[['da-category', 'Predicted_da-category']].apply(
+        lambda x: accuracy_score(x['da-category'], x['Predicted_da-category'])
     )
     
-    results["DA_Category"] = {
+    results["da-category"] = {
         "test_df": test_cls_with_pred,
         "site_stats": site_stats_cls,
         "overall_accuracy": overall_accuracy_cls,
@@ -227,21 +227,21 @@ def forecast_future(df: pd.DataFrame, anchor_date, site, method='ml'):
     print(f"[INFO] Forecasting for site '{site}' after '{anchor_date}' using {method}")
     
     # Filter data for the specific site and prepare train/test sets
-    df_site = df[df['Site'] == site].copy().sort_values('Date')
-    df_future = df_site[df_site['Date'] > anchor_date]
+    df_site = df[df['site'] == site].copy().sort_values('date')
+    df_future = df_site[df_site['date'] > anchor_date]
     
     if df_future.empty:
         return None
         
-    next_date = df_future['Date'].iloc[0]
-    df_train = df_site[df_site['Date'] <= anchor_date].copy()
-    df_test = df_site[df_site['Date'] == next_date].copy()
+    next_date = df_future['date'].iloc[0]
+    df_train = df_site[df_site['date'] <= anchor_date].copy()
+    df_test = df_site[df_site['date'] == next_date].copy()
     
     if df_train.empty or df_test.empty:
         return None
     
     # Common columns to drop
-    drop_cols = ['DA_Levels', 'DA_Category', 'Date', 'Site']
+    drop_cols = ['da', 'da-category', 'date', 'site']
     
     # Get model configurations
     model_configs = create_model_configs()
@@ -256,42 +256,42 @@ def forecast_future(df: pd.DataFrame, anchor_date, site, method='ml'):
     
     # Train and predict with regression model
     reg_model = reg_config['model']
-    reg_model.fit(X_train, df_train['DA_Levels'])
+    reg_model.fit(X_train, df_train['da'])
     y_pred_reg = reg_model.predict(X_test)
     
     # Train and predict with classification model
     cls_model = cls_config['model']
-    cls_model.fit(X_train, df_train['DA_Category'])
+    cls_model.fit(X_train, df_train['da-category'])
     y_pred_cls = cls_model.predict(X_test)
     
     return {
-        'AnchorDate': anchor_date,
-        'Site': site,
-        'NextDate': next_date,
-        'Predicted_DA_Levels': float(y_pred_reg[0]),
-        'Actual_DA_Levels': float(df_test['DA_Levels'].iloc[0]),
-        'Predicted_DA_Category': int(y_pred_cls[0]),
-        'Actual_DA_Category': int(df_test['DA_Category'].iloc[0])
+        'Anchordate': anchor_date,
+        'site': site,
+        'Nextdate': next_date,
+        'Predicted_da': float(y_pred_reg[0]),
+        'Actual_da': float(df_test['da'].iloc[0]),
+        'Predicted_da-category': int(y_pred_cls[0]),
+        'Actual_da-category': int(df_test['da-category'].iloc[0])
     }
 
 def get_random_anchor_forecasts(data: pd.DataFrame, method='ml'):
     """Generate random anchor forecasts using the specified method"""
     print(f"[INFO] Generating random anchor forecasts using {method}...")
     
-    df_after_2010 = data[data['Date'].dt.year >= 2010].copy().sort_values(['Site', 'Date'])
-    pairs_after_2010 = df_after_2010[['Site', 'Date']].drop_duplicates()
+    df_after_2010 = data[data['date'].dt.year >= 2010].copy().sort_values(['site', 'date'])
+    pairs_after_2010 = df_after_2010[['site', 'date']].drop_duplicates()
     
     # Sample random anchor dates for each site
     df_random_anchors = pd.concat([
         group.sample(n=min(CONFIG["NUM_RANDOM_ANCHORS"], len(group)), random_state=42)
-        for _, group in pairs_after_2010.groupby('Site')
+        for _, group in pairs_after_2010.groupby('site')
     ]).reset_index(drop=True)
     
     # Generate forecasts
     results_list = []
     for _, row in df_random_anchors.iterrows():
-        site_ = row['Site']
-        anchor_date_ = row['Date']
+        site_ = row['site']
+        anchor_date_ = row['date']
         result = forecast_future(data, anchor_date_, site_, method)
         if result is not None:
             results_list.append(result)
@@ -302,30 +302,30 @@ def get_random_anchor_forecasts(data: pd.DataFrame, method='ml'):
     
     # Calculate performance metrics
     mae_anchors = mean_absolute_error(
-        df_results_anchors['Actual_DA_Levels'],
-        df_results_anchors['Predicted_DA_Levels']
+        df_results_anchors['Actual_da'],
+        df_results_anchors['Predicted_da']
     )
     acc_anchors = (
-        df_results_anchors['Actual_DA_Category'] == df_results_anchors['Predicted_DA_Category']
+        df_results_anchors['Actual_da-category'] == df_results_anchors['Predicted_da-category']
     ).mean()
     
     # Create figures for each site
     figs_random_site = {}
-    for site, df_site in df_results_anchors.groupby("Site"):
-        df_line = df_site.sort_values("NextDate")
+    for site, df_site in df_results_anchors.groupby("site"):
+        df_line = df_site.sort_values("Nextdate")
         df_plot_melt = df_line.melt(
-            id_vars=["NextDate"],
-            value_vars=["Actual_DA_Levels", "Predicted_DA_Levels"],
+            id_vars=["Nextdate"],
+            value_vars=["Actual_da", "Predicted_da"],
             var_name="Type", value_name="DA_Level"
         )
         fig = px.line(
             df_plot_melt,
-            x="NextDate",
+            x="Nextdate",
             y="DA_Level",
             color="Type",
-            title=f"Random Anchor Forecast for Site {site}"
+            title=f"Random Anchor Forecast for site {site}"
         )
-        fig.update_layout(xaxis_title="Next Date", yaxis_title="DA Level")
+        fig.update_layout(xaxis_title="Next date", yaxis_title="DA Level")
         figs_random_site[site] = fig
     
     return df_results_anchors, figs_random_site, mae_anchors, acc_anchors
@@ -368,14 +368,14 @@ def create_dash_app(predictions, random_anchors, data):
             id='forecast-type-dropdown',
             options=[
                 {'label': 'DA Levels', 'value': 'DA_Level'},
-                {'label': 'DA Category', 'value': 'DA_Category'}
+                {'label': 'DA Category', 'value': 'da-category'}
             ],
             value='DA_Level',
             style={'width': '50%', 'marginBottom': '15px'}
         ),
         dcc.Dropdown(
             id='site-dropdown',
-            placeholder='Select Site',
+            placeholder='Select site',
             style={'width': '50%', 'marginBottom': '15px'}
         ),
         dcc.Graph(id='analysis-graph')
@@ -383,7 +383,7 @@ def create_dash_app(predictions, random_anchors, data):
     
     if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
         random_anchors_layout = html.Div([
-            html.H3("Random Anchor Dates Forecast -> Next Date by Site"),
+            html.H3("Random Anchor dates Forecast -> Next date by site"),
             html.Div(id='random-anchor-container')
         ])
     else:
@@ -416,7 +416,7 @@ def create_dash_app(predictions, random_anchors, data):
             )
         ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
         dcc.Tabs(id="tabs", children=tabs_children),
-        dcc.Store(id='data-store', data={'sites': data['Site'].unique().tolist()})
+        dcc.Store(id='data-store', data={'sites': data['site'].unique().tolist()})
     ])
     
     # Define callbacks
@@ -426,7 +426,7 @@ def create_dash_app(predictions, random_anchors, data):
     )
     def update_site_dropdown(data_store):
         sites = data_store['sites']
-        options = [{'label': 'All Sites', 'value': 'All Sites'}] + [
+        options = [{'label': 'All sites', 'value': 'All sites'}] + [
             {'label': site, 'value': site} for site in sites
         ]
         return options
@@ -455,14 +455,14 @@ def create_dash_app(predictions, random_anchors, data):
             # Prepare data for plotting
             df_plot_melted = pd.melt(
                 df_plot,
-                id_vars=['Date', 'Site'],
-                value_vars=['DA_Levels', 'Predicted_DA_Levels'],
+                id_vars=['date', 'site'],
+                value_vars=['da', 'Predicted_da'],
                 var_name='Metric',
                 value_name='Value'
             )
             
             # Get performance text
-            if selected_site is None or selected_site == 'All Sites':
+            if selected_site is None or selected_site == 'All sites':
                 performance_text = f"Overall R² = {overall_r2:.2f}, MAE = {overall_mae:.2f}"
             else:
                 if selected_site in site_stats.index:
@@ -472,22 +472,22 @@ def create_dash_app(predictions, random_anchors, data):
                 else:
                     performance_text = "No data for selected site."
         else:
-            df_plot = pred['DA_Category']['test_df'].copy()
-            site_stats = pred['DA_Category']['site_stats']
-            overall_accuracy = pred['DA_Category']['overall_accuracy']
+            df_plot = pred['da-category']['test_df'].copy()
+            site_stats = pred['da-category']['site_stats']
+            overall_accuracy = pred['da-category']['overall_accuracy']
             y_axis_title = 'Domoic Acid Category'
             
             # Prepare data for plotting
             df_plot_melted = pd.melt(
                 df_plot,
-                id_vars=['Date', 'Site'],
-                value_vars=['DA_Category', 'Predicted_DA_Category'],
+                id_vars=['date', 'site'],
+                value_vars=['da-category', 'Predicted_da-category'],
                 var_name='Metric',
                 value_name='Value'
             )
             
             # Get performance text
-            if selected_site is None or selected_site == 'All Sites':
+            if selected_site is None or selected_site == 'All sites':
                 performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
             else:
                 if selected_site in site_stats.index:
@@ -497,32 +497,32 @@ def create_dash_app(predictions, random_anchors, data):
                     performance_text = "No data for selected site."
         
         # Filter data by site if specified
-        if selected_site and selected_site != 'All Sites':
-            df_plot_melted = df_plot_melted[df_plot_melted['Site'] == selected_site]
+        if selected_site and selected_site != 'All sites':
+            df_plot_melted = df_plot_melted[df_plot_melted['site'] == selected_site]
         
-        df_plot_melted.sort_values('Date', inplace=True)
+        df_plot_melted.sort_values('date', inplace=True)
         
         # Create figure
-        if selected_site == 'All Sites' or not selected_site:
+        if selected_site == 'All sites' or not selected_site:
             fig = px.line(
-                df_plot_melted, x='Date', y='Value',
-                color='Site', line_dash='Metric',
-                title=f"{y_axis_title} Forecast - All Sites"
+                df_plot_melted, x='date', y='Value',
+                color='site', line_dash='Metric',
+                title=f"{y_axis_title} Forecast - All sites"
             )
         else:
             fig = px.line(
-                df_plot_melted, x='Date', y='Value',
+                df_plot_melted, x='date', y='Value',
                 color='Metric',
-                category_orders={'Metric': ['DA_Levels', 'Predicted_DA_Levels'] 
+                category_orders={'Metric': ['da', 'Predicted_da'] 
                                if forecast_type == 'DA_Level' 
-                               else ['DA_Category', 'Predicted_DA_Category']},
+                               else ['da-category', 'Predicted_da-category']},
                 title=f"{y_axis_title} Forecast - {selected_site}"
             )
         
         # Update layout
         fig.update_layout(
             yaxis_title=y_axis_title,
-            xaxis_title='Date',
+            xaxis_title='date',
             annotations=[{
                 'xref': 'paper', 'yref': 'paper',
                 'x': 0.5, 'y': -0.2,
