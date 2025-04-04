@@ -24,8 +24,8 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
-    "ENABLE_LINEAR_LOGISTIC": True,
-    "ENABLE_RANDOM_ANCHOR_FORECASTS": True,
+    "ENABLE_LINEAR_LOGISTIC": False,
+    "ENABLE_RANDOM_ANCHOR_FORECASTS": False,
     "CACHE_DIR": './cache',
     "DATA_FILE": 'final_output.parquet',
     "PORT": 8071,

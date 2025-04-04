@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+
 
 # Load the CSV file
 file_path = "final_output.parquet"
 df = pd.read_parquet(file_path)
 
 # Drop 'longitude' and 'latitude' columns if they exist
-cols_to_drop = [col for col in ['longitude', 'latitude'] if col in df.columns]
+cols_to_drop = [col for col in ['lon', 'lat'] if col in df.columns]
 if cols_to_drop:
     df = df.drop(columns=cols_to_drop)
 
@@ -18,9 +18,9 @@ print("Creating overall correlation heatmap for all data")
 # Make a copy of the dataframe
 overall_df = df.copy()
 
-# Drop the 'Site' column if it exists for the overall analysis
-if 'Site' in overall_df.columns:
-    overall_df = overall_df.drop(columns=['Site'])
+# Drop the 'site' column if it exists for the overall analysis
+if 'site' in overall_df.columns:
+    overall_df = overall_df.drop(columns=['site'])
 
 # Select numeric columns only
 numeric_df = overall_df.select_dtypes(include=['number'])
@@ -68,17 +68,17 @@ plt.savefig(pdf_path, format="pdf")
 plt.close()  # Close the figure to free memory
 print(f"Overall heatmap saved at: {pdf_path}")
 
-# Now process each site if 'Site' column exists
-if 'Site' in df.columns:
-    sites = df['Site'].unique()
-    site_dfs = [df[df['Site'] == site] for site in sites]
+# Now process each site if 'site' column exists
+if 'site' in df.columns:
+    sites = df['site'].unique()
+    site_dfs = [df[df['site'] == site] for site in sites]
     
     # Process each site
     for site, site_df in zip(sites, site_dfs):
         print(f"Processing site: {site}")
         
         # Select numeric columns only (excluding the site column)
-        site_df = site_df.drop(columns=['Site'])
+        site_df = site_df.drop(columns=['site'])
         numeric_df = site_df.select_dtypes(include=['number'])
         
         # Compute correlation matrix
@@ -124,6 +124,6 @@ if 'Site' in df.columns:
         plt.close()  # Close the figure to free memory
         print(f"Heatmap for site '{site}' saved at: {pdf_path}")
 else:
-    print("No 'Site' column found. Only the overall correlation heatmap was created.")
+    print("No 'site' column found. Only the overall correlation heatmap was created.")
 
 print("All correlation heatmaps have been generated successfully.")

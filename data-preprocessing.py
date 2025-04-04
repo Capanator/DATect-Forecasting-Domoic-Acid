@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empt
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
+RENAME_OUTPUT = True
 
 # Initialize variables with defaults or None
 config = {}
@@ -1892,6 +1893,9 @@ def main(
                  print("Converting 'Date' column to string format 'MM/DD/YYYY' for output...")
                  final_data_to_save['Date'] = final_data_to_save['Date'].dt.strftime('%m/%d/%Y')
             # <<< --- END OF ADDED LINE --- >>>
+
+            if RENAME_OUTPUT:
+                final_data_to_save.columns = ["date", "site", "lat", "lon", "oni", "pdo", "strmflow", "da", "pn", "beuti", "chla-anom", "modis-chla", "modis-flour", "modis-par", "sst-anom", "modis-sst"]
 
             print(f"Saving final merged data ({final_data_to_save.shape[0]} rows, {final_data_to_save.shape[1]} cols) to {output_path}...")
             # Create output directory if it doesn't exist

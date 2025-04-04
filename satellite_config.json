@@ -1,5 +1,5 @@
 {
-    "modis-chlorophyll": {
+    "modis-chla": {
       "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(-124.8):1:(-124.4)%5D",
       "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(-124.2):1:(-123.8)%5D",
       "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.875):1:(48.375)%5D%5B(-124.6):1:(-124.2)%5D",
@@ -11,7 +11,7 @@
       "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(-124.65):1:(-124.25)%5D",
       "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWchlamday_LonPM180.nc?chlorophyll%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(-124.8):1:(-124.4)%5D"
     },
-    "modis-temperature": {
+    "modis-sst": {
       "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(-124.8):1:(-124.4)%5D",
       "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(-124.2):1:(-123.8)%5D",
       "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWsstdmday_LonPM180.nc?sst%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(-124.5):1:(-124.1)%5D",
@@ -35,7 +35,7 @@
       "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar0mday_LonPM180.nc?par%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(-124.65):1:(-124.25)%5D",
       "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWpar0mday_LonPM180.nc?par%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(-124.8):1:(-124.4)%5D"
     },
-    "modis-fluorescence": {
+    "modis-flur": {
       "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(-124.8):1:(-124.4)%5D",
       "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(-124.2):1:(-123.8)%5D",
       "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(-124.5):1:(-124.1)%5D",
@@ -47,7 +47,7 @@
       "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(-124.65):1:(-124.25)%5D",
       "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(-124.8):1:(-124.4)%5D"
     },
-    "chlorophyll-anom": {
+    "chla-anom": {
         "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
         "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
         "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
@@ -59,7 +59,7 @@
         "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(235.35):1:(235.75)%5D",
         "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(235.2):1:(235.6)%5D"
     },
-    "temperature-anom": {
+    "sst-anom": {
       "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
       "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
       "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",

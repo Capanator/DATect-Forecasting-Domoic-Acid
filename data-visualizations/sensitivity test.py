@@ -14,10 +14,10 @@ from SALib.analyze import sobol, morris as morris_analyze
 # ----------------------------------------
 # Load and Prepare the Dataset from Parquet
 # ----------------------------------------
-df = pd.read_parquet("final_output_og.parquet")
+df = pd.read_parquet("final_output.parquet")
 
 # Drop non-essential columns if they exist
-cols_to_drop = [col for col in ['lon', 'lat', 'Site'] if col in df.columns]
+cols_to_drop = [col for col in ['lon', 'lat', 'site'] if col in df.columns]
 if cols_to_drop:
     df = df.drop(columns=cols_to_drop)
 
@@ -25,7 +25,7 @@ if cols_to_drop:
 numeric_df = df.select_dtypes(include=['number'])
 
 # Ensure the target variable "DA Levels" exists
-target_var = 'DA_Levels'
+target_var = 'da'
 if target_var not in numeric_df.columns:
     raise ValueError(f"Column '{target_var}' not found in the dataset.")
 

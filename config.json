@@ -40,6 +40,7 @@
     "Gold Beach": [42.377222, 235.585833]
   },
   "start_date": "2003-01-01",
+  "start_date_comment": "You can change this to 2002-06-01 if you want to include PDO data from the beginning.",
   "end_date": "2023-12-31",
   "year_cutoff": 2002,
   "week_cutoff": 26,
