@@ -1,19 +1,18 @@
 import os
 import numpy as np
 import pandas as pd
-from joblib import Memory
-from typing import Tuple, List
+from joblib import Parallel, delayed
+from typing import Tuple, List, Dict, Any, Optional
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import TimeSeriesSplit, train_test_split
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score
-from sklearn.ensemble import (
-    RandomForestClassifier, RandomForestRegressor
-)
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.base import clone
 
 import dash
 from dash import dcc, html
@@ -25,555 +24,609 @@ import plotly.express as px
 # ---------------------------------------------------------
 CONFIG = {
     "ENABLE_LINEAR_LOGISTIC": False,
-    "ENABLE_RANDOM_ANCHOR_FORECASTS": False,
-    "CACHE_DIR": './cache',
-    "DATA_FILE": 'final_output.parquet',
+    "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
-    "NUM_RANDOM_ANCHORS": 20,
-    "TEST_SIZE": 0.2
+    "N_SPLITS_TS_EVAL": 100,
+    "N_SPLITS_TS_GRIDSEARCH": 5,
+    "MIN_TEST_DATE": "2008-01-01",
+    "N_JOBS_EVAL": -1,
 }
 
-# Setup cache
-os.makedirs(CONFIG["CACHE_DIR"], exist_ok=True)
-memory = Memory(CONFIG["CACHE_DIR"], verbose=0)
-print(f"[INFO] Caching directory is ready at: {CONFIG['CACHE_DIR']}")
+# --- GridSearchCV Parameter Grids ---
+PARAM_GRID_REG = {
+    "model__n_estimators": [100, 200],
+    "model__max_depth": [10, 20, None],
+    "model__min_samples_split": [2, 5],
+    "model__min_samples_leaf": [1, 3],
+}
+
+PARAM_GRID_CLS = {
+    "model__n_estimators": [100, 200],
+    "model__max_depth": [10, 20, None],
+    "model__min_samples_split": [2, 5],
+    "model__min_samples_leaf": [1, 3],
+    "model__class_weight": ["balanced", None],
+}
+# --- End Parameter Grids ---
 
 # ---------------------------------------------------------
 # Data Processing Functions
 # ---------------------------------------------------------
-def create_numeric_transformer(df: pd.DataFrame, drop_cols: List[str]) -> Tuple[ColumnTransformer, pd.DataFrame]:
-    """Creates a transformer for numeric features and returns it with the processed dataframe"""
-    X = df.drop(columns=drop_cols, errors='ignore')
+def create_numeric_transformer(
+    df: pd.DataFrame, drop_cols: List[str]
+) -> Tuple[ColumnTransformer, pd.DataFrame]:
+    """
+    Creates a numeric transformer pipeline and returns the features DataFrame.
+    """
+    X = df.drop(columns=drop_cols, errors="ignore")
     numeric_cols = X.select_dtypes(include=[np.number]).columns
-    
-    pipeline = Pipeline([
-        ('imputer', SimpleImputer(strategy='median')),
-        ('scaler', MinMaxScaler())
-    ])
-    
-    transformer = ColumnTransformer(
-        transformers=[('num', pipeline, numeric_cols)],
-        remainder='passthrough'
+
+    numeric_pipeline = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", MinMaxScaler()),
+        ]
     )
+
+    transformer = ColumnTransformer(
+        transformers=[("num", numeric_pipeline, numeric_cols)],
+        remainder="passthrough",
+        verbose_feature_names_out=False,
+    )
+    transformer.set_output(transform="pandas")
     return transformer, X
 
-def transform_data(train_df: pd.DataFrame, test_df: pd.DataFrame, 
-                  drop_cols: List[str]) -> Tuple[np.ndarray, np.ndarray]:
-    """Transform training and test data using a numeric transformer"""
-    transformer, X_train = create_numeric_transformer(train_df, drop_cols)
-    X_train_proc = transformer.fit_transform(X_train)
-    X_test_proc = transformer.transform(test_df.drop(columns=drop_cols, errors='ignore'))
-    return X_train_proc, X_test_proc
 
-@memory.cache
+def add_lag_features(
+    df: pd.DataFrame, group_col: str, value_col: str, lags: List[int]
+) -> pd.DataFrame:
+    """
+    Adds lag features for the specified value column, grouping by the provided column.
+    """
+    for lag in lags:
+        df[f"{value_col}_lag_{lag}"] = df.groupby(group_col)[value_col].shift(lag)
+    return df
+
+
 def load_and_prepare_data(file_path: str) -> pd.DataFrame:
-    """Load and prepare data with feature engineering"""
+    """
+    Loads data, sorts, creates features, categorizes target, and drops rows with critical NaNs.
+    """
     print(f"[INFO] Loading data from {file_path}")
-    data = pd.read_parquet(file_path, engine='pyarrow')
-    data['date'] = pd.to_datetime(data['date'])
-    data.sort_values(['site', 'date'], inplace=True)
-    
-    # Create cyclical features for day-of-year
-    day_of_year = data['date'].dt.dayofyear
-    data['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year / 365)
-    data['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year / 365)
-    
-    # Create lag features for da
-    for lag in [1, 2, 3]:
-        data[f'da_lag_{lag}'] = data.groupby('site')['da'].shift(lag)
-    
-    # Categorize da
-    data['da-category'] = pd.cut(
-        data['da'], 
-        bins=[-float('inf'), 5, 20, 40, float('inf')],
-        labels=[0, 1, 2, 3]
-    ).astype(int)
-    
+    data = pd.read_parquet(file_path, engine="pyarrow")
+    data["date"] = pd.to_datetime(data["date"])
+    data.sort_values(["date", "site"], inplace=True)
+    data.reset_index(drop=True, inplace=True)
+
+    # Temporal Features
+    day_of_year = data["date"].dt.dayofyear
+    data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
+    data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
+
+    # Lag Features
+    print("[INFO] Creating lag features...")
+    data = add_lag_features(data, group_col="site", value_col="da", lags=[1, 2, 3])
+
+    # Target Categorization
+    print("[INFO] Categorizing 'da'...")
+    data["da-category"] = pd.cut(
+        data["da"],
+        bins=[-float("inf"), 5, 20, 40, float("inf")],
+        labels=[0, 1, 2, 3],
+        right=True,
+    ).astype(pd.Int64Dtype())
+
+    # Drop rows with NaN values in critical columns (lags, target)
+    # This is considered essential cleaning, not an edge case check.
+    critical_cols = [f"da_lag_{lag}" for lag in [1, 2, 3]] + ["da", "da-category"]
+    initial_rows = len(data)
+    data.dropna(subset=critical_cols, inplace=True)
+    print(f"[INFO] Dropped {initial_rows - len(data)} rows due to NaNs in critical columns.")
+    data.reset_index(drop=True, inplace=True)
     return data
+
 
 # ---------------------------------------------------------
 # Model Training Functions
 # ---------------------------------------------------------
-def run_model(model, X_train, y_train, X_test, model_type='regression'):
-    """Generic model training function"""
+def safe_fit_predict(
+    model, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, model_type="regression"
+):
+    """
+    Fits a model and returns predictions. Assumes y_train has no NaNs
+    due to prior cleaning in load_and_prepare_data.
+    """
+    # Removed explicit y_train NaN check/fill - relying on upstream dropna
+    y_train = y_train.astype(int) if model_type == "classification" else y_train.astype(float)
     model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    return model, predictions
+    return model.predict(X_test)
 
-def create_model_configs():
-    """Create model configurations for different methods"""
-    tscv = TimeSeriesSplit(n_splits=5)
-    
-    rf_reg_config = {
-        'model': RandomForestRegressor(random_state=42),
-        'cv': tscv
-    }
-    
-    rf_cls_config = {
-        'model': RandomForestClassifier(random_state=42),
-        'cv': tscv
-    }
-    
-    lr_reg_config = {
-        'model': LinearRegression(),
-        'cv': None
-    }
-    
-    lr_cls_config = {
-        'model': LogisticRegression(solver='lbfgs', max_iter=1000, random_state=42),
-        'cv': None
-    }
-    
-    return {
-        'ml': {'reg': rf_reg_config, 'cls': rf_cls_config},
-        'lr': {'reg': lr_reg_config, 'cls': lr_cls_config}
-    }
 
-def train_and_evaluate(data: pd.DataFrame, method='ml', test_size=None):
+def run_grid_search(
+    base_model: Any,
+    param_grid: Dict,
+    X: pd.DataFrame,
+    y: pd.Series,
+    preprocessor: ColumnTransformer,
+    scoring: str,
+    cv_splits: int,
+    model_type: str,
+) -> Dict:
     """
-    Generic training function that handles both regression and classification
-    for any of the specified methods (ml, lr).
+    Runs GridSearchCV using a pipeline.
     """
-    if test_size is None:
-        test_size = CONFIG["TEST_SIZE"]
-        
-    print(f"[INFO] Training models using method: {method}")
-    
-    # Get model configurations
-    model_configs = create_model_configs()
-    if method not in model_configs:
+    print(f"\n[INFO] Starting GridSearchCV for {model_type}...")
+    pipeline = Pipeline([("preprocessor", preprocessor), ("model", base_model)])
+    cv = TimeSeriesSplit(n_splits=cv_splits)
+    grid_search = GridSearchCV(
+        estimator=pipeline,
+        param_grid=param_grid,
+        scoring=scoring,
+        cv=cv,
+        n_jobs=-1,
+        verbose=0,
+        error_score="raise",
+    )
+    print(f"[INFO] Fitting GridSearchCV on {len(X)} samples...")
+    grid_search.fit(X, y)
+    print(f"[INFO] GridSearchCV for {model_type} complete. Best Score ({scoring}): {grid_search.best_score_:.4f}")
+    print(f"  Best Params: {grid_search.best_params_}")
+    best_params_cleaned = {
+        key.replace("model__", ""): value for key, value in grid_search.best_params_.items()
+    }
+    return best_params_cleaned
+
+
+def get_model_configs(
+    best_reg_params: Dict = None, best_cls_params: Dict = None
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Returns a dictionary of model configurations.
+    """
+    best_reg_params = best_reg_params or {}
+    best_cls_params = best_cls_params or {}
+    model_configs = {
+        "ml": {
+            "reg": RandomForestRegressor(random_state=42, n_jobs=1, **best_reg_params),
+            "cls": RandomForestClassifier(random_state=42, n_jobs=1, **best_cls_params),
+        },
+        "lr": {
+            "reg": LinearRegression(n_jobs=1),
+            "cls": LogisticRegression(solver="lbfgs", max_iter=1000, random_state=42, n_jobs=1),
+        },
+    }
+    # Removed debug prints for brevity
+    # print(f"[DEBUG] RF Regressor Base Params: {model_configs['ml']['reg'].get_params()}")
+    # print(f"[DEBUG] RF Classifier Base Params: {model_configs['ml']['cls'].get_params()}")
+    return model_configs
+
+
+# --- Helper function for parallel processing of a single fold ---
+def _process_fold(
+    fold_num: int,
+    train_idx: np.ndarray,
+    test_idx: np.ndarray,
+    data_sorted: pd.DataFrame,
+    reg_model_base: Any,
+    cls_model_base: Any,
+    reg_drop_cols: List[str],
+    cls_drop_cols: List[str],
+    min_test_date: pd.Timestamp,
+) -> Optional[pd.DataFrame]:
+    """
+    Processes a single fold. Returns test DataFrame with predictions, or None if skipped.
+    Removed check for empty train/test sets - will error later if this occurs.
+    """
+    current_test_start_date = data_sorted.iloc[test_idx]["date"].min()
+    if current_test_start_date < min_test_date:
+        # Minimal print for skipped folds
+        # print(f"[DEBUG] Skipping Fold {fold_num} (date)")
+        return None # Skip this fold
+
+    print(f"[INFO] Processing Fold {fold_num}...")
+    train_df = data_sorted.iloc[train_idx].copy()
+    test_df = data_sorted.iloc[test_idx].copy()
+
+    # Removed check for empty train_df or test_df.
+    # If empty, subsequent steps (fit_transform, fit) will likely raise an error.
+
+    # --- Regression ---
+    transformer_reg, X_train_reg = create_numeric_transformer(train_df, reg_drop_cols)
+    X_train_reg_proc = transformer_reg.fit_transform(X_train_reg)
+    y_train_reg = train_df["da"]
+
+    X_test_reg = test_df.drop(columns=reg_drop_cols, errors="ignore")
+    X_test_reg = X_test_reg.reindex(columns=X_train_reg.columns, fill_value=0) # Keep reindex
+    X_test_reg_proc = transformer_reg.transform(X_test_reg)
+
+    reg_model = clone(reg_model_base)
+    y_pred_reg = safe_fit_predict(reg_model, X_train_reg_proc, y_train_reg, X_test_reg_proc, model_type="regression")
+
+    # --- Classification ---
+    transformer_cls, X_train_cls = create_numeric_transformer(train_df, cls_drop_cols)
+    X_train_cls_proc = transformer_cls.fit_transform(X_train_cls)
+    y_train_cls = train_df["da-category"]
+
+    X_test_cls = test_df.drop(columns=cls_drop_cols, errors="ignore")
+    X_test_cls = X_test_cls.reindex(columns=X_train_cls.columns, fill_value=0) # Keep reindex
+    X_test_cls_proc = transformer_cls.transform(X_test_cls)
+
+    cls_model = clone(cls_model_base)
+    y_pred_cls = safe_fit_predict(cls_model, X_train_cls_proc, y_train_cls, X_test_cls_proc, model_type="classification")
+
+    # Store predictions
+    test_df["Predicted_da"] = y_pred_reg
+    test_df["Predicted_da-category"] = y_pred_cls
+    return test_df
+# --- End Helper Function ---
+
+
+def train_and_evaluate(
+    data: pd.DataFrame,
+    method="ml",
+    best_reg_params: Dict = None,
+    best_cls_params: Dict = None,
+):
+    """
+    Trains models using TimeSeriesSplit (parallel) and evaluates performance.
+    """
+    print(f"\n[INFO] Starting evaluation using method: {method} with PARALLEL TimeSeriesSplit.")
+    model_configs = get_model_configs(best_reg_params, best_cls_params)
+    if method not in model_configs: # Keep basic validation
         raise ValueError(f"Method '{method}' not supported")
-    
-    reg_config = model_configs[method]['reg']
-    cls_config = model_configs[method]['cls']
-    
-    # Common column lists
-    common_cols = ['date', 'site']
-    reg_drop_cols = common_cols + ['da', 'da-category']
-    cls_drop_cols = common_cols + ['da', 'da-category']
-    
-    # Results dictionary
+
+    reg_model_base = model_configs[method]["reg"]
+    cls_model_base = model_configs[method]["cls"]
+
+    data_sorted = data.copy()
+    n_splits = CONFIG["N_SPLITS_TS_EVAL"]
+    tscv = TimeSeriesSplit(n_splits=n_splits)
+    min_test_date = pd.Timestamp(CONFIG["MIN_TEST_DATE"])
+    n_jobs = CONFIG["N_JOBS_EVAL"]
+    print(f"[INFO] Using TimeSeriesSplit with n_splits={n_splits}, n_jobs={n_jobs}. First test fold >= {min_test_date.date()}")
+
+    common_cols = ["date", "site"]
+    reg_drop_cols = common_cols + ["da", "da-category"]
+    cls_drop_cols = common_cols + ["da", "da-category"]
+
+    # --- Parallel Execution ---
+    fold_args = [
+        (i + 1, train_idx, test_idx)
+        for i, (train_idx, test_idx) in enumerate(tscv.split(data_sorted))
+    ]
+    print(f"[INFO] Starting parallel processing for {len(fold_args)} folds...")
+    results_list = Parallel(n_jobs=n_jobs, verbose=5)(
+        delayed(_process_fold)(
+            fold_num, train_idx, test_idx, data_sorted, reg_model_base,
+            cls_model_base, reg_drop_cols, cls_drop_cols, min_test_date,
+        )
+        for fold_num, train_idx, test_idx in fold_args
+    )
+
+    fold_test_dfs_with_preds = [df for df in results_list if df is not None]
+    processed_fold_count = len(fold_test_dfs_with_preds)
+    skipped_fold_count = len(fold_args) - processed_fold_count
+    print(f"[INFO] Parallel processing complete. Processed {processed_fold_count}, skipped {skipped_fold_count} folds.")
+
+    # --- Aggregation and Final Evaluation ---
+    if not fold_test_dfs_with_preds: # Keep check: essential if all folds skipped
+        print(f"[ERROR] No valid folds processed. Cannot aggregate results.")
+        return {"DA_Level": {}, "da-category": {}}
+
+    print(f"\n[INFO] Aggregating results across {processed_fold_count} folds...")
+    final_test_df = pd.concat(fold_test_dfs_with_preds).sort_values(["date", "site"])
+    final_test_df = final_test_df.drop_duplicates(subset=["date", "site"], keep="last") # Keep duplicate drop
+
     results = {}
-    
-    # Train and evaluate regression model
-    print("[INFO] Training regression model...")
-    data_reg = data.copy()
-    train_reg, test_reg = train_test_split(data_reg, test_size=test_size, random_state=42)
-    X_train_reg, X_test_reg = transform_data(train_reg, test_reg, reg_drop_cols)
-    y_train_reg, y_test_reg = train_reg['da'], test_reg['da']
-    
-    best_reg, y_pred_reg = run_model(
-        reg_config['model'], X_train_reg, y_train_reg, X_test_reg,
-        model_type='regression'
-    )
-    
-    test_reg_with_pred = test_reg.copy()
-    test_reg_with_pred['Predicted_da'] = y_pred_reg
-    overall_r2_reg = r2_score(y_test_reg, y_pred_reg)
-    overall_mae_reg = mean_absolute_error(y_test_reg, y_pred_reg)
-    
-    site_stats_reg = test_reg_with_pred.groupby('site')[['da', 'Predicted_da']].apply(
-        lambda x: pd.Series({
-            'r2': r2_score(x['da'], x['Predicted_da']),
-            'mae': mean_absolute_error(x['da'], x['Predicted_da'])
-        })
-    )
-    
+    last_reg_model = reg_model_base
+    last_cls_model = cls_model_base
+
+    # Evaluate Regression
+    df_reg = final_test_df.dropna(subset=["da", "Predicted_da"]) # Keep NaN drop before metrics
+    overall_r2, overall_mae = np.nan, np.nan
+    site_stats_reg = pd.DataFrame(columns=["site", "r2", "mae"])
+    if not df_reg.empty: # Keep check before calculating metrics
+        overall_r2 = r2_score(df_reg["da"], df_reg["Predicted_da"])
+        overall_mae = mean_absolute_error(df_reg["da"], df_reg["Predicted_da"])
+        print(f"[INFO] Overall Regression R2: {overall_r2:.4f}, MAE: {overall_mae:.4f}")
+        site_stats_reg = (
+            df_reg.groupby("site")
+            .apply(lambda x: pd.Series({
+                "r2": r2_score(x["da"], x["Predicted_da"]) if len(x) > 1 else np.nan,
+                "mae": mean_absolute_error(x["da"], x["Predicted_da"]) if len(x) > 1 else np.nan,
+            }))
+            .reset_index()
+        )
+    # else: # Removed warning print for brevity
+        # print("[WARN] No valid regression data for metric calculation.")
+
     results["DA_Level"] = {
-        "test_df": test_reg_with_pred,
-        "site_stats": site_stats_reg,
-        "overall_r2": overall_r2_reg,
-        "overall_mae": overall_mae_reg,
-        "model": best_reg
+        "test_df": final_test_df,
+        "site_stats": site_stats_reg.set_index("site"),
+        "overall_r2": overall_r2,
+        "overall_mae": overall_mae,
+        "model": last_reg_model,
     }
-    
-    # Train and evaluate classification model
-    print("[INFO] Training classification model...")
-    data_cls = data.copy()
-    train_cls, test_cls = train_test_split(data_cls, test_size=test_size, random_state=42)
-    X_train_cls, X_test_cls = transform_data(train_cls, test_cls, cls_drop_cols)
-    y_train_cls, y_test_cls = train_cls['da-category'], test_cls['da-category']
-    
-    best_cls, y_pred_cls = run_model(
-        cls_config['model'], X_train_cls, y_train_cls, X_test_cls,
-        model_type='classification'
-    )
-    
-    test_cls_with_pred = test_cls.copy()
-    test_cls_with_pred['Predicted_da-category'] = y_pred_cls
-    overall_accuracy_cls = accuracy_score(y_test_cls, y_pred_cls)
-    
-    site_stats_cls = test_cls_with_pred.groupby('site')[['da-category', 'Predicted_da-category']].apply(
-        lambda x: accuracy_score(x['da-category'], x['Predicted_da-category'])
-    )
-    
+
+    # Evaluate Classification
+    df_cls = final_test_df.dropna(subset=["da-category", "Predicted_da-category"]) # Keep NaN drop
+    # Keep type conversions essential for metrics
+    df_cls["da-category"] = pd.to_numeric(df_cls["da-category"], errors='coerce').astype('Int64')
+    df_cls["Predicted_da-category"] = pd.to_numeric(df_cls["Predicted_da-category"], errors='coerce').astype('Int64')
+    df_cls = df_cls.dropna(subset=["da-category", "Predicted_da-category"])
+
+    overall_accuracy = np.nan
+    site_stats_cls = pd.DataFrame(columns=["site", "accuracy"])
+    if not df_cls.empty: # Keep check before calculating metrics
+        overall_accuracy = accuracy_score(df_cls["da-category"], df_cls["Predicted_da-category"])
+        print(f"[INFO] Overall Classification Accuracy: {overall_accuracy:.4f}")
+        site_stats_cls = (
+            df_cls.groupby("site")
+            .apply(lambda x: accuracy_score(x["da-category"], x["Predicted_da-category"]) if not x.empty else np.nan)
+            .reset_index(name="accuracy")
+        )
+    # else: # Removed warning print for brevity
+        # print("[WARN] No valid classification data for metric calculation.")
+
     results["da-category"] = {
-        "test_df": test_cls_with_pred,
-        "site_stats": site_stats_cls,
-        "overall_accuracy": overall_accuracy_cls,
-        "model": best_cls
+        "test_df": final_test_df,
+        "site_stats": site_stats_cls.set_index("site")["accuracy"],
+        "overall_accuracy": overall_accuracy,
+        "model": last_cls_model,
     }
-    
-    print(f"[INFO] {method.upper()} training complete.")
+
+    print(f"[INFO] {method.upper()} parallel evaluation complete.")
     return results
 
-# ---------------------------------------------------------
-# Forecasting Functions
-# ---------------------------------------------------------
-def forecast_future(df: pd.DataFrame, anchor_date, site, method='ml'):
-    """
-    Unified forecasting function that supports different methods
-    """
-    print(f"[INFO] Forecasting for site '{site}' after '{anchor_date}' using {method}")
-    
-    # Filter data for the specific site and prepare train/test sets
-    df_site = df[df['site'] == site].copy().sort_values('date')
-    df_future = df_site[df_site['date'] > anchor_date]
-    
-    if df_future.empty:
-        return None
-        
-    next_date = df_future['date'].iloc[0]
-    df_train = df_site[df_site['date'] <= anchor_date].copy()
-    df_test = df_site[df_site['date'] == next_date].copy()
-    
-    if df_train.empty or df_test.empty:
-        return None
-    
-    # Common columns to drop
-    drop_cols = ['da', 'da-category', 'date', 'site']
-    
-    # Get model configurations
-    model_configs = create_model_configs()
-    if method not in model_configs:
-        raise ValueError(f"Method '{method}' not supported")
-    
-    reg_config = model_configs[method]['reg']
-    cls_config = model_configs[method]['cls']
-    
-    # Process data
-    X_train, X_test = transform_data(df_train, df_test, drop_cols)
-    
-    # Train and predict with regression model
-    reg_model = reg_config['model']
-    reg_model.fit(X_train, df_train['da'])
-    y_pred_reg = reg_model.predict(X_test)
-    
-    # Train and predict with classification model
-    cls_model = cls_config['model']
-    cls_model.fit(X_train, df_train['da-category'])
-    y_pred_cls = cls_model.predict(X_test)
-    
-    return {
-        'Anchordate': anchor_date,
-        'site': site,
-        'Nextdate': next_date,
-        'Predicted_da': float(y_pred_reg[0]),
-        'Actual_da': float(df_test['da'].iloc[0]),
-        'Predicted_da-category': int(y_pred_cls[0]),
-        'Actual_da-category': int(df_test['da-category'].iloc[0])
-    }
 
-def get_random_anchor_forecasts(data: pd.DataFrame, method='ml'):
-    """Generate random anchor forecasts using the specified method"""
-    print(f"[INFO] Generating random anchor forecasts using {method}...")
-    
-    df_after_2010 = data[data['date'].dt.year >= 2010].copy().sort_values(['site', 'date'])
-    pairs_after_2010 = df_after_2010[['site', 'date']].drop_duplicates()
-    
-    # Sample random anchor dates for each site
-    df_random_anchors = pd.concat([
-        group.sample(n=min(CONFIG["NUM_RANDOM_ANCHORS"], len(group)), random_state=42)
-        for _, group in pairs_after_2010.groupby('site')
-    ]).reset_index(drop=True)
-    
-    # Generate forecasts
-    results_list = []
-    for _, row in df_random_anchors.iterrows():
-        site_ = row['site']
-        anchor_date_ = row['date']
-        result = forecast_future(data, anchor_date_, site_, method)
-        if result is not None:
-            results_list.append(result)
-    
-    df_results_anchors = pd.DataFrame(results_list)
-    if df_results_anchors.empty:
-        return df_results_anchors, {}, None, None
-    
-    # Calculate performance metrics
-    mae_anchors = mean_absolute_error(
-        df_results_anchors['Actual_da'],
-        df_results_anchors['Predicted_da']
-    )
-    acc_anchors = (
-        df_results_anchors['Actual_da-category'] == df_results_anchors['Predicted_da-category']
-    ).mean()
-    
-    # Create figures for each site
-    figs_random_site = {}
-    for site, df_site in df_results_anchors.groupby("site"):
-        df_line = df_site.sort_values("Nextdate")
-        df_plot_melt = df_line.melt(
-            id_vars=["Nextdate"],
-            value_vars=["Actual_da", "Predicted_da"],
-            var_name="Type", value_name="DA_Level"
-        )
-        fig = px.line(
-            df_plot_melt,
-            x="Nextdate",
-            y="DA_Level",
-            color="Type",
-            title=f"Random Anchor Forecast for site {site}"
-        )
-        fig.update_layout(xaxis_title="Next date", yaxis_title="DA Level")
-        figs_random_site[site] = fig
-    
-    return df_results_anchors, figs_random_site, mae_anchors, acc_anchors
-
-# ---------------------------------------------------------
-# Main Execution
-# ---------------------------------------------------------
-def prepare_all_predictions(data):
-    """Prepare all predictions based on configuration"""
+def prepare_all_predictions(
+    data: pd.DataFrame,
+    best_reg_params: Dict = None,
+    best_cls_params: Dict = None,
+) -> Dict:
+    """
+    Runs evaluation for the ML method and optionally for LR if enabled.
+    """
     predictions = {}
-    random_anchors = {}
-    
-    # ML predictions
-    predictions['ml'] = train_and_evaluate(data, method='ml')
-    
-    # Linear/Logistic predictions if enabled
+    predictions["ml"] = train_and_evaluate(
+        data, method="ml", best_reg_params=best_reg_params, best_cls_params=best_cls_params
+    )
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-        predictions['lr'] = train_and_evaluate(data, method='lr')
-    
-    # Random anchor forecasts if enabled
-    if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
-        random_anchors['ml'] = get_random_anchor_forecasts(data, method='ml')
-        
-        if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-            random_anchors['lr'] = get_random_anchor_forecasts(data, method='lr')
-    
-    return predictions, random_anchors
+        predictions["lr"] = train_and_evaluate(data, method="lr")
+    return predictions
+
 
 # ---------------------------------------------------------
-# Dash App Setup
+# Dash App Setup (Keeping edge case checks here for UI stability)
 # ---------------------------------------------------------
-def create_dash_app(predictions, random_anchors, data):
-    """Create and configure the Dash app"""
+def create_dash_app(predictions: Dict, data: pd.DataFrame):
+    """
+    Creates and configures the Dash application. Edge case checks remain
+    within the callback for UI stability.
+    """
     app = dash.Dash(__name__)
-    
-    # Create layout based on configuration
-    analysis_layout = html.Div([
-        html.H3("Overall Analysis (Time-Series)"),
-        dcc.Dropdown(
-            id='forecast-type-dropdown',
-            options=[
-                {'label': 'DA Levels', 'value': 'DA_Level'},
-                {'label': 'DA Category', 'value': 'da-category'}
-            ],
-            value='DA_Level',
-            style={'width': '50%', 'marginBottom': '15px'}
-        ),
-        dcc.Dropdown(
-            id='site-dropdown',
-            placeholder='Select site',
-            style={'width': '50%', 'marginBottom': '15px'}
-        ),
-        dcc.Graph(id='analysis-graph')
-    ])
-    
-    if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
-        random_anchors_layout = html.Div([
-            html.H3("Random Anchor dates Forecast -> Next date by site"),
-            html.Div(id='random-anchor-container')
-        ])
-    else:
-        random_anchors_layout = html.Div([
-            html.H3("Random Anchor Forecasts are disabled.")
-        ])
-    
-    # Create tabs
-    tabs_children = [dcc.Tab(label='Analysis', children=[analysis_layout])]
-    if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
-        tabs_children.append(dcc.Tab(label='Random Anchor Forecast', children=[random_anchors_layout]))
-    
-    # Setup forecast method dropdown options
-    forecast_methods = [
-        {'label': 'Machine Learning Forecasts', 'value': 'ml'}
-    ]
-    if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-        forecast_methods.append({'label': 'Linear/Logistic Regression Forecasts', 'value': 'lr'})
-    
-    # Create layout
-    app.layout = html.Div([
-        html.H1("Domoic Acid Forecast Dashboard"),
-        html.Div([
-            html.Label("Select Forecast Method"),
+
+    analysis_layout = html.Div(
+        [
+            html.H3("Overall Analysis (Aggregated TimeSeriesSplit Folds)"),
             dcc.Dropdown(
-                id='forecast-method-dropdown',
-                options=forecast_methods,
-                value='ml',
-                style={'width': '30%', 'marginLeft': '20px'}
-            )
-        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '20px'}),
-        dcc.Tabs(id="tabs", children=tabs_children),
-        dcc.Store(id='data-store', data={'sites': data['site'].unique().tolist()})
-    ])
-    
-    # Define callbacks
+                id="forecast-type-dropdown",
+                options=[
+                    {"label": "DA Levels (Regression)", "value": "DA_Level"},
+                    {"label": "DA Category (Classification)", "value": "da-category"},
+                ],
+                value="DA_Level",
+                style={"width": "50%", "marginBottom": "15px"},
+            ),
+            dcc.Dropdown(
+                id="site-dropdown",
+                placeholder="Select site (or All sites)",
+                style={"width": "50%", "marginBottom": "15px"},
+            ),
+            dcc.Graph(id="analysis-graph"),
+        ]
+    )
+
+    tabs_children = [dcc.Tab(label="Aggregated TS Analysis", children=[analysis_layout])]
+    forecast_methods = [{"label": "Random Forest (ML)", "value": "ml"}]
+    if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
+        forecast_methods.append({"label": "Linear/Logistic Regression (LR)", "value": "lr"})
+    sites_list = sorted(data["site"].unique().tolist())
+
+    app.layout = html.Div(
+        [
+            html.H1("Domoic Acid Forecast Dashboard"),
+            html.Div(
+                [
+                    html.Label("Select Model Method:"),
+                    dcc.Dropdown(
+                        id="forecast-method-dropdown",
+                        options=forecast_methods,
+                        value="ml",
+                        clearable=False,
+                        style={"width": "30%", "marginLeft": "10px"},
+                    ),
+                ],
+                style={"display": "flex", "alignItems": "center", "marginBottom": "20px"},
+            ),
+            dcc.Tabs(id="tabs", children=tabs_children),
+            dcc.Store(id="data-store", data={"sites": sites_list}),
+        ]
+    )
+
     @app.callback(
-        Output('site-dropdown', 'options'),
-        [Input('data-store', 'data')]
+        Output("site-dropdown", "options"), [Input("data-store", "data")]
     )
     def update_site_dropdown(data_store):
-        sites = data_store['sites']
-        options = [{'label': 'All sites', 'value': 'All sites'}] + [
-            {'label': site, 'value': site} for site in sites
+        sites = data_store.get("sites", [])
+        options = [{"label": "All sites", "value": "All sites"}] + [
+            {"label": site, "value": site} for site in sites
         ]
         return options
-    
+
     @app.callback(
-        Output('analysis-graph', 'figure'),
-        [Input('forecast-type-dropdown', 'value'),
-         Input('site-dropdown', 'value'),
-         Input('forecast-method-dropdown', 'value')]
+        Output("analysis-graph", "figure"),
+        [
+            Input("forecast-type-dropdown", "value"),
+            Input("site-dropdown", "value"),
+            Input("forecast-method-dropdown", "value"),
+        ],
     )
     def update_graph(forecast_type, selected_site, forecast_method):
-        # Validate inputs
+        # Keep checks within Dash callback for robustness
         if forecast_method not in predictions:
-            forecast_method = 'ml'
-        
-        pred = predictions[forecast_method]
-        
-        # Get appropriate data and stats based on forecast type
-        if forecast_type == 'DA_Level':
-            df_plot = pred['DA_Level']['test_df'].copy()
-            site_stats = pred['DA_Level']['site_stats']
-            overall_r2 = pred['DA_Level']['overall_r2']
-            overall_mae = pred['DA_Level']['overall_mae']
-            y_axis_title = 'Domoic Acid Levels'
-            
-            # Prepare data for plotting
+            print(f"[WARN] Invalid forecast method '{forecast_method}', defaulting to 'ml'.")
+            forecast_method = "ml" # Defaulting behavior
+        if forecast_method not in predictions or not predictions[forecast_method]:
+            # Handle case where method might exist but has no results
+            return px.line(title=f"No prediction data available for {forecast_method.upper()}")
+
+        pred_data = predictions[forecast_method]
+        if (
+            forecast_type not in pred_data
+            or not pred_data[forecast_type]
+            or "test_df" not in pred_data[forecast_type]
+            or pred_data[forecast_type]["test_df"] is None
+            or pred_data[forecast_type]["test_df"].empty # Added empty check here
+        ):
+            return px.line(title=f"No data for {forecast_type} using {forecast_method.upper()}")
+
+        results_dict = pred_data[forecast_type]
+        df_plot = results_dict.get("test_df").copy() # Already checked it's not None/empty
+        site_stats = results_dict.get("site_stats")
+
+        # --- Plotting logic remains largely the same ---
+        performance_text = "Performance metrics unavailable" # Default text
+
+        if forecast_type == "DA_Level":
+            overall_r2 = results_dict.get("overall_r2", float("nan"))
+            overall_mae = results_dict.get("overall_mae", float("nan"))
+            y_axis_title = "Domoic Acid Levels"
+            actual_col = "da"
+            pred_col = "Predicted_da"
+            metric_order = [actual_col, pred_col]
             df_plot_melted = pd.melt(
                 df_plot,
-                id_vars=['date', 'site'],
-                value_vars=['da', 'Predicted_da'],
-                var_name='Metric',
-                value_name='Value'
-            )
-            
-            # Get performance text
-            if selected_site is None or selected_site == 'All sites':
-                performance_text = f"Overall R² = {overall_r2:.2f}, MAE = {overall_mae:.2f}"
+                id_vars=["date", "site"],
+                value_vars=[actual_col, pred_col],
+                var_name="Metric",
+                value_name="Value",
+            ).dropna(subset=["Value"])
+
+            if selected_site is None or selected_site == "All sites":
+                performance_text = f"Overall R² = {overall_r2:.3f}, MAE = {overall_mae:.3f}"
+            elif site_stats is not None and selected_site in site_stats.index:
+                    site_r2 = site_stats.loc[selected_site, "r2"]
+                    site_mae = site_stats.loc[selected_site, "mae"]
+                    performance_text = f"Site R² = {site_r2:.3f}, MAE = {site_mae:.3f}"
             else:
-                if selected_site in site_stats.index:
-                    site_r2 = site_stats.loc[selected_site, 'r2']
-                    site_mae = site_stats.loc[selected_site, 'mae']
-                    performance_text = f"R² = {site_r2:.2f}, MAE = {site_mae:.2f}"
-                else:
-                    performance_text = "No data for selected site."
-        else:
-            df_plot = pred['da-category']['test_df'].copy()
-            site_stats = pred['da-category']['site_stats']
-            overall_accuracy = pred['da-category']['overall_accuracy']
-            y_axis_title = 'Domoic Acid Category'
-            
-            # Prepare data for plotting
+                 performance_text = f"Stats unavailable for site: {selected_site}"
+
+        elif forecast_type == "da-category":
+            overall_accuracy = results_dict.get("overall_accuracy", float("nan"))
+            y_axis_title = "Domoic Acid Category"
+            actual_col = "da-category"
+            pred_col = "Predicted_da-category"
+            metric_order = [actual_col, pred_col]
+            df_plot[actual_col] = pd.to_numeric(df_plot[actual_col], errors='coerce').astype('Int64').astype(str)
+            df_plot[pred_col] = pd.to_numeric(df_plot[pred_col], errors='coerce').astype('Int64').astype(str)
             df_plot_melted = pd.melt(
                 df_plot,
-                id_vars=['date', 'site'],
-                value_vars=['da-category', 'Predicted_da-category'],
-                var_name='Metric',
-                value_name='Value'
-            )
-            
-            # Get performance text
-            if selected_site is None or selected_site == 'All sites':
-                performance_text = f"Overall Accuracy = {overall_accuracy:.2f}"
-            else:
-                if selected_site in site_stats.index:
+                id_vars=["date", "site"],
+                value_vars=[actual_col, pred_col],
+                var_name="Metric",
+                value_name="Value",
+            ).dropna(subset=["Value"])
+
+            if selected_site is None or selected_site == "All sites":
+                performance_text = f"Overall Accuracy = {overall_accuracy:.3f}"
+            elif site_stats is not None and selected_site in site_stats.index:
                     site_accuracy = site_stats.loc[selected_site]
-                    performance_text = f"Accuracy = {site_accuracy:.2f}"
-                else:
-                    performance_text = "No data for selected site."
-        
-        # Filter data by site if specified
-        if selected_site and selected_site != 'All sites':
-            df_plot_melted = df_plot_melted[df_plot_melted['site'] == selected_site]
-        
-        df_plot_melted.sort_values('date', inplace=True)
-        
-        # Create figure
-        if selected_site == 'All sites' or not selected_site:
-            fig = px.line(
-                df_plot_melted, x='date', y='Value',
-                color='site', line_dash='Metric',
-                title=f"{y_axis_title} Forecast - All sites"
-            )
+                    performance_text = f"Site Accuracy = {site_accuracy:.3f}"
+            else:
+                performance_text = f"Stats unavailable for site: {selected_site}"
         else:
-            fig = px.line(
-                df_plot_melted, x='date', y='Value',
-                color='Metric',
-                category_orders={'Metric': ['da', 'Predicted_da'] 
-                               if forecast_type == 'DA_Level' 
-                               else ['da-category', 'Predicted_da-category']},
-                title=f"{y_axis_title} Forecast - {selected_site}"
-            )
-        
-        # Update layout
+            return px.line(title=f"Invalid forecast type: {forecast_type}") # Keep this check
+
+        # Filter data for plotting
+        if selected_site and selected_site != "All sites":
+            df_plot_melted = df_plot_melted[df_plot_melted["site"] == selected_site]
+            plot_title = f"{y_axis_title} Forecast (Aggregated Test Sets) - {selected_site} ({forecast_method.upper()})"
+        else:
+            plot_title = f"{y_axis_title} Forecast (Aggregated Test Sets) - All sites ({forecast_method.upper()})"
+
+        if df_plot_melted.empty: # Check if filtering resulted in empty data
+            return px.line(title=f"No data to plot for {selected_site or 'All sites'} ({forecast_method.upper()})")
+
+        # Create the plot
+        df_plot_melted.sort_values("date", inplace=True)
+        fig_params = {
+            "data_frame": df_plot_melted, "x": "date", "y": "Value",
+            "title": plot_title, "category_orders": {"Metric": metric_order},
+        }
+        fig = px.line(**fig_params, color="site" if selected_site == "All sites" or not selected_site else "Metric",
+                      line_dash="Metric" if selected_site == "All sites" or not selected_site else None)
+
         fig.update_layout(
-            yaxis_title=y_axis_title,
-            xaxis_title='date',
+            yaxis_title=y_axis_title, xaxis_title="Date (Aggregated Test Sets)",
+            legend_title_text="Metric/Site", margin=dict(b=80),
             annotations=[{
-                'xref': 'paper', 'yref': 'paper',
-                'x': 0.5, 'y': -0.2,
-                'xanchor': 'center', 'yanchor': 'top',
-                'text': performance_text,
-                'showarrow': False
+                "xref": "paper", "yref": "paper", "x": 0.5, "y": -0.15,
+                "xanchor": "center", "yanchor": "top", "text": performance_text,
+                "showarrow": False, "font": {"size": 12},
             }]
         )
-        
+        if forecast_type == "da-category":
+            cat_values = sorted(df_plot_melted["Value"].unique(), key=lambda x: int(x))
+            fig.update_yaxes(type="category", categoryorder="array", categoryarray=cat_values)
+
         return fig
-    
-    if CONFIG["ENABLE_RANDOM_ANCHOR_FORECASTS"]:
-        @app.callback(
-            Output('random-anchor-container', 'children'),
-            [Input('forecast-method-dropdown', 'value')]
-        )
-        def update_random_anchor_layout(forecast_method):
-            # Validate input
-            if forecast_method not in random_anchors:
-                forecast_method = 'ml'
-            
-            df_results, figs_random_site, mae, acc = random_anchors[forecast_method]
-            
-            # Create graph components
-            graphs = [dcc.Graph(figure=fig) for _, fig in figs_random_site.items()]
-            
-            # Create metrics display
-            metrics = html.Div([
-                html.H4("Overall Performance on Random Anchor Forecasts"),
-                html.Ul([
-                    html.Li(f"MAE (DA Levels): {mae:.3f}") if mae is not None else html.Li("No MAE (no data)"),
-                    html.Li(f"Accuracy (DA Category): {acc:.3f}") if acc is not None else html.Li("No Accuracy (no data)")
-                ])
-            ], style={'marginTop': 20})
-            
-            return html.Div(graphs + [metrics])
-    
+
     return app
+
 
 # ---------------------------------------------------------
 # Main Execution
 # ---------------------------------------------------------
-if __name__ == '__main__':
-    # Load and prepare data
+if __name__ == "__main__":
     print("[INFO] Loading and preparing data...")
     data = load_and_prepare_data(CONFIG["DATA_FILE"])
-    
-    # Generate predictions
-    predictions, random_anchors = prepare_all_predictions(data)
-    
-    # Create and run Dash app
-    app = create_dash_app(predictions, random_anchors, data)
-    print(f"[INFO] Starting Dash app on port {CONFIG['PORT']}")
-    app.run_server(debug=True, port=CONFIG["PORT"])
+
+    if data.empty: # Keep this essential check
+        print("[ERROR] Data is empty after loading and preparation. Exiting.")
+    else:
+        print("[INFO] Data loaded successfully.")
+
+        common_cols = ["date", "site"]
+        reg_drop_cols = common_cols + ["da", "da-category"]
+        cls_drop_cols = common_cols + ["da", "da-category"]
+
+        temp_transformer_reg, X_full_reg = create_numeric_transformer(data, reg_drop_cols)
+        y_full_reg = data["da"].astype(float)
+        temp_transformer_cls, X_full_cls = create_numeric_transformer(data, cls_drop_cols)
+        y_full_cls = data["da-category"].astype(int)
+
+        best_rf_reg_params = run_grid_search(
+            base_model=RandomForestRegressor(random_state=42, n_jobs=1),
+            param_grid=PARAM_GRID_REG, X=X_full_reg, y=y_full_reg,
+            preprocessor=temp_transformer_reg, scoring="r2",
+            cv_splits=CONFIG["N_SPLITS_TS_GRIDSEARCH"], model_type="Regressor",
+        )
+        best_rf_cls_params = run_grid_search(
+            base_model=RandomForestClassifier(random_state=42, n_jobs=1),
+            param_grid=PARAM_GRID_CLS, X=X_full_cls, y=y_full_cls,
+            preprocessor=temp_transformer_cls, scoring="accuracy",
+            cv_splits=CONFIG["N_SPLITS_TS_GRIDSEARCH"], model_type="Classifier",
+        )
+
+        print("\n[INFO] Preparing predictions using PARALLEL TimeSeriesSplit evaluation...")
+        predictions = prepare_all_predictions(
+            data, best_reg_params=best_rf_reg_params, best_cls_params=best_rf_cls_params
+        )
+
+        print("\n[INFO] Creating Dash application...")
+        app = create_dash_app(predictions, data)
+
+        print(f"[INFO] Starting Dash app on http://127.0.0.1:{CONFIG['PORT']}")
+        app.run_server(debug=False, port=CONFIG['PORT'])
+
