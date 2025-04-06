@@ -22,10 +22,10 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
-    "ENABLE_LINEAR_LOGISTIC": False,
+    "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
-    "N_SPLITS_TS_EVAL": 100,
+    "N_SPLITS_TS_EVAL": 200,
     "N_SPLITS_TS_GRIDSEARCH": 5,
     "MIN_TEST_DATE": "2008-01-01",
     "N_JOBS_EVAL": -1,
