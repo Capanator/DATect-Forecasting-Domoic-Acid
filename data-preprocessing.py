@@ -13,6 +13,7 @@ import shutil
 # Suppress warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
+warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`")
 
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
@@ -61,8 +62,6 @@ def download_file(url, filename):
     """Download file from URL"""
     if not url:
         return None
-        
-    print(f"Downloading {url.split('/')[-1]} to {os.path.basename(filename)}...")
     response = requests.get(url, timeout=180, stream=True)
     response.raise_for_status()
     
@@ -92,13 +91,11 @@ def convert_files_to_parquet(files_dict):
     """Convert multiple CSV files to Parquet format"""
     print("\n--- Converting Input CSV Files to Parquet ---")
     new_files = {}
-    
     for name, path in files_dict.items():
         if isinstance(path, str) and path.lower().endswith('.csv'):
             new_files[name] = csv_to_parquet(path)
         else:
             new_files[name] = path
-            
     return new_files
 
 # --- Satellite Data Processing ---
@@ -568,11 +565,7 @@ def process_pn(pn_files_dict):
             df['Parsed_Date'] = pd.to_datetime(df[date_col], errors='coerce')
             df['PN_Levels'] = pd.to_numeric(df[pn_col], errors='coerce')
             df['Site'] = site_name_guess
-
             df.dropna(subset=['Parsed_Date', 'PN_Levels', 'Site'], inplace=True)
-            if df.empty:
-                 print(f"    Warning: No valid PN data after cleaning for {name}.")
-                 continue
 
             # Aggregate weekly - Use ISO week for consistency
             df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
@@ -701,12 +694,9 @@ def compile_da_pn(lt_df, da_df, pn_df):
     return lt_df_merged
 
 def convert_and_fill(data_df):
-    """Convert columns to numeric and fill NaNs"""
-    print("\n--- Converting Data Types---")
-    
     df_processed = data_df.copy()
     cols_to_process = df_processed.columns.difference(['Date', 'Site'])
-    
+
     # Convert to numeric
     for col in cols_to_process:
         if not pd.api.types.is_numeric_dtype(df_processed[col]):
@@ -762,18 +752,6 @@ def main():
     beuti_data['Site'] = beuti_data['Site'].astype(str).str.replace('_', ' ').str.title()
     base_final_data = pd.merge(base_final_data, beuti_data, on=['Date', 'Site'], how='left')
     base_final_data['BEUTI'] = base_final_data['BEUTI'].fillna(0)
-        
-    # Ensure core columns exist
-    core_cols = ['Date', 'Site', 'latitude', 'longitude', 'ONI', 'PDO', 'Streamflow', 'DA_Levels', 'PN_Levels', 'BEUTI']
-                
-    for col in core_cols:
-        if col not in base_final_data.columns:
-            if col in ['Date']: 
-                base_final_data[col] = pd.NaT
-            elif col in ['Site']: 
-                base_final_data[col] = 'Unknown'
-            else: 
-                base_final_data[col] = 0
                 
     # Add satellite data if available
     final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
