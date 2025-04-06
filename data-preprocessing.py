@@ -58,7 +58,7 @@ if 'end_date' not in satellite_metadata and end_date is not None:
 
 # --- Helper Functions ---
 def download_file(url, filename):
-    """Download file from URL with minimal error handling"""
+    """Download file from URL"""
     if not url:
         return None
         
@@ -103,7 +103,7 @@ def convert_files_to_parquet(files_dict):
 
 # --- Satellite Data Processing ---
 def process_dataset(url, data_type, site, temp_dir):
-    """Process satellite NetCDF data with minimal error handling"""
+    """Process satellite NetCDF data"""
     # Determine data variable name
     data_var = None
     url_lower = url.lower() if url else ""
@@ -302,7 +302,7 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         return site_data.iloc[min_overall_pos]
 
 def add_satellite_data(target_df, satellite_parquet_path):
-    """Add satellite data to the target DataFrame with simplified error handling"""
+    """Add satellite data to the target DataFrame"""
     print(f"\n--- Adding Satellite Data from {satellite_parquet_path} ---")
         
     # Load satellite data
@@ -343,7 +343,7 @@ def add_satellite_data(target_df, satellite_parquet_path):
 
 # --- Environmental Data Processing ---
 def fetch_climate_index(url, var_name, temp_dir):
-    """Process climate index data (PDO, ONI) with minimal error handling"""
+    """Process climate index data (PDO, ONI)"""
     print(f"Fetching climate index: {var_name}...")
         
     # Download file
@@ -378,7 +378,7 @@ def fetch_climate_index(url, var_name, temp_dir):
     return result[['Month', 'index']].sort_values('Month')
 
 def process_streamflow(url, temp_dir):
-    """Process USGS streamflow data with minimal error handling"""
+    """Process USGS streamflow data"""
     print("Fetching streamflow data...")
         
     # Download file
@@ -545,7 +545,6 @@ def process_da(da_files_dict):
 
 def process_pn(pn_files_dict):
     """Processes PN data from Parquet files, returns weekly aggregated DataFrame."""
-    # (Original function with full defensive coding maintained)
     print("\n--- Processing PN Data ---")
     data_frames = []
 
@@ -596,8 +595,6 @@ def process_pn(pn_files_dict):
 
 def generate_compiled_data(sites_dict, start_dt, end_dt):
     """Generate base DataFrame with all Site-Week combinations"""
-    print("\n--- Generating Base Site-Week DataFrame ---")
-    
     print(f"  Generating weekly entries from {start_dt.date()} to {end_dt.date()}")
     weeks = pd.date_range(start_dt, end_dt, freq='W-MON', name='Date')
     
@@ -610,7 +607,6 @@ def generate_compiled_data(sites_dict, start_dt, end_dt):
         
     compiled_df = pd.concat(df_list, ignore_index=True)
     print(f"  Generated base DataFrame with {len(compiled_df)} site-week rows.")
-    
     return compiled_df.sort_values(['Site', 'Date'])
 
 def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
@@ -650,7 +646,6 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
     # Merge Streamflow data
     streamflow_df['Date'] = pd.to_datetime(streamflow_df['Date'])
     streamflow_df = streamflow_df.sort_values('Date')
-    
     compiled_df = compiled_df.sort_values('Date')
     compiled_df = pd.merge_asof(
         compiled_df,
@@ -669,64 +664,45 @@ def compile_da_pn(lt_df, da_df, pn_df):
     lt_df_merged = lt_df.copy()
     
     # Merge DA Data
-    if da_df is not None and not da_df.empty:
-        print(f"  Merging DA data ({len(da_df)} records)...")
-        da_df_copy = da_df.copy()
-        da_df_copy['Date'] = pd.to_datetime(da_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
-        da_df_copy = da_df_copy.dropna(subset=['Date', 'Site', 'DA_Levels'])
-        
-        lt_df_merged['Site'] = lt_df_merged['Site'].astype(str).str.replace('_', ' ').str.title()
-        da_df_copy['Site'] = da_df_copy['Site'].astype(str).str.replace('_', ' ').str.title()
-        
-        lt_df_merged = pd.merge(lt_df_merged, da_df_copy[['Date', 'Site', 'DA_Levels']], 
-                             on=['Date', 'Site'], how='left')
-        lt_df_merged.rename(columns={'DA_Levels': 'DA_Levels_orig'}, inplace=True)
-    else:
-        lt_df_merged['DA_Levels_orig'] = np.nan
+    print(f"  Merging DA data ({len(da_df)} records)...")
+    da_df_copy = da_df.copy()
+    da_df_copy['Date'] = pd.to_datetime(da_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
+    da_df_copy = da_df_copy.dropna(subset=['Date', 'Site', 'DA_Levels'])
+    lt_df_merged['Site'] = lt_df_merged['Site'].astype(str).str.replace('_', ' ').str.title()
+    da_df_copy['Site'] = da_df_copy['Site'].astype(str).str.replace('_', ' ').str.title()
+    lt_df_merged = pd.merge(lt_df_merged, da_df_copy[['Date', 'Site', 'DA_Levels']], 
+                            on=['Date', 'Site'], how='left')
+    lt_df_merged.rename(columns={'DA_Levels': 'DA_Levels_orig'}, inplace=True)
         
     # Merge PN Data
-    if pn_df is not None and not pn_df.empty:
-        print(f"  Merging PN data ({len(pn_df)} records)...")
-        pn_df_copy = pn_df.copy()
-        pn_df_copy['Date'] = pd.to_datetime(pn_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
-        pn_df_copy = pn_df_copy.dropna(subset=['Date', 'Site', 'PN_Levels'])
-        
-        pn_df_copy['Site'] = pn_df_copy['Site'].astype(str).str.replace('_', ' ').str.title()
-        
-        lt_df_merged = pd.merge(lt_df_merged, pn_df_copy[['Date', 'Site', 'PN_Levels']], 
-                             on=['Date', 'Site'], how='left')
-    else:
-        lt_df_merged['PN_Levels'] = np.nan
+    print(f"  Merging PN data ({len(pn_df)} records)...")
+    pn_df_copy = pn_df.copy()
+    pn_df_copy['Date'] = pd.to_datetime(pn_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
+    pn_df_copy = pn_df_copy.dropna(subset=['Date', 'Site', 'PN_Levels'])
+    pn_df_copy['Site'] = pn_df_copy['Site'].astype(str).str.replace('_', ' ').str.title()
+    lt_df_merged = pd.merge(lt_df_merged, pn_df_copy[['Date', 'Site', 'PN_Levels']], 
+                            on=['Date', 'Site'], how='left')
         
     # Interpolate missing values
     print("  Interpolating missing values...")
     lt_df_merged = lt_df_merged.sort_values(by=['Site', 'Date'])
     
     # Interpolate DA
-    if 'DA_Levels_orig' in lt_df_merged.columns:
-        lt_df_merged['DA_Levels'] = lt_df_merged.groupby('Site')['DA_Levels_orig'].transform(
-            lambda x: x.interpolate(method='linear', limit_direction='both')
-        )
-        lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
-    else:
-        lt_df_merged['DA_Levels'] = np.nan
+    lt_df_merged['DA_Levels'] = lt_df_merged.groupby('Site')['DA_Levels_orig'].transform(
+        lambda x: x.interpolate(method='linear', limit_direction='both')
+    )
+    lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
         
     # Interpolate PN
-    if 'PN_Levels' in lt_df_merged.columns:
-        lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
-            lambda x: x.interpolate(method='linear', limit_direction='both')
-        )
-        
-    # Apply thresholds and fill NaNs
-    lt_df_merged['DA_Levels'] = lt_df_merged['DA_Levels'].apply(lambda x: 0 if pd.notna(x) and x < 1 else x)
-    lt_df_merged['DA_Levels'] = lt_df_merged['DA_Levels'].fillna(0)
-    lt_df_merged['PN_Levels'] = lt_df_merged['PN_Levels'].fillna(0)
+    lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
+        lambda x: x.interpolate(method='linear', limit_direction='both')
+    )
     
     return lt_df_merged
 
 def convert_and_fill(data_df):
     """Convert columns to numeric and fill NaNs"""
-    print("\n--- Converting Data Types and Filling NaNs ---")
+    print("\n--- Converting Data Types---")
     
     df_processed = data_df.copy()
     cols_to_process = df_processed.columns.difference(['Date', 'Site'])
@@ -735,10 +711,6 @@ def convert_and_fill(data_df):
     for col in cols_to_process:
         if not pd.api.types.is_numeric_dtype(df_processed[col]):
             df_processed[col] = pd.to_numeric(df_processed[col], errors='coerce')
-            
-    # Fill NaNs with 0 in numeric columns
-    num_cols = df_processed.select_dtypes(include=np.number).columns
-    df_processed[num_cols] = df_processed[num_cols].fillna(0)
     
     # Ensure Date is datetime
     if 'Date' in df_processed.columns:
