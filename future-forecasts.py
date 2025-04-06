@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-# RandomForestRegressor added here
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import log_loss
