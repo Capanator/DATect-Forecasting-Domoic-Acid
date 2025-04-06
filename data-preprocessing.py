@@ -18,7 +18,6 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
-RENAME_OUTPUT = True
 
 # Lists to track temporary files for cleanup
 downloaded_files = []
@@ -43,8 +42,7 @@ final_output_path = config.get('final_output_path', 'config_final_output.parquet
 SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
 
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
-print(f"Date range: {start_date.date()} to {end_date.date()}")
-print(f"Output: {final_output_path}")
+print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
 # Load satellite configuration if needed
 satellite_metadata = {}
@@ -89,13 +87,9 @@ def csv_to_parquet(csv_path):
 
 def convert_files_to_parquet(files_dict):
     """Convert multiple CSV files to Parquet format"""
-    print("\n--- Converting Input CSV Files to Parquet ---")
     new_files = {}
     for name, path in files_dict.items():
-        if isinstance(path, str) and path.lower().endswith('.csv'):
-            new_files[name] = csv_to_parquet(path)
-        else:
-            new_files[name] = path
+        new_files[name] = csv_to_parquet(path)
     return new_files
 
 # --- Satellite Data Processing ---
@@ -107,12 +101,12 @@ def process_dataset(url, data_type, site, temp_dir):
     dtype_lower = data_type.lower() if data_type else ""
     
     var_mapping = {
-        'chla_anomaly': ['chla_anomaly', 'chlorophyll-anom'],
-        'sst_anomaly': ['sst_anomaly', 'temperature-anom'],
-        'chlorophyll': ['chlorophyll'],
-        'sst': ['sst', 'temperature'],
-        'par': ['par'],
-        'fluorescence': ['fluorescence']
+        'chla-anom': ['chla_anomaly', 'chlorophyll-anom'],
+        'sst-anom': ['sst_anomaly', 'temperature-anom'],
+        'modis-chla': ['chlorophyll'],
+        'modis-sst': ['sst', 'temperature'],
+        'modis-par': ['par'],
+        'modis-flr': ['fluorescence']
     }
     
     for var_name, keywords in var_mapping.items():
@@ -204,7 +198,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                 
                 for url in urls_to_process:
                     if isinstance(url, str) and url.strip():
-                        # Replace end_date placeholder if needed
                         processed_url = url
                         if '{end_date}' in url and sat_end_date_global:
                             processed_url = url.replace('{end_date}', sat_end_date_global)
@@ -249,7 +242,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
     
     # Save to parquet
-    print(f"Saving processed satellite data to {output_path}...")
     processed_satellite_pivot.to_parquet(output_path, index=False)
     generated_parquet_files.append(output_path)
     
@@ -299,9 +291,7 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         return site_data.iloc[min_overall_pos]
 
 def add_satellite_data(target_df, satellite_parquet_path):
-    """Add satellite data to the target DataFrame"""
-    print(f"\n--- Adding Satellite Data from {satellite_parquet_path} ---")
-        
+    """Add satellite data to the target DataFrame"""        
     # Load satellite data
     satellite_df = pd.read_parquet(satellite_parquet_path)
         
@@ -436,18 +426,18 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
         
     # Prepare DataFrame for interpolation
     df_subset = df[[time_col, lat_col, beuti_var]].copy()
-    df_subset.rename(columns={time_col: 'Date', lat_col: 'latitude', beuti_var: 'BEUTI'}, inplace=True)
+    df_subset.rename(columns={time_col: 'Date', lat_col: 'lat', beuti_var: 'beuti'}, inplace=True)
     df_subset['Date'] = pd.to_datetime(df_subset['Date']).dt.date
-    df_subset = df_subset.dropna(subset=['Date', 'latitude', 'BEUTI'])
+    df_subset = df_subset.dropna(subset=['Date', 'lat', 'beuti'])
         
     # Sort for efficient processing
-    df_sorted = df_subset.sort_values(by=['Date', 'latitude'])
+    df_sorted = df_subset.sort_values(by=['Date', 'lat'])
     
     # Interpolate for each site
     results_list = []
     
     for site, coords in sites_dict.items():
-        # Get site latitude
+        # Get site lat
         site_lat = coords[0] if isinstance(coords, (list, tuple)) and coords else np.nan
         
         if pd.isna(site_lat):
@@ -456,8 +446,8 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
         site_results = []
         # Group by date to interpolate for each day
         for date, group in df_sorted.groupby('Date'):
-            lats = group['latitude'].values
-            beuti_vals = group['BEUTI'].values
+            lats = group['lat'].values
+            beuti_vals = group['beuti'].values
             
             # Check for exact match first
             exact_match_indices = np.where(np.isclose(lats, site_lat))[0]
@@ -477,7 +467,7 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
                     interpolated_beuti = np.nan
                     
             if pd.notna(interpolated_beuti):
-                site_results.append({'Date': date, 'Site': site, 'BEUTI': interpolated_beuti})
+                site_results.append({'Date': date, 'Site': site, 'beuti': interpolated_beuti})
                 
         if site_results:
             results_list.extend(site_results)
@@ -487,7 +477,7 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     beuti_final_df['Date'] = pd.to_datetime(beuti_final_df['Date'])
     
     ds.close()
-    return beuti_final_df[['Date', 'Site', 'BEUTI']].sort_values(['Site', 'Date'])
+    return beuti_final_df[['Date', 'Site', 'beuti']].sort_values(['Site', 'Date'])
 
 # --- Core Data Processing ---
 def process_da(da_files_dict):
@@ -550,35 +540,30 @@ def process_pn(pn_files_dict):
         site_name_guess = name.replace('-pn', '').replace('_pn', '').replace('-', ' ').replace('_', ' ').title()
         print(f"  Processing PN for site: '{site_name_guess}' from {os.path.basename(path)}")
 
-        try:
-            df = pd.read_parquet(path)
-            # Identify Date and PN columns (handle variations)
-            date_col, pn_col = None, None
-            # Try various common date column names
-            date_col_candidates = ['Date']
-            date_col = next((c for c in date_col_candidates if c in df.columns), None)
-            pn_col_candidates = [c for c in df.columns if "pseudo" in str(c).lower() and "nitzschia" in str(c).lower()]
-            if len(pn_col_candidates) == 1:
-                pn_col = pn_col_candidates[0]
+        df = pd.read_parquet(path)
+        # Identify Date and PN columns (handle variations)
+        date_col, pn_col = None, None
+        # Try various common date column names
+        date_col_candidates = ['Date']
+        date_col = next((c for c in date_col_candidates if c in df.columns), None)
+        pn_col_candidates = [c for c in df.columns if "pseudo" in str(c).lower() and "nitzschia" in str(c).lower()]
+        if len(pn_col_candidates) == 1:
+            pn_col = pn_col_candidates[0]
 
-            # Process valid columns
-            df['Parsed_Date'] = pd.to_datetime(df[date_col], errors='coerce')
-            df['PN_Levels'] = pd.to_numeric(df[pn_col], errors='coerce')
-            df['Site'] = site_name_guess
-            df.dropna(subset=['Parsed_Date', 'PN_Levels', 'Site'], inplace=True)
+        # Process valid columns
+        df['Parsed_Date'] = pd.to_datetime(df[date_col], errors='coerce')
+        df['PN_Levels'] = pd.to_numeric(df[pn_col], errors='coerce')
+        df['Site'] = site_name_guess
+        df.dropna(subset=['Parsed_Date', 'PN_Levels', 'Site'], inplace=True)
 
-            # Aggregate weekly - Use ISO week for consistency
-            df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
-            # Group by week AND site
-            weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
+        # Aggregate weekly - Use ISO week for consistency
+        df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
+        # Group by week AND site
+        weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
 
-            data_frames.append(weekly_pn[['Year-Week', 'PN_Levels', 'Site']])
-            print(f"    Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
+        data_frames.append(weekly_pn[['Year-Week', 'PN_Levels', 'Site']])
+        print(f"    Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
 
-        except Exception as e:
-            print(f"  Error processing PN file {name} ({os.path.basename(path)}): {e}")
-
-    print("Combining all processed PN data...")
     final_pn_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat
     if not final_pn_df.empty:
@@ -595,7 +580,7 @@ def generate_compiled_data(sites_dict, start_dt, end_dt):
     for site, coords in sites_dict.items():
         lat, lon = (coords[0], coords[1]) if isinstance(coords, (list, tuple)) and len(coords) == 2 else (np.nan, np.nan)
         normalized_site = site.replace('_', ' ').replace('-', ' ').title()
-        site_df = pd.DataFrame({'Date': weeks, 'Site': normalized_site, 'latitude': lat, 'longitude': lon})
+        site_df = pd.DataFrame({'Date': weeks, 'Site': normalized_site, 'lat': lat, 'lon': lon})
         df_list.append(site_df)
         
     compiled_df = pd.concat(df_list, ignore_index=True)
@@ -620,7 +605,7 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
         on='Month',
         direction='nearest'
     )
-    compiled_df.rename(columns={'index': 'ONI'}, inplace=True)
+    compiled_df.rename(columns={'index': 'oni'}, inplace=True)
         
     # Merge PDO using nearest month
     pdo_df = pdo_df.sort_values('Month')
@@ -631,7 +616,7 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
         on='Month',
         direction='nearest'
     )
-    compiled_df.rename(columns={'index': 'PDO'}, inplace=True)
+    compiled_df.rename(columns={'index': 'pdo'}, inplace=True)
         
     # Drop temporary Month column
     compiled_df.drop(columns=['Month'], inplace=True)
@@ -647,7 +632,7 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
         direction='backward',
         tolerance=pd.Timedelta('7days')
     )
-    compiled_df.rename(columns={'Flow': 'Streamflow'}, inplace=True)
+    compiled_df.rename(columns={'Flow': 'discharge'}, inplace=True)
         
     return compiled_df.sort_values(['Site', 'Date'])
 
@@ -734,8 +719,8 @@ def main():
     
     # Process environmental data
     streamflow_data = process_streamflow(streamflow_url, download_temp_dir)
-    pdo_data = fetch_climate_index(pdo_url, 'PDO', download_temp_dir)
-    oni_data = fetch_climate_index(oni_url, 'ONI', download_temp_dir)
+    pdo_data = fetch_climate_index(pdo_url, 'pdo', download_temp_dir)
+    oni_data = fetch_climate_index(oni_url, 'oni', download_temp_dir)
     beuti_data = fetch_beuti_data(beuti_url, sites, download_temp_dir)
     
     # Generate and merge data
@@ -751,7 +736,7 @@ def main():
     beuti_data['Date'] = pd.to_datetime(beuti_data['Date'])
     beuti_data['Site'] = beuti_data['Site'].astype(str).str.replace('_', ' ').str.title()
     base_final_data = pd.merge(base_final_data, beuti_data, on=['Date', 'Site'], how='left')
-    base_final_data['BEUTI'] = base_final_data['BEUTI'].fillna(0)
+    base_final_data['beuti'] = base_final_data['beuti'].fillna(0)
                 
     # Add satellite data if available
     final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
@@ -760,8 +745,8 @@ def main():
     print("\n--- Final Checks and Saving Output ---")
     
     # Sort columns
-    final_core_cols = ["Date", "Site", "latitude", "longitude", "ONI", "PDO", 
-                     "Streamflow", "DA_Levels", "PN_Levels", "BEUTI"]
+    final_core_cols = ["Date", "Site", "lat", "lon", "oni", "pdo", 
+                     "discharge", "DA_Levels", "PN_Levels", "beuti"]
     sat_cols = sorted([col for col in final_data.columns if col.startswith('sat_')])
     
     final_cols = [col for col in final_core_cols if col in final_data.columns] + sat_cols
@@ -771,33 +756,26 @@ def main():
     final_data['Date'] = final_data['Date'].dt.strftime('%m/%d/%Y')
     
     # Rename columns if needed
-    if RENAME_OUTPUT:
-        col_mapping = {
-            "Date": "date", 
-            "Site": "site", 
-            "latitude": "lat", 
-            "longitude": "lon", 
-            "ONI": "oni", 
-            "PDO": "pdo", 
-            "Streamflow": "strmflow", 
-            "DA_Levels": "da", 
-            "PN_Levels": "pn", 
-            "BEUTI": "beuti"
+    col_mapping = {
+        "Date": "date", 
+        "Site": "site", 
+        "DA_Levels": "da", 
+        "PN_Levels": "pn", 
+    }
+    
+    # Add satellite column mappings
+    if len(sat_cols) >= 6:
+        sat_mapping = {
+            sat_cols[0]: "chla-anom",
+            sat_cols[1]: "modis-chla",
+            sat_cols[2]: "modis-flr", 
+            sat_cols[3]: "modis-par",
+            sat_cols[4]: "sst-anom", 
+            sat_cols[5]: "modis-sst"
         }
+        col_mapping.update(sat_mapping)
         
-        # Add satellite column mappings
-        if len(sat_cols) >= 6:
-            sat_mapping = {
-                sat_cols[0]: "chla-anom",
-                sat_cols[1]: "modis-chla",
-                sat_cols[2]: "modis-flour", 
-                sat_cols[3]: "modis-par",
-                sat_cols[4]: "sst-anom", 
-                sat_cols[5]: "modis-sst"
-            }
-            col_mapping.update(sat_mapping)
-            
-        final_data = final_data.rename(columns=col_mapping)
+    final_data = final_data.rename(columns=col_mapping)
     
     # Save output
     print(f"Saving final data to {final_output_path}...")
