@@ -6,7 +6,6 @@ import requests
 import tempfile
 import xarray as xr
 from datetime import datetime
-import traceback
 from tqdm import tqdm
 import warnings
 import shutil
@@ -39,27 +38,23 @@ beuti_url = config.get('beuti_url')
 streamflow_url = config.get('streamflow_url')
 start_date = pd.to_datetime(config.get('start_date', '2000-01-01'))
 end_date = pd.to_datetime(config.get('end_date', datetime.now().strftime('%Y-%m-%d')))
-year_cutoff = config.get('year_cutoff', 2000)
-week_cutoff = config.get('week_cutoff', 1)
-include_satellite = config.get('include_satellite', False)
 final_output_path = config.get('final_output_path', 'config_final_output.parquet')
 SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
 
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
-print(f"Date range: {start_date.date()} to {end_date.date()}, Cutoff: {year_cutoff}-W{week_cutoff:02d}")
-print(f"Include satellite: {include_satellite}, Output: {final_output_path}")
+print(f"Date range: {start_date.date()} to {end_date.date()}")
+print(f"Output: {final_output_path}")
 
 # Load satellite configuration if needed
 satellite_metadata = {}
-if include_satellite:
-    print(f"\n--- Loading Satellite Configuration from {SATELLITE_CONFIG_FILE} ---")
-    with open(SATELLITE_CONFIG_FILE, 'r') as f:
-        satellite_metadata = json.load(f)
-    print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data types.")
-    
-    # Add main end_date if needed
-    if 'end_date' not in satellite_metadata and end_date is not None:
-        satellite_metadata['end_date'] = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+print(f"\n--- Loading Satellite Configuration from {SATELLITE_CONFIG_FILE} ---")
+with open(SATELLITE_CONFIG_FILE, 'r') as f:
+    satellite_metadata = json.load(f)
+print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data types.")
+
+# Add main end_date if needed
+if 'end_date' not in satellite_metadata and end_date is not None:
+    satellite_metadata['end_date'] = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 # --- Helper Functions ---
 def download_file(url, filename):
@@ -80,21 +75,13 @@ def download_file(url, filename):
 
 def local_filename(url, ext, temp_dir=None):
     """Generate appropriate local filename for download"""
-    if not url:
-        base_name = f"unknown_file_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
-    else:
-        base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2]
-        sanitized_base = "".join(c for c in base if c.isalnum() or c in ('-', '_', '.'))
-        root, existing_ext = os.path.splitext(sanitized_base or f"downloaded_file")
-        base_name = root + (ext if not existing_ext or existing_ext == '.' else existing_ext)
-    
+    base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2]
+    sanitized_base = "".join(c for c in base if c.isalnum() or c in ('-', '_', '.'))
+    root, existing_ext = os.path.splitext(sanitized_base or f"downloaded_file")
+    base_name = root + (ext if not existing_ext or existing_ext == '.' else existing_ext)
     return os.path.join(temp_dir, base_name) if temp_dir else base_name
 
 def csv_to_parquet(csv_path):
-    """Convert CSV to Parquet format"""
-    if not isinstance(csv_path, str) or not csv_path.lower().endswith('.csv'):
-        return csv_path
-        
     parquet_path = csv_path[:-4] + '.parquet'
     df = pd.read_csv(csv_path, low_memory=False)
     df.to_parquet(parquet_path, index=False)
@@ -103,9 +90,6 @@ def csv_to_parquet(csv_path):
 
 def convert_files_to_parquet(files_dict):
     """Convert multiple CSV files to Parquet format"""
-    if not isinstance(files_dict, dict):
-        return {}
-        
     print("\n--- Converting Input CSV Files to Parquet ---")
     new_files = {}
     
@@ -138,9 +122,6 @@ def process_dataset(url, data_type, site, temp_dir):
         if any(kw in url_lower or kw in dtype_lower for kw in keywords):
             data_var = var_name
             break
-            
-    if not data_var:
-        return None
 
     # Create temporary file path and download data
     fd, tmp_nc_path = tempfile.mkstemp(suffix='.nc', prefix=f"{site}_{data_type}_", dir=temp_dir)
@@ -183,19 +164,9 @@ def process_dataset(url, data_type, site, temp_dir):
     df = averaged_array.to_dataframe(name='value').reset_index()
     df = df.rename(columns={time_coord_name: 'timestamp'})
     df = df.dropna(subset=['timestamp', 'value'])
-    
-    if df.empty:
-        os.unlink(tmp_nc_path)
-        ds.close()
-        return None
         
     df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
     df = df.dropna(subset=['timestamp'])
-    
-    if df.empty:
-        os.unlink(tmp_nc_path)
-        ds.close()
-        return None
         
     df['site'] = site
     df['data_type'] = data_type
@@ -210,8 +181,6 @@ def process_dataset(url, data_type, site, temp_dir):
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
     """Process satellite data and save to Parquet with minimal error handling"""
     print("\n--- Processing Satellite Data ---")
-    if not satellite_metadata_dict:
-        return None
         
     sat_end_date_global = satellite_metadata_dict.get('end_date', None)
     
@@ -245,10 +214,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                             
                         satellite_tasks.append((data_type, relevant_main_site, processed_url))
                         processed_sites.add(relevant_main_site)
-    
-    if not satellite_tasks:
-        shutil.rmtree(sat_temp_dir)
-        return None
         
     # Process satellite datasets
     print(f"Processing {len(satellite_tasks)} satellite datasets for {len(processed_sites)} sites...")
@@ -261,9 +226,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             
     # Clean up temp directory
     shutil.rmtree(sat_temp_dir)
-            
-    if not satellite_results_list:
-        return None
         
     # Combine and pivot results
     combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
@@ -300,9 +262,6 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
     """Find best satellite data match for a given row"""
     target_site = target_row.get('Site')
     target_ts = target_row.get('timestamp_dt')
-    
-    if pd.isna(target_ts) or target_site is None:
-        return pd.Series(dtype='float64')
         
     # Normalize site names for matching
     target_site_normalized = target_site.lower().replace('_', ' ').replace('-', ' ')
@@ -310,9 +269,6 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
     unique_original_index_sites = index_sites.unique()
     unique_normalized_index_sites = [str(s).lower().replace('_', ' ').replace('-', ' ') 
                                    for s in unique_original_index_sites]
-    
-    if target_site_normalized not in unique_normalized_index_sites:
-        return pd.Series(dtype='float64')
         
     # Find original case site name
     original_index_site = None
@@ -320,23 +276,14 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         if norm_site == target_site_normalized:
             original_index_site = unique_original_index_sites[i]
             break
-            
-    if original_index_site is None:
-        return pd.Series(dtype='float64')
         
     # Get data for the specific site
     site_data = sat_pivot_indexed.xs(original_index_site, level='site')
-    
-    if site_data.empty:
-        return pd.Series(dtype='float64')
         
     # Ensure index is datetime
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
         site_data = site_data.dropna(axis=0)
-        
-    if site_data.empty:
-        return pd.Series(dtype='float64')
         
     # Look for matches in same month and year
     target_year = target_ts.year
@@ -357,15 +304,9 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame with simplified error handling"""
     print(f"\n--- Adding Satellite Data from {satellite_parquet_path} ---")
-    
-    if not os.path.exists(satellite_parquet_path) or target_df is None or target_df.empty:
-        return target_df.copy()
         
     # Load satellite data
     satellite_df = pd.read_parquet(satellite_parquet_path)
-    
-    if satellite_df.empty:
-        return target_df.copy()
         
     # Prepare data for matching
     target_df_proc = target_df.copy()
@@ -381,15 +322,10 @@ def add_satellite_data(target_df, satellite_parquet_path):
     
     # Apply matching function
     print(f"Applying satellite matching function...")
-    try:
-        tqdm.pandas(desc="Satellite Matching")
-        matched_data = target_df_proc.progress_apply(
-            find_best_satellite_match, axis=1, sat_pivot_indexed=satellite_pivot_indexed
-        )
-    except AttributeError:
-        matched_data = target_df_proc.apply(
-            find_best_satellite_match, axis=1, sat_pivot_indexed=satellite_pivot_indexed
-        )
+    tqdm.pandas(desc="Satellite Matching")
+    matched_data = target_df_proc.progress_apply(
+        find_best_satellite_match, axis=1, sat_pivot_indexed=satellite_pivot_indexed
+    )
         
     # Join results
     target_df_proc.reset_index(drop=True, inplace=True)
@@ -409,15 +345,10 @@ def add_satellite_data(target_df, satellite_parquet_path):
 def fetch_climate_index(url, var_name, temp_dir):
     """Process climate index data (PDO, ONI) with minimal error handling"""
     print(f"Fetching climate index: {var_name}...")
-    if not url:
-        return pd.DataFrame(columns=['Month', 'index'])
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
-    try:
-        download_file(url, fname)
-    except:
-        return pd.DataFrame(columns=['Month', 'index'])
+    download_file(url, fname)
             
     # Open and process dataset
     ds = xr.open_dataset(fname)
@@ -427,8 +358,6 @@ def fetch_climate_index(url, var_name, temp_dir):
     time_cols = ['time', 'datetime', 'Date', 'T']
     time_col = next((c for c in time_cols if c in df.columns), None)
     
-    if not time_col:
-        return pd.DataFrame(columns=['Month', 'index'])
         
     # Find variable column (case-insensitive)
     actual_var_name = var_name
@@ -436,9 +365,6 @@ def fetch_climate_index(url, var_name, temp_dir):
         var_name_lower = var_name.lower()
         found_var = next((c for c in df.columns if c.lower() == var_name_lower), None)
         actual_var_name = found_var or var_name
-        
-    if actual_var_name not in df.columns:
-        return pd.DataFrame(columns=['Month', 'index'])
             
     # Process data
     df['datetime'] = pd.to_datetime(df[time_col])
@@ -454,15 +380,10 @@ def fetch_climate_index(url, var_name, temp_dir):
 def process_streamflow(url, temp_dir):
     """Process USGS streamflow data with minimal error handling"""
     print("Fetching streamflow data...")
-    if not url:
-        return pd.DataFrame(columns=['Date', 'Flow'])
         
     # Download file
     fname = local_filename(url, '.json', temp_dir=temp_dir)
-    try:
-        download_file(url, fname)
-    except:
-        return pd.DataFrame(columns=['Date', 'Flow'])
+    download_file(url, fname)
             
     # Load JSON
     with open(fname) as f:
@@ -479,9 +400,6 @@ def process_streamflow(url, temp_dir):
                        
         if discharge_ts:
             values = discharge_ts.get('values', [{}])[0].get('value', [])
-    
-    if not values:
-        return pd.DataFrame(columns=['Date', 'Flow'])
         
     # Parse records
     records = []
@@ -491,9 +409,6 @@ def process_streamflow(url, temp_dir):
             flow = pd.to_numeric(item['value'], errors='coerce')
             if pd.notna(dt) and pd.notna(flow) and flow >= 0:
                 records.append({'Date': dt.tz_localize(None), 'Flow': flow})
-
-    if not records:
-        return pd.DataFrame(columns=['Date', 'Flow'])
 
     df = pd.DataFrame(records)
 
@@ -508,15 +423,10 @@ def process_streamflow(url, temp_dir):
 def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     """Process BEUTI data with minimal error handling"""
     print("Fetching BEUTI data...")
-    if not url or not sites_dict:
-        return pd.DataFrame(columns=['Date', 'Site', 'BEUTI'])
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
-    try:
-        download_file(url, fname)
-    except:
-        return pd.DataFrame(columns=['Date', 'Site', 'BEUTI'])
+    download_file(url, fname)
             
     # Process data
     ds = xr.open_dataset(fname)
@@ -526,18 +436,12 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     time_col = next((c for c in ['time', 'datetime', 'Date', 'T'] if c in df.columns), None)
     lat_col = next((c for c in ['latitude', 'lat'] if c in df.columns), None)
     beuti_var = next((c for c in ['BEUTI', 'beuti'] if c in df.columns or c in ds.data_vars), None)
-    
-    if not all([time_col, lat_col, beuti_var]):
-        return pd.DataFrame(columns=['Date', 'Site', 'BEUTI'])
         
     # Prepare DataFrame for interpolation
     df_subset = df[[time_col, lat_col, beuti_var]].copy()
     df_subset.rename(columns={time_col: 'Date', lat_col: 'latitude', beuti_var: 'BEUTI'}, inplace=True)
     df_subset['Date'] = pd.to_datetime(df_subset['Date']).dt.date
     df_subset = df_subset.dropna(subset=['Date', 'latitude', 'BEUTI'])
-    
-    if df_subset.empty:
-        return pd.DataFrame(columns=['Date', 'Site', 'BEUTI'])
         
     # Sort for efficient processing
     df_sorted = df_subset.sort_values(by=['Date', 'latitude'])
@@ -581,8 +485,6 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
         if site_results:
             results_list.extend(site_results)
             
-    if not results_list:
-        return pd.DataFrame(columns=['Date', 'Site', 'BEUTI'])
         
     beuti_final_df = pd.DataFrame(results_list)
     beuti_final_df['Date'] = pd.to_datetime(beuti_final_df['Date'])
@@ -593,72 +495,33 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
 # --- Core Data Processing ---
 def process_da(da_files_dict):
     """Processes DA data from Parquet files, returns weekly aggregated DataFrame."""
-    # (Original function with full defensive coding maintained)
     print("\n--- Processing DA Data ---")
     data_frames = []
-    if not da_files_dict:
-         print("  No DA files provided. Skipping DA processing.")
-         return pd.DataFrame(columns=['Year-Week', 'DA_Levels', 'Site']) # Match expected cols
 
     for name, path in da_files_dict.items():
         # Normalize name from dict key for site name guess
         site_name_guess = name.replace('-da', '').replace('_da', '').replace('-', ' ').replace('_', ' ').title()
         print(f"  Processing DA for site: '{site_name_guess}' from {os.path.basename(path)}")
-        if not isinstance(path, str) or not path.lower().endswith('.parquet'):
-             print(f"    Warning: Skipping {name} - Path is not a Parquet file string: {path}")
-             continue
-        if not os.path.exists(path):
-             print(f"    Warning: Skipping {name} - Parquet file not found: {path}")
-             continue
 
         try:
             df = pd.read_parquet(path)
             # Identify Date and DA columns (handle variations)
             date_col, da_col = None, None
             if 'CollectDate' in df.columns: date_col = 'CollectDate'
-            elif 'Date' in df.columns: date_col = 'Date'
             elif all(c in df.columns for c in ['Harvest Month', 'Harvest Date', 'Harvest Year']):
-                # Combine date parts only if individual date column not found
-                 try:
-                     # Ensure parts are strings before combining robustly
-                     df['CombinedDateStr'] = df['Harvest Month'].astype(str) + " " + df['Harvest Date'].astype(str) + ", " + df['Harvest Year'].astype(str)
-                     df['Date'] = pd.to_datetime(df['CombinedDateStr'], format='%B %d, %Y', errors='coerce')
-                     date_col = 'Date' # Now use the created 'Date' column
-                 except Exception as e_date:
-                     print(f"    Warning: Could not combine date columns for {name}: {e_date}")
-                     # Don't continue, maybe another date col exists
-            # Add other common date column names if needed
+                df['CombinedDateStr'] = df['Harvest Month'].astype(str) + " " + df['Harvest Date'].astype(str) + ", " + df['Harvest Year'].astype(str)
+                df['Date'] = pd.to_datetime(df['CombinedDateStr'], format='%B %d, %Y', errors='coerce')
+                date_col = 'Date' # Now use the created 'Date' column
 
             if 'Domoic Result' in df.columns: da_col = 'Domoic Result'
             elif 'Domoic Acid' in df.columns: da_col = 'Domoic Acid'
-            elif 'DA' in df.columns: da_col = 'DA'
-            # Add other common DA column names
-
-            if not date_col: # Try finding 'Date' again if combining failed but 'Date' existed
-                 if 'Date' in df.columns: date_col = 'Date'
-
-            if not date_col or not da_col:
-                 print(f"    Warning: Skipping {name} - Could not find required Date ({date_col}) or DA ({da_col}) columns. Found: {list(df.columns)}")
-                 continue
 
             # Process valid columns
             df['Parsed_Date'] = pd.to_datetime(df[date_col], errors='coerce')
             df['DA_Levels'] = pd.to_numeric(df[da_col], errors='coerce')
-
-            # Use site column if it exists, otherwise use the name derived from filename
-            # Normalize site column values for consistency
-            site_col = next((c for c in df.columns if c.lower() in ['site', 'location', 'area', 'site name', 'beach name']), None)
-            if site_col:
-                df['Site'] = df[site_col].astype(str).str.replace('_', ' ').str.replace('-', ' ').str.title() # Use existing site info, normalized
-                print(f"    Using site information from column '{site_col}'.")
-            else:
-                df['Site'] = site_name_guess # Fallback to filename derived site (already normalized)
-
+            df['Site'] = site_name_guess
 
             df.dropna(subset=['Parsed_Date', 'DA_Levels', 'Site'], inplace=True)
-            if df.empty:
-                 print(f"    Warning: No valid DA data after cleaning for {name}.")
-                 continue
 
             # Aggregate weekly - Use ISO week for consistency
             df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
@@ -670,11 +533,6 @@ def process_da(da_files_dict):
 
         except Exception as e:
             print(f"  Error processing DA file {name} ({os.path.basename(path)}): {e}")
-            # traceback.print_exc() # Optional
-
-    if not data_frames:
-        print("  No DA dataframes were successfully processed.")
-        return pd.DataFrame(columns=['Year-Week', 'DA_Levels', 'Site'])
 
     print("Combining all processed DA data...")
     final_da_df = pd.concat(data_frames, ignore_index=True)
@@ -690,72 +548,27 @@ def process_pn(pn_files_dict):
     # (Original function with full defensive coding maintained)
     print("\n--- Processing PN Data ---")
     data_frames = []
-    if not pn_files_dict:
-         print("  No PN files provided. Skipping PN processing.")
-         return pd.DataFrame(columns=['Year-Week', 'PN_Levels', 'Site']) # Match expected cols
 
     for name, path in pn_files_dict.items():
         # Normalize name from dict key for site name guess
         site_name_guess = name.replace('-pn', '').replace('_pn', '').replace('-', ' ').replace('_', ' ').title()
         print(f"  Processing PN for site: '{site_name_guess}' from {os.path.basename(path)}")
-        if not isinstance(path, str) or not path.lower().endswith('.parquet'):
-             print(f"    Warning: Skipping {name} - Path is not a Parquet file string: {path}")
-             continue
-        if not os.path.exists(path):
-             print(f"    Warning: Skipping {name} - Parquet file not found: {path}")
-             continue
 
         try:
             df = pd.read_parquet(path)
             # Identify Date and PN columns (handle variations)
             date_col, pn_col = None, None
             # Try various common date column names
-            date_col_candidates = ['Date', 'SampleDate', 'CollectDate', 'Sample Date']
+            date_col_candidates = ['Date']
             date_col = next((c for c in date_col_candidates if c in df.columns), None)
-
-            # Try various common PN column names/patterns - be more specific
             pn_col_candidates = [c for c in df.columns if "pseudo" in str(c).lower() and "nitzschia" in str(c).lower()]
-            # Fallback if specific name not found
-            if not pn_col_candidates:
-                 pn_col_candidates = [c for c in df.columns if "pn" in str(c).lower() and "level" in str(c).lower()] # e.g., 'pn_level'
-                 if not pn_col_candidates: # Broader fallback
-                      pn_col_candidates = [c for c in df.columns if "pn" in str(c).lower()]
-
             if len(pn_col_candidates) == 1:
                 pn_col = pn_col_candidates[0]
-            elif len(pn_col_candidates) > 1:
-                 # Try to find the most likely candidate (e.g., shortest name, or one ending in 'cells/L'?)
-                 # Simple approach: use the first one found
-                 print(f"    Warning: Multiple possible PN columns found in {name}: {pn_col_candidates}. Using the first one: '{pn_col_candidates[0]}'.")
-                 pn_col = pn_col_candidates[0]
-
-            if not date_col or not pn_col:
-                 print(f"    Warning: Skipping {name} - Could not find required Date ({date_col}) or PN ({pn_col}) columns. Found: {list(df.columns)}")
-                 continue
 
             # Process valid columns
-            # Try multiple date formats robustly
             df['Parsed_Date'] = pd.to_datetime(df[date_col], errors='coerce')
-            # Example: Add more formats if needed based on actual data
-            if df['Parsed_Date'].isna().all():
-                 try: # Try common M/D/Y format
-                      df['Parsed_Date'] = pd.to_datetime(df[date_col], format='%m/%d/%Y', errors='coerce')
-                 except ValueError: pass # Ignore if format fails
-            if df['Parsed_Date'].isna().all():
-                 try: # Try common M/D/YY format
-                      df['Parsed_Date'] = pd.to_datetime(df[date_col], format='%m/%d/%y', errors='coerce')
-                 except ValueError: pass # Ignore if format fails
-
             df['PN_Levels'] = pd.to_numeric(df[pn_col], errors='coerce')
-
-            # Use site column if it exists, otherwise use the name derived from filename
-            # Normalize site column values
-            site_col = next((c for c in df.columns if c.lower() in ['site', 'location', 'area', 'site name', 'beach name']), None)
-            if site_col:
-                df['Site'] = df[site_col].astype(str).str.replace('_', ' ').str.replace('-', ' ').str.title() # Use existing site info, normalized
-                print(f"    Using site information from column '{site_col}'.")
-            else:
-                df['Site'] = site_name_guess # Fallback to filename derived site (already normalized)
+            df['Site'] = site_name_guess
 
             df.dropna(subset=['Parsed_Date', 'PN_Levels', 'Site'], inplace=True)
             if df.empty:
@@ -772,11 +585,6 @@ def process_pn(pn_files_dict):
 
         except Exception as e:
             print(f"  Error processing PN file {name} ({os.path.basename(path)}): {e}")
-            # traceback.print_exc() # Optional
-
-    if not data_frames:
-        print("  No PN dataframes were successfully processed.")
-        return pd.DataFrame(columns=['Year-Week', 'PN_Levels', 'Site'])
 
     print("Combining all processed PN data...")
     final_pn_df = pd.concat(data_frames, ignore_index=True)
@@ -815,52 +623,43 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
     compiled_df = compiled_df.sort_values('Month')
     
     # Merge ONI using nearest month
-    if oni_df is not None and not oni_df.empty:
-        oni_df = oni_df.sort_values('Month')
-        oni_df['Month'] = pd.to_datetime(oni_df['Month'].astype(str)).dt.to_period('M')
-        compiled_df = pd.merge_asof(
-            compiled_df,
-            oni_df[['Month', 'index']],
-            on='Month',
-            direction='nearest'
-        )
-        compiled_df.rename(columns={'index': 'ONI'}, inplace=True)
-    else:
-        compiled_df['ONI'] = np.nan
+    oni_df = oni_df.sort_values('Month')
+    oni_df['Month'] = pd.to_datetime(oni_df['Month'].astype(str)).dt.to_period('M')
+    compiled_df = pd.merge_asof(
+        compiled_df,
+        oni_df[['Month', 'index']],
+        on='Month',
+        direction='nearest'
+    )
+    compiled_df.rename(columns={'index': 'ONI'}, inplace=True)
         
     # Merge PDO using nearest month
-    if pdo_df is not None and not pdo_df.empty:
-        pdo_df = pdo_df.sort_values('Month')
-        pdo_df['Month'] = pd.to_datetime(pdo_df['Month'].astype(str)).dt.to_period('M')
-        compiled_df = pd.merge_asof(
-            compiled_df,
-            pdo_df[['Month', 'index']],
-            on='Month',
-            direction='nearest'
-        )
-        compiled_df.rename(columns={'index': 'PDO'}, inplace=True)
-    else:
-        compiled_df['PDO'] = np.nan
+    pdo_df = pdo_df.sort_values('Month')
+    pdo_df['Month'] = pd.to_datetime(pdo_df['Month'].astype(str)).dt.to_period('M')
+    compiled_df = pd.merge_asof(
+        compiled_df,
+        pdo_df[['Month', 'index']],
+        on='Month',
+        direction='nearest'
+    )
+    compiled_df.rename(columns={'index': 'PDO'}, inplace=True)
         
     # Drop temporary Month column
     compiled_df.drop(columns=['Month'], inplace=True)
     
     # Merge Streamflow data
-    if streamflow_df is not None and not streamflow_df.empty:
-        streamflow_df['Date'] = pd.to_datetime(streamflow_df['Date'])
-        streamflow_df = streamflow_df.sort_values('Date')
-        
-        compiled_df = compiled_df.sort_values('Date')
-        compiled_df = pd.merge_asof(
-            compiled_df,
-            streamflow_df[['Date', 'Flow']],
-            on='Date',
-            direction='backward',
-            tolerance=pd.Timedelta('7days')
-        )
-        compiled_df.rename(columns={'Flow': 'Streamflow'}, inplace=True)
-    else:
-        compiled_df['Streamflow'] = np.nan
+    streamflow_df['Date'] = pd.to_datetime(streamflow_df['Date'])
+    streamflow_df = streamflow_df.sort_values('Date')
+    
+    compiled_df = compiled_df.sort_values('Date')
+    compiled_df = pd.merge_asof(
+        compiled_df,
+        streamflow_df[['Date', 'Flow']],
+        on='Date',
+        direction='backward',
+        tolerance=pd.Timedelta('7days')
+    )
+    compiled_df.rename(columns={'Flow': 'Streamflow'}, inplace=True)
         
     return compiled_df.sort_values(['Site', 'Date'])
 
@@ -925,61 +724,6 @@ def compile_da_pn(lt_df, da_df, pn_df):
     
     return lt_df_merged
 
-def filter_data(data_df, cutoff_yr, cutoff_wk):
-    """Filter data by cutoff date"""
-    print(f"\n--- Filtering Data by Date Cutoff ({cutoff_yr}-W{cutoff_wk:02d}) ---")
-    
-    data_df_copy = data_df.copy()
-    data_df_copy['Date'] = pd.to_datetime(data_df_copy['Date'])
-    
-    # Calculate ISO year and week
-    isocal = data_df_copy['Date'].dt.isocalendar()
-    data_df_copy['Year'] = isocal.year
-    data_df_copy['Week'] = isocal.week
-    
-    # Apply filter
-    filtered_df = data_df_copy[
-        (data_df_copy['Year'] > cutoff_yr) |
-        ((data_df_copy['Year'] == cutoff_yr) & (data_df_copy['Week'] >= cutoff_wk))
-    ].copy()
-    
-    print(f"  Filtered from {len(data_df_copy)} to {len(filtered_df)} rows")
-    
-    return filtered_df.drop(columns=['Year', 'Week'])
-
-def process_duplicates(data_df):
-    """Handle duplicate rows by averaging numeric columns"""
-    print("\n--- Processing Duplicates ---")
-    
-    # Check if duplicates exist
-    key_cols = ['Date', 'Site']
-    if not data_df.duplicated(subset=key_cols).any():
-        print("  No duplicate Date-Site pairs found.")
-        return data_df
-        
-    print(f"  Found {data_df.duplicated(subset=key_cols).sum()} duplicate pairs. Aggregating...")
-    
-    # Define aggregation strategy
-    numeric_cols = data_df.select_dtypes(include=np.number).columns.tolist()
-    agg_dict = {}
-    
-    for col in numeric_cols:
-        if col.lower() in ['latitude', 'longitude']:
-            agg_dict[col] = 'first'
-        else:
-            agg_dict[col] = 'mean'
-            
-    # Add non-numeric columns
-    non_numeric_cols = data_df.select_dtypes(exclude=np.number).columns.tolist()
-    for col in non_numeric_cols:
-        if col not in key_cols:
-            agg_dict[col] = 'first'
-            
-    # Aggregate
-    aggregated_df = data_df.groupby(key_cols, as_index=False).agg(agg_dict)
-    
-    return aggregated_df.sort_values(key_cols)
-
 def convert_and_fill(data_df):
     """Convert columns to numeric and fill NaNs"""
     print("\n--- Converting Data Types and Filling NaNs ---")
@@ -1016,13 +760,11 @@ def main():
     pn_files_parquet = convert_files_to_parquet(pn_files)
     
     # Generate satellite data if needed
-    satellite_parquet_file_path = None
-    if include_satellite:
-        satellite_parquet_file_path = generate_satellite_parquet(
-            satellite_metadata,
-            list(sites.keys()),
-            SATELLITE_OUTPUT_PARQUET
-        )
+    satellite_parquet_file_path = generate_satellite_parquet(
+        satellite_metadata,
+        list(sites.keys()),
+        SATELLITE_OUTPUT_PARQUET
+    )
     
     # Process core data
     da_data = process_da(da_files_parquet)
@@ -1040,24 +782,17 @@ def main():
     lt_da_pn = compile_da_pn(lt_data, da_data, pn_data)
     
     # Filter, process duplicates, and final processing
-    filtered_data = filter_data(lt_da_pn, year_cutoff, week_cutoff)
-    aggregated_data = process_duplicates(filtered_data)
-    base_final_data = convert_and_fill(aggregated_data)
+    base_final_data = convert_and_fill(lt_da_pn)
     
     # Merge BEUTI data
     print("\n--- Merging BEUTI Data ---")
-    if beuti_data is not None and not beuti_data.empty:
-        beuti_data['Date'] = pd.to_datetime(beuti_data['Date'])
-        beuti_data['Site'] = beuti_data['Site'].astype(str).str.replace('_', ' ').str.title()
-        
-        base_final_data = pd.merge(base_final_data, beuti_data, on=['Date', 'Site'], how='left')
-        base_final_data['BEUTI'] = base_final_data['BEUTI'].fillna(0)
-    else:
-        base_final_data['BEUTI'] = 0
+    beuti_data['Date'] = pd.to_datetime(beuti_data['Date'])
+    beuti_data['Site'] = beuti_data['Site'].astype(str).str.replace('_', ' ').str.title()
+    base_final_data = pd.merge(base_final_data, beuti_data, on=['Date', 'Site'], how='left')
+    base_final_data['BEUTI'] = base_final_data['BEUTI'].fillna(0)
         
     # Ensure core columns exist
-    core_cols = ['Date', 'Site', 'latitude', 'longitude', 'ONI', 'PDO', 
-                'Streamflow', 'DA_Levels', 'PN_Levels', 'BEUTI']
+    core_cols = ['Date', 'Site', 'latitude', 'longitude', 'ONI', 'PDO', 'Streamflow', 'DA_Levels', 'PN_Levels', 'BEUTI']
                 
     for col in core_cols:
         if col not in base_final_data.columns:
@@ -1069,10 +804,7 @@ def main():
                 base_final_data[col] = 0
                 
     # Add satellite data if available
-    if include_satellite and satellite_parquet_file_path:
-        final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
-    else:
-        final_data = base_final_data
+    final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
         
     # Final processing and save
     print("\n--- Final Checks and Saving Output ---")

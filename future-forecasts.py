@@ -47,8 +47,6 @@ def get_training_forecast_data(df, forecast_date, site):
 
     # Must have historical data
     df_before = df_site[df_site['date'] < forecast_date]
-    if df_before.empty:
-        return None, None, None, None
 
     # Training anchor and test dates
     anchor_date = df_before['date'].max()
@@ -77,8 +75,6 @@ def forecast_for_date(df, forecast_date, site):
     """Generate complete forecast for a specific date and site."""
     # Get data splits
     result = get_training_forecast_data(df, forecast_date, site)
-    if result is None:
-        return None
     df_train, df_forecast, anchor_date, test_date = result
 
     # Common feature processing
@@ -118,7 +114,6 @@ def forecast_for_date(df, forecast_date, site):
         model.fit(X_train_processed, y_train_reg)
         gb_preds[name] = float(model.predict(X_forecast_processed)[0])
 
-    # --- Start: Added RandomForestRegressor ---
     # Train standard regressor (Random Forest)
     rf_model = RandomForestRegressor(
         n_estimators=100,
@@ -127,7 +122,6 @@ def forecast_for_date(df, forecast_date, site):
     )
     rf_model.fit(X_train_processed, y_train_reg)
     rf_pred = float(rf_model.predict(X_forecast_processed)[0])
-    # --- End: Added RandomForestRegressor ---
 
     # Check if actual value is within prediction interval
     single_coverage = None
@@ -176,12 +170,10 @@ def forecast_for_date(df, forecast_date, site):
 # ================================
 # VISUALIZATION
 # ================================
-# Added rf_prediction parameter
 def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=None):
     """Create gradient visualization for DA level forecast."""
     fig = go.Figure()
     n_segments = 30
-    # Handle potential zero range
     range_width = q95 - q05
     max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
     if max_distance <= 1e-6 : max_distance = 1 # Avoid division by zero if q05=q50=q95
@@ -220,7 +212,6 @@ def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=No
         name='Prediction Range (GB Q05-Q95)'
     ))
 
-    # --- Start: Add RF prediction marker ---
     if rf_prediction is not None:
         fig.add_trace(go.Scatter(
             x=[rf_prediction], y=[0.5], # Plot at the same y-level
@@ -233,7 +224,7 @@ def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=No
             ),
             name='Random Forest Pred.'
         ))
-    # --- End: Add RF prediction marker ---
+
 
     # Add actual value if available
     if actual_levels is not None:
@@ -369,7 +360,6 @@ except FileNotFoundError:
     initial_site = 'dummy'
 except Exception as e:
     print(f"An error occurred loading or preparing data: {e}")
-    # Handle other potential errors similarly
     raw_data = pd.DataFrame({'site': ['error'], 'date': [pd.Timestamp('2023-01-01')], 'da': [0]})
     raw_data = load_and_prepare_data(raw_data)
     min_forecast_date = pd.to_datetime("2023-01-01")
@@ -450,9 +440,6 @@ def update_forecast(forecast_date_str, site):
         result = forecast_for_date(raw_data, forecast_date, site)
     except Exception as e:
         print(f"Error during forecasting for {site} on {forecast_date}: {e}")
-        # You might want to log the full traceback here
-        # import traceback
-        # print(traceback.format_exc())
         return (f"An error occurred during forecast calculation: {e}", go.Figure(), go.Figure())
 
     # Handle cases where forecasting is not possible (e.g., insufficient data)
@@ -469,7 +456,7 @@ def update_forecast(forecast_date_str, site):
         result['Predicted_da_Q50'],
         result['Predicted_da_Q95'],
         result['Actual_da'],
-        result['Predicted_da_RF'] # Pass the RF prediction here
+        result['Predicted_da_RF']
     )
 
     category_fig = create_category_graph(
