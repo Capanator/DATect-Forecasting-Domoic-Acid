@@ -7,9 +7,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 
-# For Sobol and Morris sensitivity analysis (install SALib if needed)
-from SALib.sample import saltelli, morris as morris_sample
-from SALib.analyze import sobol, morris as morris_analyze
+# For Sobol sensitivity analysis (install SALib if needed)
+from SALib.sample import saltelli
+from SALib.analyze import sobol
 
 # ----------------------------------------
 # Load and Prepare the Dataset from Parquet
@@ -42,7 +42,7 @@ plt.xlabel("Input Variables", fontsize=14)
 plt.ylabel("Absolute Pearson Correlation", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
-corr_pdf = "data-visualizations/correlation_sensitivity_analysis.pdf"
+corr_pdf = "data-visualizations/sensitivity-correlation_sensitivity_analysis.pdf"
 plt.savefig(corr_pdf, format='pdf')
 plt.close()  # Close the figure to free memory
 print(f"Correlation sensitivity PDF saved at: {corr_pdf}")
@@ -92,42 +92,13 @@ plt.xlabel("Input Variables", fontsize=14)
 plt.ylabel("First Order Sobol Index", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
-sobol_pdf = "data-visualizations/sobol_sensitivity_analysis.pdf"
+sobol_pdf = "data-visualizations/sensitivity-sobol_sensitivity_analysis.pdf"
 plt.savefig(sobol_pdf, format='pdf')
 plt.close()
 print(f"Sobol sensitivity PDF saved at: {sobol_pdf}")
 
 # ----------------------------------------
-# 3. Morris Screening Method
-# ----------------------------------------
-# Define parameters for the Morris method
-num_levels = 4   # number of levels in the grid
-num_trajectories = 10  # number of trajectories (adjustable)
-
-# Generate samples for the Morris method
-morris_samples = morris_sample.sample(problem, N=num_trajectories, num_levels=num_levels, optimal_trajectories=None)
-
-# Evaluate the model on the Morris samples
-Y_morris = model_wrapper(morris_samples)
-
-# Analyze the Morris results
-morris_results = morris_analyze.analyze(problem, morris_samples, Y_morris, num_levels=num_levels, print_to_console=False)
-mu_star = morris_results['mu_star']
-
-plt.figure(figsize=(10, 6))
-plt.bar(feature_names, mu_star)
-plt.title("Morris Screening Method: mu* Sensitivity", fontsize=16)
-plt.xlabel("Input Variables", fontsize=14)
-plt.ylabel("mu* (Mean Absolute Elementary Effects)", fontsize=14)
-plt.xticks(rotation=45, fontsize=12)
-plt.tight_layout()
-morris_pdf = "data-visualizations/morris_sensitivity_analysis.pdf"
-plt.savefig(morris_pdf, format='pdf')
-plt.close()
-print(f"Morris sensitivity PDF saved at: {morris_pdf}")
-
-# ----------------------------------------
-# 4. Permutation Feature Importance
+# 3. Permutation Feature Importance
 # ----------------------------------------
 # Compute permutation feature importance on the test set
 perm_result = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42)
@@ -140,30 +111,7 @@ plt.xlabel("Input Variables", fontsize=14)
 plt.ylabel("Decrease in Model Score", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
-perm_pdf = "data-visualizations/permutation_importance.pdf"
+perm_pdf = "data-visualizations/sensitivity-permutation_importance.pdf"
 plt.savefig(perm_pdf, format='pdf')
 plt.close()
 print(f"Permutation importance PDF saved at: {perm_pdf}")
-
-# ----------------------------------------
-# 5. Regression-Based Sensitivity Analysis
-# ----------------------------------------
-# Standardize the features (zero mean, unit variance) for regression-based sensitivity
-X_standardized = (X_train - X_train.mean()) / X_train.std()
-model_std = LinearRegression()
-model_std.fit(X_standardized, y_train)
-
-# Get the absolute value of standardized coefficients
-std_coefficients = np.abs(model_std.coef_)
-
-plt.figure(figsize=(10, 6))
-plt.bar(feature_names, std_coefficients)
-plt.title("Regression-Based Sensitivity (Standardized Coefficients)", fontsize=16)
-plt.xlabel("Input Variables", fontsize=14)
-plt.ylabel("Absolute Standardized Coefficient", fontsize=14)
-plt.xticks(rotation=45, fontsize=12)
-plt.tight_layout()
-regression_pdf = "data-visualizations/regression_sensitivity_analysis.pdf"
-plt.savefig(regression_pdf, format='pdf')
-plt.close()
-print(f"Regression-based sensitivity PDF saved at: {regression_pdf}")
