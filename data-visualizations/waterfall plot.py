@@ -23,14 +23,11 @@ OUTPUT_FILENAME = "waterfall_plot_absolute_da_v1.pdf"
 
 # Plot Appearance
 FIG_SIZE = (12, 8) # Adjusted size potentially needed for vertical range
-TITLE = "Absolute DA Levels Variation by Site/Latitude Over Time" # MODIFIED: Title reflects absolute values
+TITLE = "Absolute DA Levels Variation by Site/Latitude Over Time" 
 
 # Y-axis Scaling --- MIGHT NEED ADJUSTMENT ---
-# Increase baseline multiplier for more separation between latitudes
 LATITUDE_BASELINE_MULTIPLIER = 3
-# Decrease scaling factor as we are plotting absolute values which might be large
-DA_SCALING_FACTOR = 0.01 # Smaller value means less vertical stretch per DA unit
-# --- ADJUST THE ABOVE TWO PARAMETERS BASED ON YOUR VISUAL RESULTS ---
+DA_SCALING_FACTOR = 0.01 
 
 # Reference Bar Settings
 BAR_TARGET_DATE_STR = '2012-01-01'     # Central date for placing reference bars
@@ -48,7 +45,7 @@ LEGEND_ANCHOR = (1.03, 1) # Position relative to axes (x, y), >1 means outside
 
 # Axis Settings
 X_AXIS_LABEL = "Date"
-Y_AXIS_LABEL = "Latitude (°N) - Baseline represents DA=0" # MODIFIED: Clarify baseline meaning
+Y_AXIS_LABEL = "Latitude (°N) - Baseline represents DA=0" 
 DATE_FORMAT = '%Y-%m-%d'
 X_AXIS_PADDING_DAYS = 120 # Extra space added to calculated x-limits
 
@@ -58,28 +55,14 @@ def create_da_waterfall_plot():
     """Loads data, creates, and saves the waterfall plot with absolute DA scaling."""
 
     # 1. Load Data
-    try:
-        df = pd.read_parquet(PARQUET_FILE)
-        print(f"Successfully loaded data from '{PARQUET_FILE}'.")
-    except FileNotFoundError:
-        print(f"Error: Input file '{PARQUET_FILE}' not found. Please ensure it exists.")
-        return
-    except Exception as e:
-        print(f"Error loading Parquet file: {e}")
-        return
+    df = pd.read_parquet(PARQUET_FILE)
+    print(f"Successfully loaded data from '{PARQUET_FILE}'.")
 
     # 2. Prepare Data
-    try:
-        df['date'] = pd.to_datetime(df['date'])
-        lat_to_site = df.groupby('lat')['site'].first().to_dict()
-        unique_lats = sorted(df['lat'].unique(), reverse=True)
-        print(f"Data prepared for {len(unique_lats)} unique latitudes.")
-    except KeyError as e:
-        print(f"Error: Missing expected column in Parquet file: {e}")
-        return
-    except Exception as e:
-        print(f"Error during data preparation: {e}")
-        return
+    df['date'] = pd.to_datetime(df['date'])
+    lat_to_site = df.groupby('lat')['site'].first().to_dict()
+    unique_lats = sorted(df['lat'].unique(), reverse=True)
+    print(f"Data prepared for {len(unique_lats)} unique latitudes.")
 
     # 3. Setup Plot
     fig, ax = plt.subplots(figsize=FIG_SIZE)
@@ -113,12 +96,8 @@ def create_da_waterfall_plot():
     for lat in unique_lats:
         group = df[df['lat'] == lat].sort_values(by='date').copy()
 
-        if group.empty:
-            print(f"  Skipping latitude {lat:.2f}: No data.")
-            continue
-
         time_nums = mdates.date2num(group['date'])
-        da_values = group['da'] # These are the absolute DA values
+        da_values = group['da'] 
 
         # Check if there's any valid data to plot for this latitude
         has_valid_data = not da_values.empty and not da_values.isnull().all()
@@ -126,14 +105,8 @@ def create_da_waterfall_plot():
         # Calculate y-baseline for this latitude (represents DA = 0)
         baseline_y = lat * LATITUDE_BASELINE_MULTIPLIER
 
-        # MODIFICATION: Calculate y-coordinates relative to absolute DA=0 baseline
         # Handle potential NaNs by calculating directly; plot_date should handle plotting NaNs as gaps
         y_values = baseline_y + DA_SCALING_FACTOR * da_values
-
-        # If all data was NaN, y_values might be all NaN. plot_date handles this.
-        if not has_valid_data:
-             print(f"  Warning for latitude {lat:.2f}: No valid DA data found; plotting may be empty.")
-
 
         # Get site name for legend label
         site_name = lat_to_site.get(lat, f"Lat {lat:.2f}")
@@ -154,7 +127,6 @@ def create_da_waterfall_plot():
                 current_bar_offset_days = (start_offset_factor + index) * BAR_SPACING_DAYS
                 current_bar_x_num = bar_target_num + current_bar_offset_days
 
-                # MODIFICATION: Calculate vertical extent relative to absolute DA=0 baseline
                 # Base of the bar is at the baseline (DA=0)
                 y_bar_base = baseline_y
                 # Top of the bar corresponds to the specific da_level scaled from baseline
@@ -179,10 +151,8 @@ def create_da_waterfall_plot():
                         horizontalalignment='left',
                         bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=BAR_LABEL_BACKGROUND_ALPHA))
 
-    print("Finished plotting individual latitudes.")
 
     # 5. Format Axes and Plot
-    print("Formatting axes and finalizing plot...")
     # X-axis
     ax.xaxis.set_major_formatter(mdates.DateFormatter(DATE_FORMAT))
     ax.set_xlabel(X_AXIS_LABEL)
@@ -191,19 +161,15 @@ def create_da_waterfall_plot():
 
     # Y-axis
     ax.set_ylabel(Y_AXIS_LABEL) # Updated label
-    if y_tick_positions:
-        ax.set_yticks(y_tick_positions)
-        ax.set_yticklabels(y_tick_labels)
-    else:
-        print("Warning: No data plotted, y-axis ticks will be default.")
+    ax.set_yticks(y_tick_positions)
+    ax.set_yticklabels(y_tick_labels)
 
     # Grid
     ax.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.7)
     ax.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.5)
 
     # Title
-    # MODIFIED: Updated title to remove reference to mean implicit in bar description
-    full_title = f"{TITLE}\n(Reference Bars show DA={BAR_DA_LEVELS} around {BAR_TARGET_DATE_STR})"
+    full_title = f"{TITLE}\n(Reference Bars show DA={BAR_DA_LEVELS})"
     ax.set_title(full_title, pad=15)
 
     # Legend
@@ -225,18 +191,12 @@ def create_da_waterfall_plot():
 
     output_path = os.path.join(effective_output_dir, OUTPUT_FILENAME)
 
-    try:
-        plt.savefig(output_path, format="pdf", bbox_inches='tight', dpi=300)
-        print(f"Plot successfully saved to: '{output_path}'")
-    except Exception as e:
-        print(f"Error saving plot to '{output_path}': {e}")
+    plt.savefig(output_path, format="pdf", bbox_inches='tight', dpi=300)
+    print(f"Plot successfully saved to: '{output_path}'")
 
     plt.show()
-    print("Plot display finished.")
 
 
 # --- Execution Guard ---
 if __name__ == "__main__":
-    print("--- Starting DA Waterfall Plot Script (Absolute DA Scaling) ---")
     create_da_waterfall_plot()
-    print("--- Script Finished ---")

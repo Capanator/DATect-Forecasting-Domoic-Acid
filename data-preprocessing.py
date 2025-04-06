@@ -488,8 +488,6 @@ def process_da(da_files_dict):
     for name, path in da_files_dict.items():
         # Normalize name from dict key for site name guess
         site_name_guess = name.replace('-da', '').replace('_da', '').replace('-', ' ').replace('_', ' ').title()
-        print(f"  Processing DA for site: '{site_name_guess}' from {os.path.basename(path)}")
-
         try:
             df = pd.read_parquet(path)
             # Identify Date and DA columns (handle variations)
@@ -538,7 +536,6 @@ def process_pn(pn_files_dict):
     for name, path in pn_files_dict.items():
         # Normalize name from dict key for site name guess
         site_name_guess = name.replace('-pn', '').replace('_pn', '').replace('-', ' ').replace('_', ' ').title()
-        print(f"  Processing PN for site: '{site_name_guess}' from {os.path.basename(path)}")
 
         df = pd.read_parquet(path)
         # Identify Date and PN columns (handle variations)
@@ -562,7 +559,7 @@ def process_pn(pn_files_dict):
         weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
 
         data_frames.append(weekly_pn[['Year-Week', 'PN_Levels', 'Site']])
-        print(f"    Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
+        print(f"  Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
 
     final_pn_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier, RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier, RandomForestRegressor, RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import log_loss
 from sklearn.pipeline import Pipeline
@@ -118,7 +118,7 @@ def forecast_for_date(df, forecast_date, site):
     rf_model = RandomForestRegressor(
         n_estimators=100,
         random_state=42,
-        n_jobs=-1 # Use all available cores
+        n_jobs=-1  # Use all available cores
     )
     rf_model.fit(X_train_processed, y_train_reg)
     rf_pred = float(rf_model.predict(X_forecast_processed)[0])
@@ -129,14 +129,13 @@ def forecast_for_date(df, forecast_date, site):
     if actual_levels is not None:
         single_coverage = 1.0 if gb_preds['q05'] <= actual_levels <= gb_preds['q95'] else 0.0
 
-    # CLASSIFICATION FORECAST
+    # CLASSIFICATION FORECAST using Random Forest
     X_train_cls = X_train_reg  # Reuse the same features
     y_train_cls = df_train['da-category']
     X_forecast_cls = X_forecast_reg
     y_test_cls = None if df_forecast['da-category'].isnull().all() else df_forecast['da-category']
 
-    # Use a simpler classifier (no need for stacking)
-    clf = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
+    clf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     clf.fit(X_train_processed, y_train_cls)
 
     pred_cat = int(clf.predict(X_forecast_processed)[0])
@@ -157,7 +156,7 @@ def forecast_for_date(df, forecast_date, site):
         'Predicted_da_Q05': gb_preds['q05'],
         'Predicted_da_Q50': gb_preds['q50'],
         'Predicted_da_Q95': gb_preds['q95'],
-        'Predicted_da_RF': rf_pred, # Added RF prediction here
+        'Predicted_da_RF': rf_pred,  # Added RF prediction here
         'Actual_da': actual_levels,
         'SingledateCoverage': single_coverage,
         # Classification results
@@ -176,23 +175,24 @@ def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=No
     n_segments = 30
     range_width = q95 - q05
     max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
-    if max_distance <= 1e-6 : max_distance = 1 # Avoid division by zero if q05=q50=q95
+    if max_distance <= 1e-6: 
+        max_distance = 1  # Avoid division by zero if q05=q50=q95
 
     base_color = (70, 130, 180)  # Steel blue
 
     # Gradient confidence area
     for i in range(n_segments):
-        x0 = q05 + (i/n_segments)*(range_width)
-        x1 = q05 + ((i+1)/n_segments)*(range_width)
+        x0 = q05 + (i / n_segments) * (range_width)
+        x1 = q05 + ((i + 1) / n_segments) * (range_width)
         midpoint = (x0 + x1) / 2
         # Calculate opacity - handle case where max_distance is very small
-        opacity = 1 - (abs(midpoint - q50) / max_distance)**0.5 if max_distance > 1e-6 else (0.8 if abs(midpoint - q50) < 1e-6 else 0.2)
+        opacity = 1 - (abs(midpoint - q50) / max_distance) ** 0.5 if max_distance > 1e-6 else (0.8 if abs(midpoint - q50) < 1e-6 else 0.2)
         fig.add_shape(
             type="rect",
             x0=x0, x1=x1,
             y0=0.4, y1=0.6,
             line=dict(width=0),
-            fillcolor=f'rgba{(*base_color, max(0, min(1, opacity)))}', # Ensure opacity is valid
+            fillcolor=f'rgba{(*base_color, max(0, min(1, opacity)))}',  # Ensure opacity is valid
             layer='below'
         )
 
@@ -214,17 +214,16 @@ def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=No
 
     if rf_prediction is not None:
         fig.add_trace(go.Scatter(
-            x=[rf_prediction], y=[0.5], # Plot at the same y-level
+            x=[rf_prediction], y=[0.5],  # Plot at the same y-level
             mode='markers',
             marker=dict(
                 size=14,
                 color='darkorange',
                 symbol='diamond-tall',
-                line=dict(width=1, color='black') # Add outline for visibility
+                line=dict(width=1, color='black')  # Add outline for visibility
             ),
             name='Random Forest Pred.'
         ))
-
 
     # Add actual value if available
     if actual_levels is not None:
@@ -236,7 +235,7 @@ def create_level_range_graph(q05, q50, q95, actual_levels=None, rf_prediction=No
         ))
 
     fig.update_layout(
-        title="DA Level Forecast: Gradient (GB) & Point (RF)", # Updated title
+        title="DA Level Forecast: Gradient (GB) & Point (RF)",
         xaxis_title="DA Level",
         yaxis=dict(visible=False, range=[0, 1]),
         showlegend=True,
@@ -259,7 +258,7 @@ def create_category_graph(probs, pred_cat, actual_cat=None):
         x=CATEGORY_LABELS,
         y=probs,
         marker_color=colors,
-        text=[f"{p*100:.1f}%" for p in probs],
+        text=[f"{p * 100:.1f}%" for p in probs],
         textposition='auto'
     ))
 
@@ -276,7 +275,7 @@ def create_category_graph(probs, pred_cat, actual_cat=None):
         )
 
     fig.update_layout(
-        title="Category Probability Distribution (Gradient Boosting)",
+        title="Category Probability Distribution (Random Forest)",
         yaxis=dict(title="Probability", range=[0, 1.1]),
         xaxis=dict(title="Category"),
         showlegend=False,
@@ -292,7 +291,7 @@ def format_forecast_output(result):
     q05 = result['Predicted_da_Q05']
     q50 = result['Predicted_da_Q50']
     q95 = result['Predicted_da_Q95']
-    rf_pred = result['Predicted_da_RF'] # Get RF prediction
+    rf_pred = result['Predicted_da_RF']  # Get RF prediction
     actual_levels = result['Actual_da']
     prob_list = result['Probabilities']
 
@@ -309,23 +308,23 @@ def format_forecast_output(result):
     lines += [
         "",
         "--- Regression (da) ---",
-        f"Predicted Range (GB): {q05:.2f} (Q05) – {q50:.2f} (Q50) – {q95:.2f} (Q95)", # Added (GB) label
-        f"Predicted Value (RF): {rf_pred:.2f}", # Added RF output line
+        f"Predicted Range (GB): {q05:.2f} (Q05) – {q50:.2f} (Q50) – {q95:.2f} (Q95)",
+        f"Predicted Value (RF): {rf_pred:.2f}",
     ]
 
     if actual_levels is not None:
         within_range = result['SingledateCoverage']
-        status = 'Within GB Range ✅' if within_range else 'Outside GB Range ❌' # Clarified range
+        status = 'Within GB Range ✅' if within_range else 'Outside GB Range ❌'
         lines.append(f"Actual Value: {actual_levels:.2f} ({status})")
     else:
         lines.append("Actual Value: N/A (forecast beyond available data)")
 
     lines += [
         "",
-        "--- Classification (da-category, Gradient Boosting) ---", # Clarified model
+        "--- Classification (da-category, Random Forest) ---",
         f"Predicted: {CATEGORY_LABELS[result['Predicted_da-category']]}",
         "Probabilities: " + ", ".join([
-            f"{label}: {prob*100:.1f}%"
+            f"{label}: {prob * 100:.1f}%"
             for label, prob in zip(CATEGORY_LABELS, prob_list)
         ])
     ]
@@ -343,18 +342,18 @@ def format_forecast_output(result):
 # DASH APP
 # ================================
 # Load data
-file_path = 'final_output.parquet' # Make sure this file exists or change the path
+file_path = 'final_output.parquet'  # Make sure this file exists or change the path
 try:
     raw_data = load_and_prepare_data(file_path)
-    min_forecast_date = pd.to_datetime("2010-01-01") # Or set based on data min date + buffer
+    min_forecast_date = pd.to_datetime("2010-01-01")  # Or set based on data min date + buffer
     available_sites = raw_data['site'].unique()
     initial_site = available_sites[0] if len(available_sites) > 0 else None
 except FileNotFoundError:
     print(f"Error: Parquet file not found at {file_path}")
     print("Please ensure the data file is in the correct location.")
     # Provide dummy data or exit if essential
-    raw_data = pd.DataFrame({'site': ['dummy'], 'date': [pd.Timestamp('2023-01-01')], 'da': [10]}) # Example dummy
-    raw_data = load_and_prepare_data(raw_data) # Process dummy data
+    raw_data = pd.DataFrame({'site': ['dummy'], 'date': [pd.Timestamp('2023-01-01')], 'da': [10]})
+    raw_data = load_and_prepare_data(raw_data)  # Process dummy data
     min_forecast_date = pd.to_datetime("2023-01-01")
     available_sites = ['dummy']
     initial_site = 'dummy'
@@ -381,13 +380,13 @@ app.layout = html.Div([
         style={'width': '50%'}
     ),
 
-    html.Label("Pick a Forecast date (≥ 2010 or data start):"), # Updated label slightly
+    html.Label("Pick a Forecast date (≥ 2010 or data start):"),
     dcc.DatePickerSingle(
         id='forecast-date-picker',
         min_date_allowed=min_forecast_date,
-        max_date_allowed='2099-12-31',  # Allow future dates
+        max_date_allowed='2099-12-31',
         initial_visible_month=min_forecast_date,
-        date=min_forecast_date, # Set a reasonable default, maybe last date + 1 day if data available?
+        date=min_forecast_date,
     ),
 
     html.Div(
@@ -471,5 +470,4 @@ def update_forecast(forecast_date_str, site):
 # MAIN
 # ================================
 if __name__ == '__main__':
-    # Consider host='0.0.0.0' if running in a container or want external access
     app.run_server(debug=True, port=8065)
