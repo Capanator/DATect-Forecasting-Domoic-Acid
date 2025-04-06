@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Plots DA levels variation over time for different latitudes (sites),
-plotting values relative to DA=0 for each latitude's baseline.
-Includes vertical reference bars indicating specific DA levels
-at a target date, spaced horizontally.
-"""
 
 import pandas as pd
 import matplotlib.pyplot as plt
