@@ -51,10 +51,6 @@ with open(SATELLITE_CONFIG_FILE, 'r') as f:
     satellite_metadata = json.load(f)
 print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data types.")
 
-# Add main end_date if needed
-if 'end_date' not in satellite_metadata and end_date is not None:
-    satellite_metadata['end_date'] = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-
 # --- Helper Functions ---
 def download_file(url, filename):
     """Download file from URL"""
@@ -170,7 +166,7 @@ def process_dataset(url, data_type, site, temp_dir):
     return df[['timestamp', 'site', 'data_type', data_var]]
 
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
-    """Process satellite data and save to Parquet with minimal error handling"""
+    """Process satellite data and save to Parquet"""
     print("\n--- Processing Satellite Data ---")
         
     sat_end_date_global = satellite_metadata_dict.get('end_date', None)

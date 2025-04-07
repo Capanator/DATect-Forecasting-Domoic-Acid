@@ -22,6 +22,7 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
+    "ENABLE_LAG_FEATURES": True,
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
@@ -103,8 +104,11 @@ def load_and_prepare_data(file_path: str) -> pd.DataFrame:
     data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
 
     # Lag Features
-    print("[INFO] Creating lag features...")
-    data = add_lag_features(data, group_col="site", value_col="da", lags=[1, 2, 3])
+    if CONFIG["ENABLE_LAG_FEATURES"]:
+        print("[INFO] Creating lag features...")
+        data = add_lag_features(data, group_col="site", value_col="da", lags=[1, 2, 3])
+    else:
+        print("[INFO] Skipping lag features creation per configuration")
 
     # Target Categorization
     print("[INFO] Categorizing 'da'...")
@@ -117,7 +121,8 @@ def load_and_prepare_data(file_path: str) -> pd.DataFrame:
 
     # Drop rows with NaN values in critical columns (lags, target)
     # This is considered essential cleaning, not an edge case check.
-    critical_cols = [f"da_lag_{lag}" for lag in [1, 2, 3]] + ["da", "da-category"]
+    lag_cols = [f"da_lag_{lag}" for lag in [1,2,3]] if CONFIG["ENABLE_LAG_FEATURES"] else []
+    critical_cols = lag_cols + ["da", "da-category"]
     initial_rows = len(data)
     data.dropna(subset=critical_cols, inplace=True)
     print(f"[INFO] Dropped {initial_rows - len(data)} rows due to NaNs in critical columns.")
