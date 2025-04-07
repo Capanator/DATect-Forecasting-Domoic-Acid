@@ -400,38 +400,19 @@ def prepare_all_predictions(
 # ---------------------------------------------------------
 def create_dash_app(predictions: Dict, data: pd.DataFrame):
     """
-    Creates and configures the Dash application. Edge case checks remain
-    within the callback for UI stability.
+    Creates and configures the Dash application.
     """
     app = dash.Dash(__name__)
 
-    analysis_layout = html.Div(
-        [
-            html.H3("Overall Analysis (Aggregated TimeSeriesSplit Folds)"),
-            dcc.Dropdown(
-                id="forecast-type-dropdown",
-                options=[
-                    {"label": "DA Levels (Regression)", "value": "DA_Level"},
-                    {"label": "DA Category (Classification)", "value": "da-category"},
-                ],
-                value="DA_Level",
-                style={"width": "50%", "marginBottom": "15px"},
-            ),
-            dcc.Dropdown(
-                id="site-dropdown",
-                placeholder="Select site (or All sites)",
-                style={"width": "50%", "marginBottom": "15px"},
-            ),
-            dcc.Graph(id="analysis-graph"),
-        ]
-    )
-
-    tabs_children = [dcc.Tab(label="Aggregated TS Analysis", children=[analysis_layout])]
+    # Sites list for dropdown
+    sites_list = sorted(data["site"].unique().tolist())
+    
+    # Create forecast method options
     forecast_methods = [{"label": "Random Forest (ML)", "value": "ml"}]
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
         forecast_methods.append({"label": "Linear/Logistic Regression (LR)", "value": "lr"})
-    sites_list = sorted(data["site"].unique().tolist())
 
+    # Main layout without tabs
     app.layout = html.Div(
         [
             html.H1("Domoic Acid Forecast Dashboard"),
@@ -448,20 +429,37 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
                 ],
                 style={"display": "flex", "alignItems": "center", "marginBottom": "20px"},
             ),
-            dcc.Tabs(id="tabs", children=tabs_children),
+            # Analysis section (former tab content)
+            html.Div(
+                [
+                    html.H3("Overall Analysis (Aggregated TimeSeriesSplit Folds)"),
+                    dcc.Dropdown(
+                        id="forecast-type-dropdown",
+                        options=[
+                            {"label": "DA Levels (Regression)", "value": "DA_Level"},
+                            {"label": "DA Category (Classification)", "value": "da-category"},
+                        ],
+                        value="DA_Level",
+                        style={"width": "50%", "marginBottom": "15px"},
+                    ),
+                    dcc.Dropdown(
+                        id="site-dropdown",
+                        options=[{"label": "All sites", "value": "All sites"}] + [
+                            {"label": site, "value": site} for site in sites_list
+                        ],
+                        placeholder="Select site (or All sites)",
+                        style={"width": "50%", "marginBottom": "15px"},
+                    ),
+                    dcc.Graph(id="analysis-graph"),
+                ]
+            ),
+            # Store is still needed for site data
             dcc.Store(id="data-store", data={"sites": sites_list}),
         ]
     )
 
-    @app.callback(
-        Output("site-dropdown", "options"), [Input("data-store", "data")]
-    )
-    def update_site_dropdown(data_store):
-        sites = data_store.get("sites", [])
-        options = [{"label": "All sites", "value": "All sites"}] + [
-            {"label": site, "value": site} for site in sites
-        ]
-        return options
+    # Since we now have site dropdown options in the layout, we can remove the site-dropdown callback
+    # The analysis-graph callback stays the same
 
     @app.callback(
         Output("analysis-graph", "figure"),
@@ -582,7 +580,6 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
         return fig
 
     return app
-
 
 # ---------------------------------------------------------
 # Main Execution
