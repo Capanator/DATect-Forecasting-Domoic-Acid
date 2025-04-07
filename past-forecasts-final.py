@@ -412,7 +412,7 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
         forecast_methods.append({"label": "Linear/Logistic Regression (LR)", "value": "lr"})
 
-    # Main layout without tabs
+    # Main layout
     app.layout = html.Div(
         [
             html.H1("Domoic Acid Forecast Dashboard"),
@@ -429,7 +429,6 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
                 ],
                 style={"display": "flex", "alignItems": "center", "marginBottom": "20px"},
             ),
-            # Analysis section (former tab content)
             html.Div(
                 [
                     html.H3("Overall Analysis (Aggregated TimeSeriesSplit Folds)"),
@@ -453,13 +452,9 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
                     dcc.Graph(id="analysis-graph"),
                 ]
             ),
-            # Store is still needed for site data
             dcc.Store(id="data-store", data={"sites": sites_list}),
         ]
     )
-
-    # Since we now have site dropdown options in the layout, we can remove the site-dropdown callback
-    # The analysis-graph callback stays the same
 
     @app.callback(
         Output("analysis-graph", "figure"),
@@ -473,7 +468,7 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
         # Keep checks within Dash callback for robustness
         if forecast_method not in predictions:
             print(f"[WARN] Invalid forecast method '{forecast_method}', defaulting to 'ml'.")
-            forecast_method = "ml" # Defaulting behavior
+            forecast_method = "ml" 
         if forecast_method not in predictions or not predictions[forecast_method]:
             # Handle case where method might exist but has no results
             return px.line(title=f"No prediction data available for {forecast_method.upper()}")
