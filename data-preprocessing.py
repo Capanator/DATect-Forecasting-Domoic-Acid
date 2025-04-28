@@ -321,8 +321,6 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         min_overall_pos = time_diff_overall.argmin()
         return site_data.iloc[min_overall_pos]
 
-
-
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
     # Load satellite data
@@ -559,7 +557,6 @@ def process_da(da_files_dict):
          final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
     print(f"Combined DA data shape: {final_da_df.shape}")
     return final_da_df
-
 
 def process_pn(pn_files_dict):
     """Processes PN data from Parquet files, returns weekly aggregated DataFrame."""
