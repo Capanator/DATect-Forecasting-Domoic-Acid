@@ -48,28 +48,30 @@
       "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMWcflhmday_LonPM180.nc?fluorescence%5B(2002-07-16T12:00:00Z):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(-124.8):1:(-124.4)%5D"
     },
     "chla-anom": {
-        "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
-        "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
-        "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
-        "Twin Harbors": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
-        "Long Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.125):1:(47.625)%5D%5B(235.55):1:(235.95)%5D",
-        "Clatsop Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.75):1:(47.25)%5D%5B(235.7):1:(236.1)%5D",
-        "Cannon Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.625):1:(47.125)%5D%5B(235.65):1:(236.05)%5D",
-        "Newport": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(45.375):1:(45.875)%5D%5B(235.55):1:(235.95)%5D",
-        "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(235.35):1:(235.75)%5D",
-        "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(235.2):1:(235.6)%5D"
+        "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:(2025-01-16T12:00:00Z)%5D%5B(0.0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
+        "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
+        "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
+        "Twin Harbors": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
+        "Long Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.125):1:(47.625)%5D%5B(235.55):1:(235.95)%5D",
+        "Clatsop Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.75):1:(47.25)%5D%5B(235.7):1:(236.1)%5D",
+        "Cannon Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.625):1:(47.125)%5D%5B(235.65):1:(236.05)%5D",
+        "Newport": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(45.375):1:(45.875)%5D%5B(235.55):1:(235.95)%5D",
+        "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(235.35):1:(235.75)%5D",
+        "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2ChlaAnom.nc?chla_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(235.2):1:(235.6)%5D"
     },
     "sst-anom": {
-      "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
-      "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
-      "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
-      "Twin Harbors": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
-      "Long Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.125):1:(47.625)%5D%5B(235.55):1:(235.95)%5D",
-      "Clatsop Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.75):1:(47.25)%5D%5B(235.7):1:(236.1)%5D",
-      "Cannon Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.625):1:(47.125)%5D%5B(235.65):1:(236.05)%5D",
-      "Newport": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(45.375):1:(45.875)%5D%5B(235.55):1:(235.95)%5D",
-      "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(235.35):1:(235.75)%5D",
-      "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B(2003-01-16):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(235.2):1:(235.6)%5D"
+      "Kalaloch": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0):1:(0.0)%5D%5B(48.375):1:(48.875)%5D%5B(235.2):1:(235.6)%5D",
+      "Quinault": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(48.25):1:(48.75)%5D%5B(235.8):1:(236.2)%5D",
+      "Copalis": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
+      "Twin Harbors": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.625):1:(48.125)%5D%5B(235.5):1:(235.9)%5D",
+      "Long Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(47.125):1:(47.625)%5D%5B(235.55):1:(235.95)%5D",
+      "Clatsop Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.75):1:(47.25)%5D%5B(235.7):1:(236.1)%5D",
+      "Cannon Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(46.625):1:(47.125)%5D%5B(235.65):1:(236.05)%5D",
+      "Newport": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(45.375):1:(45.875)%5D%5B(235.55):1:(235.95)%5D",
+      "Coos Bay": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(44.125):1:(44.625)%5D%5B(235.35):1:(235.75)%5D",
+      "Gold Beach": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/osu2SstAnom.nc?sst_anomaly%5B({anom_start_date}):1:({end_date})%5D%5B(0.0):1:(0.0)%5D%5B(43.125):1:(43.625)%5D%5B(235.2):1:(235.6)%5D"
     },
+    "start_date": "2002-07-16T12:00:00Z",
+    "anom_start_date": "2003-01-16T12:00:00Z",
     "end_date": "2025-01-16T12:00:00Z"
   }

@@ -168,79 +168,114 @@ def process_dataset(url, data_type, site, temp_dir):
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
     """Process satellite data and save to Parquet"""
     print("\n--- Processing Satellite Data ---")
-        
-    sat_end_date_global = satellite_metadata_dict.get('end_date', None)
-    
+
+    sat_end_date_global = satellite_metadata_dict.get("end_date", None)
+    sat_start_date_global = satellite_metadata_dict.get("start_date", None)
+    sat_anom_start_date_global = satellite_metadata_dict.get("anom_start_date", None)
+
     # Create temp directory
     sat_temp_dir = tempfile.mkdtemp(prefix="sat_downloads_")
     print(f"Using temporary directory: {sat_temp_dir}")
-    
+
     # Build task list
     satellite_tasks = []
     processed_sites = set()
-    
+
     for data_type, sat_sites_dict in satellite_metadata_dict.items():
-        if data_type == 'end_date' or not isinstance(sat_sites_dict, dict):
+        if data_type in ["end_date", "start_date", "anom_start_date"] or not isinstance(
+            sat_sites_dict, dict
+        ):
             continue
-            
+
         for site, url_or_list in sat_sites_dict.items():
             # Match site names with main site list (case-insensitive)
-            normalized_site_name = site.lower().replace('_', ' ').replace('-', ' ')
-            relevant_main_site = next((s for s in main_sites_list 
-                                     if s.lower().replace('_', ' ').replace('-', ' ') == normalized_site_name), None)
-            
+            normalized_site_name = site.lower().replace("_", " ").replace("-", " ")
+            relevant_main_site = next(
+                (
+                    s
+                    for s in main_sites_list
+                    if s.lower().replace("_", " ").replace("-", " ")
+                    == normalized_site_name
+                ),
+                None,
+            )
+
             if relevant_main_site:
-                urls_to_process = [url_or_list] if isinstance(url_or_list, str) else url_or_list
-                
+                urls_to_process = (
+                    [url_or_list] if isinstance(url_or_list, str) else url_or_list
+                )
+
                 for url in urls_to_process:
                     if isinstance(url, str) and url.strip():
                         processed_url = url
-                        if '{end_date}' in url and sat_end_date_global:
-                            processed_url = url.replace('{end_date}', sat_end_date_global)
-                            
+                        if "{end_date}" in url and sat_end_date_global:
+                            processed_url = processed_url.replace(
+                                "{end_date}", sat_end_date_global
+                            )
+                        if "{start_date}" in url and sat_start_date_global:
+                            processed_url = processed_url.replace(
+                                "{start_date}", sat_start_date_global
+                            )
+                        if "{anom_start_date}" in url and sat_anom_start_date_global:
+                            processed_url = processed_url.replace(
+                                "{anom_start_date}", sat_anom_start_date_global
+                            )
+
                         satellite_tasks.append((data_type, relevant_main_site, processed_url))
                         processed_sites.add(relevant_main_site)
-        
+
     # Process satellite datasets
-    print(f"Processing {len(satellite_tasks)} satellite datasets for {len(processed_sites)} sites...")
+    print(
+        f"Processing {len(satellite_tasks)} satellite datasets for {len(processed_sites)} sites..."
+    )
     satellite_results_list = []
-    
+
     for data_type, site, url in tqdm(satellite_tasks, desc="Satellite Data"):
         result_df = process_dataset(url, data_type, site, sat_temp_dir)
         if result_df is not None and not result_df.empty:
             satellite_results_list.append(result_df)
-            
+
     # Clean up temp directory
     shutil.rmtree(sat_temp_dir)
-        
+
     # Combine and pivot results
     combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
-    
+
     # Determine value columns
-    value_cols = [col for col in combined_satellite_df.columns if col not in ['timestamp', 'site', 'data_type']]
-    
+    value_cols = [
+        col
+        for col in combined_satellite_df.columns
+        if col not in ["timestamp", "site", "data_type"]
+    ]
+
     # Pivot table
     processed_satellite_pivot = combined_satellite_df.pivot_table(
-        index=['site', 'timestamp'],
-        columns='data_type',
+        index=["site", "timestamp"],
+        columns="data_type",
         values=value_cols,
-        aggfunc='mean'
+        aggfunc="mean",
     )
-    
+
     # Flatten MultiIndex columns
     if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
-        processed_satellite_pivot.columns = ['sat_' + '_'.join(col).strip() 
-                                          for col in processed_satellite_pivot.columns.values]
+        processed_satellite_pivot.columns = [
+            "sat_" + "_".join(col).strip()
+            for col in processed_satellite_pivot.columns.values
+        ]
     else:
-        processed_satellite_pivot.columns = [f'sat_{col}' for col in processed_satellite_pivot.columns]
-        
+        processed_satellite_pivot.columns = [
+            f"sat_{col}" for col in processed_satellite_pivot.columns
+        ]
+
     processed_satellite_pivot = processed_satellite_pivot.reset_index()
-    processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
-    
+    processed_satellite_pivot["timestamp"] = pd.to_datetime(
+        processed_satellite_pivot["timestamp"]
+    )
+
     # Save to parquet
     processed_satellite_pivot.to_parquet(output_path, index=False)
     generated_parquet_files.append(output_path)
-    
+
     return output_path
 
 def find_best_satellite_match(target_row, sat_pivot_indexed):
@@ -285,6 +320,8 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         time_diff_overall = np.abs(site_data.index - target_ts)
         min_overall_pos = time_diff_overall.argmin()
         return site_data.iloc[min_overall_pos]
+
+
 
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
