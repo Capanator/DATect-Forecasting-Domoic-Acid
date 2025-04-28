@@ -14,6 +14,7 @@ import shutil
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
 warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`")
+warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision") # Add this for xarray date handling
 
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
@@ -22,6 +23,8 @@ SATELLITE_CONFIG_FILE = 'satellite_config.json'
 # Lists to track temporary files for cleanup
 downloaded_files = []
 generated_parquet_files = []
+temporary_nc_files_for_stitching = [] # Track yearly files per dataset
+
 
 # Load main configuration
 print(f"--- Loading Configuration from {CONFIG_FILE} ---")
@@ -88,195 +91,290 @@ def convert_files_to_parquet(files_dict):
         new_files[name] = csv_to_parquet(path)
     return new_files
 
-# --- Satellite Data Processing ---
-def process_dataset(url, data_type, site, temp_dir):
-    """Process satellite NetCDF data"""
+def process_stitched_dataset(yearly_nc_files, data_type, site):
+    """
+    Process a stitched satellite NetCDF dataset from multiple yearly files.
+    (Core logic for stitching)
+    """
+    if not yearly_nc_files:
+        # Keep this warning as it indicates a skipped task unit
+        print(f"      Warning: No yearly files provided for {site} - {data_type}. Skipping.")
+        return None
+
+    ds = None
+    try:
+        ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
+        ds = ds.sortby('time')
+    except Exception as e:
+        print(f"      ERROR: Failed to open/concatenate yearly files for {site} - {data_type}: {e}")
+        if ds:
+            ds.close()
+        return None
+
     # Determine data variable name
     data_var = None
-    url_lower = url.lower() if url else ""
     dtype_lower = data_type.lower() if data_type else ""
-    
     var_mapping = {
-        'chla-anom': ['chla_anomaly', 'chlorophyll-anom'],
-        'sst-anom': ['sst_anomaly', 'temperature-anom'],
-        'modis-chla': ['chlorophyll'],
-        'modis-sst': ['sst', 'temperature'],
-        'modis-par': ['par'],
-        'modis-flr': ['fluorescence']
+        'chla': ['chla', 'chlorophyll'],
+        'sst': ['sst', 'temperature'],
+        'par': ['par'],
+        'fluorescence': ['fluorescence', 'flr'],
+        'chla_anomaly': ['chla_anomaly', 'chlorophyll-anom'],
+        'sst_anomaly': ['sst_anomaly', 'temperature-anom'],
     }
-    
-    for var_name, keywords in var_mapping.items():
-        if any(kw in url_lower or kw in dtype_lower for kw in keywords):
-            data_var = var_name
+    possible_data_vars = list(ds.data_vars)
+    found_match = False
+    for var_key, keywords in var_mapping.items():
+        if any(kw in dtype_lower for kw in keywords):
+            if var_key in possible_data_vars:
+                data_var = var_key
+                found_match = True
+                break
+            for kw in keywords:
+                if kw in possible_data_vars:
+                    data_var = kw
+                    found_match = True
+                    break
+        if found_match:
             break
-
-    # Create temporary file path and download data
-    fd, tmp_nc_path = tempfile.mkstemp(suffix='.nc', prefix=f"{site}_{data_type}_", dir=temp_dir)
-    os.close(fd)
-    
-    response = requests.get(url, timeout=300, stream=True)
-    with open(tmp_nc_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-
-    # Process data
-    ds = xr.open_dataset(tmp_nc_path)
-    
-    # Handle case when data variable isn't found
-    if data_var not in ds.data_vars:
-        available_vars = list(ds.data_vars)
-        if len(available_vars) == 1:
-            data_var = available_vars[0]
-        else:
-            os.unlink(tmp_nc_path)
-            ds.close()
-            return None
-
-    # Select data variable and process
+    if not found_match and len(possible_data_vars) == 1:
+        data_var = possible_data_vars[0]
+        found_match = True
+    if not found_match:
+        print(f"      ERROR: Could not determine data variable for {site} - {data_type}. Available: {possible_data_vars}")
+        ds.close()
+        return None
+ 
     data_array = ds[data_var]
-    
+
     # Find time coordinate
-    time_coords = ['time', 't', 'datetime']
-    time_coord_name = next((c for c in time_coords if c in data_array.coords), None)
+    time_coord_name = None
+    time_coords_to_check = ['time', 't', 'datetime']
+    time_coord_name = next((c for c in time_coords_to_check if c in data_array.coords), None)
     if not time_coord_name:
-        os.unlink(tmp_nc_path)
+        print(f"      ERROR: Could not determine time coordinate for {site} - {data_type}. Available: {list(data_array.coords)}")
         ds.close()
         return None
 
     # Average over spatial dimensions
-    spatial_dims = [dim for dim in data_array.dims if dim != time_coord_name]
-    averaged_array = data_array.mean(dim=spatial_dims, skipna=True) if spatial_dims else data_array
-    
+    averaged_array = data_array
+    try:
+        spatial_dims = [dim for dim in data_array.dims if dim != time_coord_name]
+        if spatial_dims:
+            averaged_array = data_array.mean(dim=spatial_dims, skipna=True)
+    except Exception as mean_err:
+        print(f"      ERROR: Failed spatial averaging for {site} - {data_type}: {mean_err}")
+        ds.close()
+        return None
+
     # Convert to DataFrame and format
-    df = averaged_array.to_dataframe(name='value').reset_index()
-    df = df.rename(columns={time_coord_name: 'timestamp'})
-    df = df.dropna(subset=['timestamp', 'value'])
-        
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-    df = df.dropna(subset=['timestamp'])
-        
-    df['site'] = site
-    df['data_type'] = data_type
-    df = df.rename(columns={'value': data_var})
-    
-    # Cleanup and return
-    os.unlink(tmp_nc_path)
-    ds.close()
-    
-    return df[['timestamp', 'site', 'data_type', data_var]]
+    df_final = None
+    try:
+        df = averaged_array.to_dataframe(name='value').reset_index()
+        df = df.rename(columns={time_coord_name: 'timestamp'})
+        df = df.dropna(subset=['timestamp', 'value'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+        df = df.dropna(subset=['timestamp'])
+        df['site'] = site
+        df['data_type'] = data_type
+        df = df.rename(columns={'value': data_var})
+        final_cols = ['timestamp', 'site', 'data_type', data_var]
+        df_final = df[[col for col in final_cols if col in df.columns]]
+    except Exception as df_err:
+        print(f"      ERROR: Failed during DataFrame conversion/formatting for {site} - {data_type}: {df_err}")
+        df_final = None
+    finally:
+        if ds:
+            ds.close()
+
+    return df_final
+
 
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
-    """Process satellite data and save to Parquet"""
-    print("\n--- Processing Satellite Data ---")
+    """
+    Downloads yearly satellite data, processes via stitching, combines, pivots,
+    and saves to Parquet. Minimal verbosity.
+    """
 
-    sat_end_date_global = satellite_metadata_dict.get("end_date", None)
-    sat_start_date_global = satellite_metadata_dict.get("start_date", None)
-    sat_anom_start_date_global = satellite_metadata_dict.get("anom_start_date", None)
+    # --- Date Range Setup ---
+    global_start_str = satellite_metadata_dict.get("start_date")
+    global_anom_start_str = satellite_metadata_dict.get("anom_start_date")
+    try:
+        # Simplified config loading assumption
+        with open(CONFIG_FILE, 'r') as f:
+            main_config = json.load(f)
+        main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+    except Exception as e:
+        # Simplified warning
+        print(f"Warning: Problem reading config file ({e}), using current date as end date.")
+        main_end_date_str = datetime.now().strftime('%Y-%m-%d')
 
-    # Create temp directory
-    sat_temp_dir = tempfile.mkdtemp(prefix="sat_downloads_")
+    main_end_dt = pd.to_datetime(main_end_date_str)
+    global_end_str = main_end_dt.strftime('%Y-%m-%dT23:59:59Z')
+    global_start_dt = pd.to_datetime(global_start_str)
+    global_anom_start_dt = pd.to_datetime(global_anom_start_str)
+    global_end_dt = pd.to_datetime(global_end_str)
+
+    print(f"Overall Satellite Date Range: {global_start_dt} to {global_end_dt}")
+    print(f"Anomaly Start Date: {global_anom_start_dt}")
+
+    # --- Temporary Directory ---
+    sat_temp_dir = tempfile.mkdtemp(prefix="sat_yearly_dl_")
     print(f"Using temporary directory: {sat_temp_dir}")
 
-    # Build task list
-    satellite_tasks = []
-    processed_sites = set()
-
-    for data_type, sat_sites_dict in satellite_metadata_dict.items():
-        if data_type in ["end_date", "start_date", "anom_start_date"] or not isinstance(
-            sat_sites_dict, dict
-        ):
-            continue
-
-        for site, url_or_list in sat_sites_dict.items():
-            # Match site names with main site list (case-insensitive)
-            normalized_site_name = site.lower().replace("_", " ").replace("-", " ")
-            relevant_main_site = next(
-                (
-                    s
-                    for s in main_sites_list
-                    if s.lower().replace("_", " ").replace("-", " ")
-                    == normalized_site_name
-                ),
-                None,
-            )
-
-            if relevant_main_site:
-                urls_to_process = (
-                    [url_or_list] if isinstance(url_or_list, str) else url_or_list
-                )
-
-                for url in urls_to_process:
-                    if isinstance(url, str) and url.strip():
-                        processed_url = url
-                        if "{end_date}" in url and sat_end_date_global:
-                            processed_url = processed_url.replace(
-                                "{end_date}", sat_end_date_global
-                            )
-                        if "{start_date}" in url and sat_start_date_global:
-                            processed_url = processed_url.replace(
-                                "{start_date}", sat_start_date_global
-                            )
-                        if "{anom_start_date}" in url and sat_anom_start_date_global:
-                            processed_url = processed_url.replace(
-                                "{anom_start_date}", sat_anom_start_date_global
-                            )
-
-                        satellite_tasks.append((data_type, relevant_main_site, processed_url))
-                        processed_sites.add(relevant_main_site)
-
-    # Process satellite datasets
-    print(
-        f"Processing {len(satellite_tasks)} satellite datasets for {len(processed_sites)} sites..."
-    )
     satellite_results_list = []
+    final_output_path = None
 
-    for data_type, site, url in tqdm(satellite_tasks, desc="Satellite Data"):
-        result_df = process_dataset(url, data_type, site, sat_temp_dir)
-        if result_df is not None and not result_df.empty:
-            satellite_results_list.append(result_df)
+    # --- Build Task List ---
+    tasks = []
+    processed_site_datatype_pairs = set()
+    for data_type, sat_sites_dict in satellite_metadata_dict.items():
+        if data_type in ["end_date", "start_date", "anom_start_date"] or not isinstance(sat_sites_dict, dict):
+            continue
+        for site, url_template in sat_sites_dict.items():
+            normalized_site_name = site.lower().replace("_", " ").replace("-", " ")
+            relevant_main_site = next((s for s in main_sites_list if s.lower().replace("_", " ").replace("-", " ") == normalized_site_name), None)
+            if relevant_main_site and isinstance(url_template, str) and url_template.strip():
+                if (relevant_main_site, data_type) not in processed_site_datatype_pairs:
+                     tasks.append({
+                         "site": relevant_main_site,
+                         "data_type": data_type,
+                         "url_template": url_template
+                     })
+                     processed_site_datatype_pairs.add((relevant_main_site, data_type))
 
-    # Clean up temp directory
-    shutil.rmtree(sat_temp_dir)
+    print(f"Prepared {len(tasks)} satellite processing tasks.")
 
-    # Combine and pivot results
-    combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
+    # --- Main Loop over Tasks (Single main progress bar) ---
+    try:
+        for task in tqdm(tasks, desc="Processing Satellite Data Tasks"):
+            site = task["site"]
+            data_type = task["data_type"]
+            url_template = task["url_template"]
 
-    # Determine value columns
-    value_cols = [
-        col
-        for col in combined_satellite_df.columns
-        if col not in ["timestamp", "site", "data_type"]
-    ]
+            # --- Yearly Download Loop (No inner progress bar) ---
+            is_anomaly_type = 'anom' in data_type.lower()
+            current_overall_start_dt = global_anom_start_dt if is_anomaly_type else global_start_dt
+            current_overall_end_dt = global_end_dt
+            start_year = current_overall_start_dt.year
+            end_year = current_overall_end_dt.year
 
-    # Pivot table
-    processed_satellite_pivot = combined_satellite_df.pivot_table(
-        index=["site", "timestamp"],
-        columns="data_type",
-        values=value_cols,
-        aggfunc="mean",
-    )
+            yearly_files_for_dataset = []
 
-    # Flatten MultiIndex columns
-    if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
-        processed_satellite_pivot.columns = [
-            "sat_" + "_".join(col).strip()
-            for col in processed_satellite_pivot.columns.values
-        ]
-    else:
-        processed_satellite_pivot.columns = [
-            f"sat_{col}" for col in processed_satellite_pivot.columns
-        ]
+            for year in range(start_year, end_year + 1): # Simple iteration
+                year_start_dt = max(current_overall_start_dt, pd.Timestamp(f"{year}-01-01T00:00:00Z")) if year == start_year else pd.Timestamp(f"{year}-01-01T00:00:00Z")
+                year_end_dt = min(current_overall_end_dt, pd.Timestamp(f"{year}-12-31T23:59:59Z")) if year == end_year else pd.Timestamp(f"{year}-12-31T23:59:59Z")
 
-    processed_satellite_pivot = processed_satellite_pivot.reset_index()
-    processed_satellite_pivot["timestamp"] = pd.to_datetime(
-        processed_satellite_pivot["timestamp"]
-    )
+                if year_start_dt > year_end_dt: continue
 
-    # Save to parquet
-    processed_satellite_pivot.to_parquet(output_path, index=False)
-    generated_parquet_files.append(output_path)
+                year_start_str_url = year_start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                year_end_str_url = year_end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                yearly_url = url_template.replace("{start_date}", year_start_str_url)\
+                                         .replace("{end_date}", year_end_str_url)\
+                                         .replace("{anom_start_date}", year_start_str_url)
 
-    return output_path
+                fd, tmp_nc_path = tempfile.mkstemp(suffix=f'_{year}.nc', prefix=f"{site}_{data_type}_", dir=sat_temp_dir)
+                os.close(fd)
+
+                # Download Logic
+                try:
+                    response = requests.get(yearly_url, timeout=300, stream=True)
+                    response.raise_for_status()
+                    with open(tmp_nc_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    if os.path.getsize(tmp_nc_path) > 100:
+                        yearly_files_for_dataset.append(tmp_nc_path)
+                    else:
+                        print(f"          Warning: Downloaded file for year {year} ({site}-{data_type}) seems empty. Skipping.")
+                        os.unlink(tmp_nc_path)
+                except requests.exceptions.RequestException as req_err:
+                    print(f"          ERROR downloading {yearly_url}: {req_err}. Skipping year {year}.")
+                    if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
+                except Exception as e:
+                    print(f"          ERROR processing download for year {year} ({site}-{data_type}): {e}. Skipping.")
+                    if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
+            # --- End of Yearly Download Loop ---
+
+            # Process the collected yearly files
+            if yearly_files_for_dataset:
+                result_df = process_stitched_dataset(yearly_files_for_dataset, data_type, site)
+                if result_df is not None and not result_df.empty:
+                    satellite_results_list.append(result_df)
+
+            # Clean up yearly files immediately
+            for f_path in yearly_files_for_dataset:
+                if os.path.exists(f_path):
+                    os.unlink(f_path)
+        # --- End Main Task Loop ---
+
+        # --- Combine and Pivot Results ---
+        processed_satellite_pivot = None # Initialize
+        if not satellite_results_list:
+            print("\nERROR: No satellite data processed.")
+            processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+            processed_satellite_pivot['timestamp'] = pd.to_datetime([])
+            print(f"Creating empty Parquet file at {output_path}")
+        else:
+            combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
+            if combined_satellite_df.empty:
+                 print("ERROR: Combined satellite DataFrame is empty.")
+                 processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+                 processed_satellite_pivot['timestamp'] = pd.to_datetime([])
+                 print(f"Creating empty Parquet file at {output_path}")
+            else:
+                index_cols = ['site', 'timestamp']
+                columns_col = 'data_type'
+                all_cols = combined_satellite_df.columns.tolist()
+                value_cols = [c for c in all_cols if c not in index_cols and c != columns_col]
+
+                if not value_cols:
+                     print(f"ERROR: No value columns found for pivoting. Available: {all_cols}")
+                     processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+                     processed_satellite_pivot['timestamp'] = pd.to_datetime([])
+                     print(f"Creating empty Parquet file at {output_path}")
+                else:
+                    try:
+                        processed_satellite_pivot = combined_satellite_df.pivot_table(
+                            index=index_cols, columns=columns_col, values=value_cols, aggfunc='mean'
+                        )
+                        # Flatten MultiIndex columns
+                        if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
+                             processed_satellite_pivot.columns = [
+                                 f"sat_{level1.replace('-', '_')}_{level0.replace('-', '_')}"
+                                 if len(value_cols)>1 else f"sat_{level1.replace('-', '_')}"
+                                 for level0, level1 in processed_satellite_pivot.columns.values
+                             ]
+                        else:
+                            processed_satellite_pivot.columns = [f"sat_{col.replace('-', '_')}" for col in processed_satellite_pivot.columns]
+
+                        processed_satellite_pivot = processed_satellite_pivot.reset_index()
+
+                        if 'timestamp' in processed_satellite_pivot.columns:
+                            processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
+                        else:
+                            print("WARNING: 'timestamp' column missing after pivot.")
+                            processed_satellite_pivot['timestamp'] = pd.NaT
+                    except Exception as pivot_err:
+                         print(f"ERROR: Failed during pivot operation: {pivot_err}")
+                         processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+                         processed_satellite_pivot['timestamp'] = pd.to_datetime([])
+                         print(f"Creating empty Parquet file at {output_path}")
+
+
+        # --- Save to Parquet ---
+        processed_satellite_pivot.to_parquet(output_path, index=False)
+
+    finally:
+        # --- Final Cleanup ---
+        print(f"\nCleaning up main temporary directory: {sat_temp_dir}")
+        if os.path.exists(sat_temp_dir):
+             try:
+                 shutil.rmtree(sat_temp_dir)
+             except OSError as e:
+                 print(f"  Warning: Could not remove temp directory {sat_temp_dir}: {e}")
+
+    return final_output_path
 
 def find_best_satellite_match(target_row, sat_pivot_indexed):
     """Find best satellite data match for a given row"""
@@ -355,7 +453,7 @@ def add_satellite_data(target_df, satellite_parquet_path):
     
     sat_cols_added = [col for col in matched_data.columns if col in result_df.columns and col.startswith('sat_')]
     if sat_cols_added:
-        result_df[sat_cols_added] = result_df[sat_cols_added].fillna(0)
+        result_df[sat_cols_added] = result_df[sat_cols_added].fillna(0) #maybe delete here
         
     return result_df
 
