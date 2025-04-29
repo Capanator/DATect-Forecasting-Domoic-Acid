@@ -144,7 +144,7 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
         print(f"      ERROR: Could not determine data variable for {site} - {data_type}. Available: {possible_data_vars}")
         ds.close()
         return None
- 
+
     data_array = ds[data_var]
 
     # Find time coordinate
@@ -305,7 +305,10 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             # Clean up yearly files immediately
             for f_path in yearly_files_for_dataset:
                 if os.path.exists(f_path):
-                    os.unlink(f_path)
+                    try:
+                        os.unlink(f_path)
+                    except OSError as unlink_err:
+                        print(f"          Warning: Could not delete temp file {f_path}: {unlink_err}")
         # --- End Main Task Loop ---
 
         # --- Combine and Pivot Results ---
@@ -363,7 +366,20 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
 
         # --- Save to Parquet ---
-        processed_satellite_pivot.to_parquet(output_path, index=False)
+        if processed_satellite_pivot is not None: # Ensure pivot operation resulted in a DataFrame
+            try:
+                processed_satellite_pivot.to_parquet(output_path, index=False)
+                # Only print success if we actually processed data or explicitly created an empty file
+                if not satellite_results_list or not combined_satellite_df.empty or processed_satellite_pivot.empty:
+                     print(f"Successfully saved processed satellite data to {output_path}")
+                final_output_path = output_path
+            except Exception as save_err:
+                 print(f"\nERROR saving final Parquet file to {output_path}: {save_err}")
+                 final_output_path = None
+        else:
+             # This case should be unlikely if logic above is correct, but acts as a safety net
+             print("\nERROR: Final DataFrame was not generated. Cannot save Parquet file.")
+             final_output_path = None
 
     finally:
         # --- Final Cleanup ---
@@ -405,19 +421,12 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         
     # Look for matches in same month and year
     target_year = target_ts.year
-    target_month = target_ts.month
-    month_matches = site_data[(site_data.index.year == target_year) & (site_data.index.month == target_month)]
-    
-    if not month_matches.empty:
-        # Find closest timestamp in same month
-        time_diff_in_month = np.abs(month_matches.index - target_ts)
-        min_idx_pos = time_diff_in_month.argmin()
-        return month_matches.iloc[min_idx_pos]
-    else:
-        # Find closest timestamp overall
-        time_diff_overall = np.abs(site_data.index - target_ts)
-        min_overall_pos = time_diff_overall.argmin()
-        return site_data.iloc[min_overall_pos]
+    target_month = target_ts.month    
+
+    # Find closest timestamp overall
+    time_diff_overall = np.abs(site_data.index - target_ts)
+    min_overall_pos = time_diff_overall.argmin()
+    return site_data.iloc[min_overall_pos]
 
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
@@ -453,7 +462,7 @@ def add_satellite_data(target_df, satellite_parquet_path):
     
     sat_cols_added = [col for col in matched_data.columns if col in result_df.columns and col.startswith('sat_')]
     if sat_cols_added:
-        result_df[sat_cols_added] = result_df[sat_cols_added].fillna(0) #maybe delete here
+        result_df[sat_cols_added] = result_df[sat_cols_added].fillna(0)
         
     return result_df
 
