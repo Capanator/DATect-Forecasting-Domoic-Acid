@@ -165,8 +165,8 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
 
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
     """
-    Downloads yearly satellite data, processes via stitching, combines, pivots,
-    and saves to Parquet. Includes an inner progress bar for yearly downloads.
+    Downloads monthly satellite data, processes via stitching, combines, pivots,
+    and saves to Parquet. Includes an inner progress bar for monthly downloads.
     """
 
     # --- Date Range Setup ---
@@ -177,13 +177,14 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
 
     main_end_dt = pd.to_datetime(main_end_date_str)
+    # Ensure the global_end_dt represents the very end of the specified day
     global_end_str = main_end_dt.strftime('%Y-%m-%dT23:59:59Z')
     global_start_dt = pd.to_datetime(global_start_str) if global_start_str else None
     global_anom_start_dt = pd.to_datetime(global_anom_start_str) if global_anom_start_str else None
     global_end_dt = pd.to_datetime(global_end_str) if global_end_str else None
 
     # --- Temporary Directory ---
-    sat_temp_dir = tempfile.mkdtemp(prefix="sat_yearly_dl_")
+    sat_temp_dir = tempfile.mkdtemp(prefix="sat_monthly_dl_") # Changed prefix for clarity
     satellite_results_list = []
     path_to_return = None
 
@@ -214,80 +215,98 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             data_type = task["data_type"]
             url_template = task["url_template"]
 
-            # --- Yearly Download Loop (With Inner progress bar) ---
+            # Determine overall start and end for this specific task
             is_anomaly_type = 'anom' in data_type.lower()
             current_overall_start_dt = global_anom_start_dt if is_anomaly_type and global_anom_start_dt else global_start_dt
             current_overall_end_dt = global_end_dt
 
-            start_year = current_overall_start_dt.year
-            end_year = current_overall_end_dt.year
+            if not current_overall_start_dt or not current_overall_end_dt or current_overall_start_dt > current_overall_end_dt:
+                print(f"\n          Skipping {site}-{data_type} due to invalid overall date range.")
+                continue
 
-            yearly_files_for_dataset = []
-            year_iterator = range(start_year, end_year + 1)
+            # --- Monthly Download Loop (With Inner progress bar) ---
+            # Generate monthly periods based on the task's specific overall start and end dates
+            # Ensure loop_start_date is the first of its month and loop_end_date is the end of its month
+            # to correctly generate all intervening months with pd.date_range.
+            loop_start_for_range = current_overall_start_dt.normalize().replace(day=1)
+            loop_end_for_range = (current_overall_end_dt + pd.offsets.MonthEnd(0)).normalize()
+
+            monthly_periods = pd.date_range(start=loop_start_for_range, end=loop_end_for_range, freq='MS') # MS for Month Start
+
+            monthly_files_for_dataset = [] # Changed from yearly_files_for_dataset
 
             # Inner progress bar: Use position=1, leave=False
-            for year in tqdm(year_iterator, desc=f"Download {site}-{data_type}", unit="year", position=1, leave=False):
-                # Calculate precise start/end for the year, respecting overall bounds
-                year_start_dt_naive = pd.Timestamp(f"{year}-01-01T00:00:00Z")
-                year_end_dt_naive = pd.Timestamp(f"{year}-12-31T23:59:59Z")
+            for month_iterator_start_dt in tqdm(monthly_periods, desc=f"Download {site}-{data_type}", unit="month", position=1, leave=False):
+                # Define the start and end of the current month for iteration
+                current_month_loop_start_dt = month_iterator_start_dt
+                current_month_loop_end_dt = (month_iterator_start_dt + pd.offsets.MonthEnd(0)).replace(hour=23, minute=59, second=59, microsecond=999999) # End of the month
 
-                year_start_dt = max(current_overall_start_dt, year_start_dt_naive)
-                year_end_dt = min(current_overall_end_dt, year_end_dt_naive)
+                # Clamp these loop dates with the actual overall start/end dates for the data request.
+                # This handles partial first and last months correctly.
+                effective_chunk_start_dt = max(current_overall_start_dt, current_month_loop_start_dt)
+                effective_chunk_end_dt = min(current_overall_end_dt, current_month_loop_end_dt)
 
-                if year_start_dt > year_end_dt: continue # Skip if range is invalid for this year
+                if effective_chunk_start_dt > effective_chunk_end_dt:
+                    # This can happen if current_overall_start_dt is after current_month_loop_end_dt
+                    # or current_overall_end_dt is before current_month_loop_start_dt.
+                    # Essentially, the generated month is outside the effective range.
+                    continue
 
-                year_start_str_url = year_start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                year_end_str_url = year_end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                month_start_str_url = effective_chunk_start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                month_end_str_url = effective_chunk_end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
                 # Replace placeholders in URL
-                yearly_url = url_template.replace("{start_date}", year_start_str_url)\
-                                         .replace("{end_date}", year_end_str_url)
-                # Also replace anomaly start date if present (might be same as start_date)
-                if "{anom_start_date}" in yearly_url:
-                    yearly_url = yearly_url.replace("{anom_start_date}", year_start_str_url)
+                # Using a more generic "chunk_url" as it's now monthly
+                chunk_url = url_template.replace("{start_date}", month_start_str_url)\
+                                         .replace("{end_date}", month_end_str_url)
+                if "{anom_start_date}" in chunk_url:
+                    # Assuming anom_start_date in the template should also use the chunk's start date
+                    chunk_url = chunk_url.replace("{anom_start_date}", month_start_str_url)
 
-                fd, tmp_nc_path = tempfile.mkstemp(suffix=f'_{year}.nc', prefix=f"{site}_{data_type}_", dir=sat_temp_dir)
+                # Use year and month in the temporary file name for clarity
+                year_month_str = month_iterator_start_dt.strftime('%Y-%m')
+                fd, tmp_nc_path = tempfile.mkstemp(suffix=f'_{year_month_str}.nc', prefix=f"{site}_{data_type}_", dir=sat_temp_dir)
                 os.close(fd)
 
                 # Download Logic
                 try:
-                    response = requests.get(yearly_url, timeout=500, stream=True)
+                    response = requests.get(chunk_url, timeout=900, stream=True)
                     response.raise_for_status()
                     with open(tmp_nc_path, 'wb') as f:
                         for chunk in response.iter_content(chunk_size=8192):
                             f.write(chunk)
 
                     if os.path.getsize(tmp_nc_path) > 100: # Basic content check
-                        yearly_files_for_dataset.append(tmp_nc_path)
+                        monthly_files_for_dataset.append(tmp_nc_path)
                     else:
-                        print(f"\n          Warning: Downloaded file for year {year} ({site}-{data_type}) seems empty. Skipping.")
-                        os.unlink(tmp_nc_path)
+                        print(f"\n          Warning: Downloaded file for month {year_month_str} ({site}-{data_type}) seems empty. Skipping.")
+                        if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path) # Ensure removal if empty
                 except requests.exceptions.RequestException as req_err:
-                    print(f"\n          ERROR downloading year {year} ({site}-{data_type}): {req_err}. Skipping year.")
+                    print(f"\n          ERROR downloading month {year_month_str} ({site}-{data_type}): {req_err}. Skipping month.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
                 except Exception as e:
-                    print(f"\n          ERROR processing download for year {year} ({site}-{data_type}): {e}. Skipping.")
+                    print(f"\n          ERROR processing download for month {year_month_str} ({site}-{data_type}): {e}. Skipping.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
-            # --- End of Yearly Download Loop (Inner progress bar finishes here) ---
+            # --- End of Monthly Download Loop (Inner progress bar finishes here) ---
 
-            # Process the collected yearly files
-            if yearly_files_for_dataset:
-                # Processing happens after the inner bar is done
-                result_df = process_stitched_dataset(yearly_files_for_dataset, data_type, site)
+            # Process the collected monthly files
+            if monthly_files_for_dataset:
+                result_df = process_stitched_dataset(monthly_files_for_dataset, data_type, site)
                 if result_df is not None and not result_df.empty:
                     satellite_results_list.append(result_df)
 
-            # Clean up yearly files immediately after processing attempt
-            for f_path in yearly_files_for_dataset:
+            # Clean up monthly files immediately after processing attempt
+            for f_path in monthly_files_for_dataset:
                 if os.path.exists(f_path):
                     os.unlink(f_path)
         # --- End Main Task Loop (Outer progress bar finishes here) ---
 
         # --- Combine and Pivot Results (Same as before) ---
+        # ... (rest of the function remains the same from this point)
         processed_satellite_pivot = None
         if not satellite_results_list:
             processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-            processed_satellite_pivot['timestamp'] = pd.to_datetime([]) 
+            processed_satellite_pivot['timestamp'] = pd.to_datetime([])
         else:
             combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
             index_cols = ['site', 'timestamp']
@@ -314,14 +333,14 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                     processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
                 else:
                     print("WARNING: 'timestamp' column missing after pivot. Adding empty NaT column.")
-                    # Add an empty timestamp column if missing to maintain schema consistency for empty/error DFs
                     processed_satellite_pivot['timestamp'] = pd.NaT
             except Exception as pivot_err:
+                    print(f"ERROR during satellite pivot: {pivot_err}") # Added error log
                     processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-                    processed_satellite_pivot['timestamp'] = pd.to_datetime([]) # Ensure datetime type
+                    processed_satellite_pivot['timestamp'] = pd.to_datetime([])
 
         # --- Save to Parquet ---
-        if processed_satellite_pivot is None:
+        if processed_satellite_pivot is None: # Should be initialized above, but as a safeguard
              processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
              processed_satellite_pivot['timestamp'] = pd.to_datetime([])
 
@@ -331,7 +350,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
     except Exception as main_err:
          print(f"\nFATAL ERROR during satellite data generation: {main_err}")
-         path_to_return = None 
+         path_to_return = None
 
     finally:
         # --- Final Cleanup ---
