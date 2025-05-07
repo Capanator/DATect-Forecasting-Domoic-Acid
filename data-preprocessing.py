@@ -454,10 +454,6 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
         site_data = site_data.dropna(axis=0)
-        
-    # Look for matches in same month and year
-    target_year = target_ts.year
-    target_month = target_ts.month    
 
     # Find closest timestamp overall
     time_diff_overall = np.abs(site_data.index - target_ts)
@@ -473,32 +469,49 @@ def add_satellite_data(target_df, satellite_parquet_path):
     target_df_proc = target_df.copy()
     target_df_proc['timestamp_dt'] = pd.to_datetime(target_df_proc['Date'])
     satellite_df['timestamp'] = pd.to_datetime(satellite_df['timestamp'])
-    
-    # Drop rows with missing keys
+
+    # Drop rows with missing keys essential for matching
     target_df_proc = target_df_proc.dropna(subset=['timestamp_dt', 'Site'])
     satellite_df = satellite_df.dropna(subset=['timestamp', 'site'])
-    
+
+    if target_df_proc.empty or satellite_df.empty:
+        print("Warning: Target or Satellite DataFrame became empty after dropping NaNs in key columns. Cannot add satellite data.")
+        return target_df # Return original target_df if processing cannot continue
+
     # Index satellite data for efficient lookup
     satellite_pivot_indexed = satellite_df.set_index(['site', 'timestamp']).sort_index()
-    
+
     # Apply matching function
     print(f"Applying satellite matching function...")
     tqdm.pandas(desc="Satellite Matching")
     matched_data = target_df_proc.progress_apply(
         find_best_satellite_match, axis=1, sat_pivot_indexed=satellite_pivot_indexed
     )
-        
+
     # Join results
     target_df_proc.reset_index(drop=True, inplace=True)
     matched_data.reset_index(drop=True, inplace=True)
     result_df = target_df_proc.join(matched_data)
-    
-    # Clean up and fill NaNs
+
+    # NaN filling logic for satellite data
+    sat_cols_to_fill = [col for col in matched_data.columns if col in result_df.columns and col.startswith('sat_')]
+
+    if sat_cols_to_fill:
+        print(f"Applying ffill/bfill for NaNs in satellite columns: {', '.join(sat_cols_to_fill)}")
+        # Sort by 'Site' and 'timestamp_dt' for correct time-series filling within each site
+        result_df = result_df.sort_values(by=['Site', 'timestamp_dt'])
+
+        for col in sat_cols_to_fill:
+            # Fill NaNs with the closest available non-NaN observation for that site and satellite variable
+            result_df[col] = result_df.groupby('Site')[col].transform(lambda x: x.ffill().bfill())
+        
+        # Fill any remaining NaNs (if a site has NO data for a sat_col) with 0
+        result_df[sat_cols_to_fill] = result_df[sat_cols_to_fill].fillna(0)
+    else:
+        print("No satellite columns identified to fill.")
+
+    # Clean up by dropping the temporary timestamp column
     result_df = result_df.drop(columns=['timestamp_dt'], errors='ignore')
-    
-    sat_cols_added = [col for col in matched_data.columns if col in result_df.columns and col.startswith('sat_')]
-    if sat_cols_added:
-        result_df[sat_cols_added] = result_df[sat_cols_added].fillna(0)
         
     return result_df
 
