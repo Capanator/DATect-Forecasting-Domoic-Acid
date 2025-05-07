@@ -57,9 +57,6 @@ print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data typ
 
 # --- Helper Functions ---
 def download_file(url, filename):
-    """Download file from URL"""
-    if not url:
-        return None
     response = requests.get(url, timeout=180, stream=True)
     response.raise_for_status()
     
@@ -97,20 +94,8 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
     Process a stitched satellite NetCDF dataset from multiple yearly files.
     (Core logic for stitching)
     """
-    if not yearly_nc_files:
-        # Keep this warning as it indicates a skipped task unit
-        print(f"      Warning: No yearly files provided for {site} - {data_type}. Skipping.")
-        return None
-
-    ds = None
-    try:
-        ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
-        ds = ds.sortby('time')
-    except Exception as e:
-        print(f"      ERROR: Failed to open/concatenate yearly files for {site} - {data_type}: {e}")
-        if ds:
-            ds.close()
-        return None
+    ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
+    ds = ds.sortby('time')
 
     # Determine data variable name
     data_var = None
@@ -141,10 +126,6 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
     if not found_match and len(possible_data_vars) == 1:
         data_var = possible_data_vars[0]
         found_match = True
-    if not found_match:
-        print(f"      ERROR: Could not determine data variable for {site} - {data_type}. Available: {possible_data_vars}")
-        ds.close()
-        return None
 
     data_array = ds[data_var]
 
@@ -152,21 +133,12 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
     time_coord_name = None
     time_coords_to_check = ['time', 't', 'datetime']
     time_coord_name = next((c for c in time_coords_to_check if c in data_array.coords), None)
-    if not time_coord_name:
-        print(f"      ERROR: Could not determine time coordinate for {site} - {data_type}. Available: {list(data_array.coords)}")
-        ds.close()
-        return None
 
     # Average over spatial dimensions
     averaged_array = data_array
-    try:
-        spatial_dims = [dim for dim in data_array.dims if dim != time_coord_name]
-        if spatial_dims:
-            averaged_array = data_array.mean(dim=spatial_dims, skipna=True)
-    except Exception as mean_err:
-        print(f"      ERROR: Failed spatial averaging for {site} - {data_type}: {mean_err}")
-        ds.close()
-        return None
+    spatial_dims = [dim for dim in data_array.dims if dim != time_coord_name]
+    if spatial_dims:
+        averaged_array = data_array.mean(dim=spatial_dims, skipna=True)
 
     # Convert to DataFrame and format
     df_final = None
@@ -210,24 +182,10 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     global_anom_start_dt = pd.to_datetime(global_anom_start_str) if global_anom_start_str else None
     global_end_dt = pd.to_datetime(global_end_str) if global_end_str else None
 
-    # Basic validation of dates
-    if not global_start_dt or not global_end_dt:
-        print("ERROR: Global start_date or end_date missing or invalid in satellite metadata.")
-        return None
-    if not global_anom_start_dt:
-        print("Warning: Global anom_start_date missing or invalid. Anomaly types might fail.")
-
-
-    print(f"Overall Satellite Date Range: {global_start_dt} to {global_end_dt}")
-    if global_anom_start_dt:
-      print(f"Anomaly Start Date: {global_anom_start_dt}")
-
     # --- Temporary Directory ---
     sat_temp_dir = tempfile.mkdtemp(prefix="sat_yearly_dl_")
-    print(f"Using temporary directory: {sat_temp_dir}")
-
     satellite_results_list = []
-    final_output_path = None
+    path_to_return = None
 
     # --- Build Task List ---
     tasks = []
@@ -262,11 +220,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             current_overall_start_dt = global_anom_start_dt if is_anomaly_type and global_anom_start_dt else global_start_dt
             current_overall_end_dt = global_end_dt
 
-            # Ensure start/end dates are valid before proceeding
-            if not current_overall_start_dt or not current_overall_end_dt:
-                 print(f"      Skipping {site}-{data_type}: Invalid start/end dates determined.")
-                 continue
-
             start_year = current_overall_start_dt.year
             end_year = current_overall_end_dt.year
 
@@ -294,13 +247,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                 if "{anom_start_date}" in yearly_url:
                     yearly_url = yearly_url.replace("{anom_start_date}", year_start_str_url)
 
-
-                # Check for unresolved placeholders before downloading
-                if "{" in yearly_url:
-                    # This print will appear above the inner progress bar
-                    print(f"\n          Warning: Unresolved placeholder in URL for year {year} ({site}-{data_type}). Skipping year. URL: {yearly_url}")
-                    continue
-
                 fd, tmp_nc_path = tempfile.mkstemp(suffix=f'_{year}.nc', prefix=f"{site}_{data_type}_", dir=sat_temp_dir)
                 os.close(fd)
 
@@ -309,22 +255,18 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                     response = requests.get(yearly_url, timeout=300, stream=True)
                     response.raise_for_status()
                     with open(tmp_nc_path, 'wb') as f:
-                        # No progress bar for chunks here, yearly is usually fast enough
                         for chunk in response.iter_content(chunk_size=8192):
                             f.write(chunk)
 
                     if os.path.getsize(tmp_nc_path) > 100: # Basic content check
                         yearly_files_for_dataset.append(tmp_nc_path)
                     else:
-                        # Print warnings above the inner progress bar
                         print(f"\n          Warning: Downloaded file for year {year} ({site}-{data_type}) seems empty. Skipping.")
                         os.unlink(tmp_nc_path)
                 except requests.exceptions.RequestException as req_err:
-                    # Print errors above the inner progress bar
                     print(f"\n          ERROR downloading year {year} ({site}-{data_type}): {req_err}. Skipping year.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
                 except Exception as e:
-                    # Print errors above the inner progress bar
                     print(f"\n          ERROR processing download for year {year} ({site}-{data_type}): {e}. Skipping.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
             # --- End of Yearly Download Loop (Inner progress bar finishes here) ---
@@ -339,11 +281,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             # Clean up yearly files immediately after processing attempt
             for f_path in yearly_files_for_dataset:
                 if os.path.exists(f_path):
-                    try:
-                        os.unlink(f_path)
-                    except OSError as unlink_err:
-                        # Print warnings above the outer progress bar
-                        print(f"\n          Warning: Could not delete temp file {f_path}: {unlink_err}")
+                    os.unlink(f_path)
         # --- End Main Task Loop (Outer progress bar finishes here) ---
 
         # --- Combine and Pivot Results (Same as before) ---
@@ -351,71 +289,58 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
         if not satellite_results_list:
             print("\nERROR: No satellite data successfully processed.")
             processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-            processed_satellite_pivot['timestamp'] = pd.to_datetime([])
-            print(f"Creating empty Parquet file at {output_path}")
+            processed_satellite_pivot['timestamp'] = pd.to_datetime([]) # Ensure datetime type
+            print(f"Preparing to create empty Parquet file at {output_path}")
         else:
             print("\nCombining and pivoting results...") # Add newline for clarity after pbar
             combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
-            if combined_satellite_df.empty:
-                 print("ERROR: Combined satellite DataFrame is empty.")
-                 processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-                 processed_satellite_pivot['timestamp'] = pd.to_datetime([])
-                 print(f"Creating empty Parquet file at {output_path}")
-            else:
-                index_cols = ['site', 'timestamp']
-                columns_col = 'data_type'
-                all_cols = combined_satellite_df.columns.tolist()
-                value_cols = [c for c in all_cols if c not in index_cols and c != columns_col]
+            index_cols = ['site', 'timestamp']
+            columns_col = 'data_type'
+            all_cols = combined_satellite_df.columns.tolist()
+            value_cols = [c for c in all_cols if c not in index_cols and c != columns_col]
 
-                if not value_cols:
-                     print(f"ERROR: No value columns found for pivoting. Available: {all_cols}")
-                     processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-                     processed_satellite_pivot['timestamp'] = pd.to_datetime([])
-                     print(f"Creating empty Parquet file at {output_path}")
+            try:
+                processed_satellite_pivot = combined_satellite_df.pivot_table(
+                    index=index_cols, columns=columns_col, values=value_cols, aggfunc='mean'
+                )
+                # Flatten MultiIndex columns
+                if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
+                        processed_satellite_pivot.columns = [
+                        f"sat_{level1.replace('-', '_')}_{level0.replace('-', '_')}" if len(value_cols) > 1 else f"sat_{level1.replace('-', '_')}"
+                        for level0, level1 in processed_satellite_pivot.columns.values
+                        ]
                 else:
-                    try:
-                        processed_satellite_pivot = combined_satellite_df.pivot_table(
-                            index=index_cols, columns=columns_col, values=value_cols, aggfunc='mean'
-                        )
-                        # Flatten MultiIndex columns
-                        if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
-                             processed_satellite_pivot.columns = [
-                                f"sat_{level1.replace('-', '_')}_{level0.replace('-', '_')}" if len(value_cols) > 1 else f"sat_{level1.replace('-', '_')}"
-                                for level0, level1 in processed_satellite_pivot.columns.values
-                             ]
-                        else:
-                             processed_satellite_pivot.columns = [f"sat_{col.replace('-', '_')}" for col in processed_satellite_pivot.columns]
+                        processed_satellite_pivot.columns = [f"sat_{col.replace('-', '_')}" for col in processed_satellite_pivot.columns]
 
-                        processed_satellite_pivot = processed_satellite_pivot.reset_index()
+                processed_satellite_pivot = processed_satellite_pivot.reset_index()
 
-                        if 'timestamp' in processed_satellite_pivot.columns:
-                            processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
-                        else:
-                            print("WARNING: 'timestamp' column missing after pivot.")
-                            processed_satellite_pivot['timestamp'] = pd.NaT
-                    except Exception as pivot_err:
-                         print(f"ERROR: Failed during pivot operation: {pivot_err}")
-                         processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-                         processed_satellite_pivot['timestamp'] = pd.to_datetime([])
-                         print(f"Creating empty Parquet file at {output_path}")
+                if 'timestamp' in processed_satellite_pivot.columns:
+                    processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
+                else:
+                    print("WARNING: 'timestamp' column missing after pivot. Adding empty NaT column.")
+                    # Add an empty timestamp column if missing to maintain schema consistency for empty/error DFs
+                    processed_satellite_pivot['timestamp'] = pd.NaT
+            except Exception as pivot_err:
+                    print(f"ERROR: Failed during pivot operation: {pivot_err}")
+                    processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+                    processed_satellite_pivot['timestamp'] = pd.to_datetime([]) # Ensure datetime type
+                    print(f"Preparing to create empty Parquet file at {output_path} due to pivot error.")
 
         # --- Save to Parquet ---
-        if processed_satellite_pivot is not None:
-            try:
-                processed_satellite_pivot.to_parquet(output_path, index=False)
-                if satellite_results_list or processed_satellite_pivot.empty: # Check if processing happened or empty file was intended
-                     print(f"Successfully saved processed satellite data to {output_path}")
-                final_output_path = output_path
-            except Exception as save_err:
-                 print(f"\nERROR saving final Parquet file to {output_path}: {save_err}")
-                 final_output_path = None
-        else:
-             print("\nERROR: Final DataFrame was not generated. Cannot save Parquet file.")
-             final_output_path = None
+        # Ensure processed_satellite_pivot is not None before saving
+        if processed_satellite_pivot is None:
+             print("CRITICAL: processed_satellite_pivot was unexpectedly None before saving. Creating empty DataFrame.")
+             processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
+             processed_satellite_pivot['timestamp'] = pd.to_datetime([])
+
+        processed_satellite_pivot.to_parquet(output_path, index=False)
+        print(f"Satellite Parquet file write operation completed for path: {output_path}")
+        # ***** THE FIX: Update the return path upon successful save *****
+        path_to_return = output_path
 
     except Exception as main_err: # Catch errors in the main loop setup or iteration
-         print(f"\nFATAL ERROR during main processing loop: {main_err}")
-         final_output_path = None # Ensure failure is indicated
+         print(f"\nFATAL ERROR during satellite data generation: {main_err}")
+         path_to_return = None # Ensure None is returned on error (it was already None or will be set here)
 
     finally:
         # --- Final Cleanup ---
@@ -426,7 +351,11 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
              except OSError as e:
                  print(f"  Warning: Could not remove temp directory {sat_temp_dir}: {e}")
 
-    return final_output_path
+    if path_to_return:
+        print(f"generate_satellite_parquet is returning path: {path_to_return}")
+    else:
+        print(f"generate_satellite_parquet is returning None (error or no file generated).")
+    return path_to_return
 
 import pandas as pd
 import numpy as np
@@ -436,9 +365,6 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
     target_ts = target_row.get('timestamp_dt')
 
     expected_cols = sat_pivot_indexed.columns if not sat_pivot_indexed.empty else pd.Index([])
-
-    if not target_site or pd.isna(target_ts):
-        return pd.Series(index=expected_cols, dtype=float)
 
     target_site_normalized = str(target_site).lower().replace('_', ' ').replace('-', ' ')
     
@@ -457,21 +383,13 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
     except KeyError:
         return pd.Series(index=expected_cols, dtype=float)
 
-    if site_data.empty:
-        return pd.Series(index=expected_cols, dtype=float)
-
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
     
     site_data = site_data[pd.notna(site_data.index)]
-    if site_data.empty:
-        return pd.Series(index=expected_cols, dtype=float)
 
     # Calculate time differences and convert to Series for idxmin()
     time_deltas_overall = np.abs(site_data.index - target_ts) 
-    
-    if time_deltas_overall.empty: # Check if TimedeltaIndex is empty
-        return pd.Series(index=expected_cols, dtype=float)
     
     time_diff_series_overall = pd.Series(time_deltas_overall, index=site_data.index)
     closest_overall_timestamp = time_diff_series_overall.idxmin()
@@ -483,10 +401,7 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
             non_nan_var_series = var_series_at_site.dropna()
             
             if not non_nan_var_series.empty:
-                # Calculate time differences for the specific variable and convert to Series
                 time_deltas_specific_var = np.abs(non_nan_var_series.index - target_ts)
-                # No explicit empty check for time_deltas_specific_var needed here because
-                # non_nan_var_series.empty is already checked. If it's not empty, its index isn't empty.
                 time_diff_series_specific_var = pd.Series(time_deltas_specific_var, index=non_nan_var_series.index)
                 closest_timestamp_for_var = time_diff_series_specific_var.idxmin()
                 new_value_for_var = non_nan_var_series.loc[closest_timestamp_for_var]
@@ -508,10 +423,6 @@ def add_satellite_data(target_df, satellite_parquet_path):
     target_df_proc = target_df_proc.dropna(subset=['timestamp_dt', 'Site'])
     satellite_df = satellite_df.dropna(subset=['timestamp', 'site'])
 
-    if target_df_proc.empty or satellite_df.empty:
-        print("Warning: Target or Satellite DataFrame became empty after dropping NaNs in key columns. Cannot add satellite data.")
-        return target_df # Return original target_df if processing cannot continue
-
     # Index satellite data for efficient lookup
     satellite_pivot_indexed = satellite_df.set_index(['site', 'timestamp']).sort_index()
 
@@ -526,23 +437,6 @@ def add_satellite_data(target_df, satellite_parquet_path):
     target_df_proc.reset_index(drop=True, inplace=True)
     matched_data.reset_index(drop=True, inplace=True)
     result_df = target_df_proc.join(matched_data)
-
-    # NaN filling logic for satellite data
-    sat_cols_to_fill = [col for col in matched_data.columns if col in result_df.columns and col.startswith('sat_')]
-
-    if sat_cols_to_fill:
-        print(f"Applying ffill/bfill for NaNs in satellite columns: {', '.join(sat_cols_to_fill)}")
-        # Sort by 'Site' and 'timestamp_dt' for correct time-series filling within each site
-        result_df = result_df.sort_values(by=['Site', 'timestamp_dt'])
-
-        for col in sat_cols_to_fill:
-            # Fill NaNs with the closest available non-NaN observation for that site and satellite variable
-            result_df[col] = result_df.groupby('Site')[col].transform(lambda x: x.ffill().bfill())
-        
-        # Fill any remaining NaNs (if a site has NO data for a sat_col) with 0
-        result_df[sat_cols_to_fill] = result_df[sat_cols_to_fill].fillna(0)
-    else:
-        print("No satellite columns identified to fill.")
 
     # Clean up by dropping the temporary timestamp column
     result_df = result_df.drop(columns=['timestamp_dt'], errors='ignore')
