@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import json
@@ -193,30 +194,33 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
     """
     Downloads yearly satellite data, processes via stitching, combines, pivots,
-    and saves to Parquet. Minimal verbosity.
+    and saves to Parquet. Includes an inner progress bar for yearly downloads.
     """
 
     # --- Date Range Setup ---
     global_start_str = satellite_metadata_dict.get("start_date")
     global_anom_start_str = satellite_metadata_dict.get("anom_start_date")
-    try:
-        # Simplified config loading assumption
-        with open(CONFIG_FILE, 'r') as f:
-            main_config = json.load(f)
-        main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
-    except Exception as e:
-        # Simplified warning
-        print(f"Warning: Problem reading config file ({e}), using current date as end date.")
-        main_end_date_str = datetime.now().strftime('%Y-%m-%d')
+    with open(CONFIG_FILE, 'r') as f:
+        main_config = json.load(f)
+    main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
 
     main_end_dt = pd.to_datetime(main_end_date_str)
     global_end_str = main_end_dt.strftime('%Y-%m-%dT23:59:59Z')
-    global_start_dt = pd.to_datetime(global_start_str)
-    global_anom_start_dt = pd.to_datetime(global_anom_start_str)
-    global_end_dt = pd.to_datetime(global_end_str)
+    global_start_dt = pd.to_datetime(global_start_str) if global_start_str else None
+    global_anom_start_dt = pd.to_datetime(global_anom_start_str) if global_anom_start_str else None
+    global_end_dt = pd.to_datetime(global_end_str) if global_end_str else None
+
+    # Basic validation of dates
+    if not global_start_dt or not global_end_dt:
+        print("ERROR: Global start_date or end_date missing or invalid in satellite metadata.")
+        return None
+    if not global_anom_start_dt:
+        print("Warning: Global anom_start_date missing or invalid. Anomaly types might fail.")
+
 
     print(f"Overall Satellite Date Range: {global_start_dt} to {global_end_dt}")
-    print(f"Anomaly Start Date: {global_anom_start_dt}")
+    if global_anom_start_dt:
+      print(f"Anomaly Start Date: {global_anom_start_dt}")
 
     # --- Temporary Directory ---
     sat_temp_dir = tempfile.mkdtemp(prefix="sat_yearly_dl_")
@@ -245,33 +249,57 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
     print(f"Prepared {len(tasks)} satellite processing tasks.")
 
-    # --- Main Loop over Tasks (Single main progress bar) ---
+    # --- Main Loop over Tasks (Outer progress bar) ---
     try:
-        for task in tqdm(tasks, desc="Processing Satellite Data Tasks"):
+        # Use position=0 for the outer bar explicitly
+        for task in tqdm(tasks, desc="Satellite Tasks", unit="task", position=0, leave=True):
             site = task["site"]
             data_type = task["data_type"]
             url_template = task["url_template"]
 
-            # --- Yearly Download Loop (No inner progress bar) ---
+            # --- Yearly Download Loop (With Inner progress bar) ---
             is_anomaly_type = 'anom' in data_type.lower()
-            current_overall_start_dt = global_anom_start_dt if is_anomaly_type else global_start_dt
+            current_overall_start_dt = global_anom_start_dt if is_anomaly_type and global_anom_start_dt else global_start_dt
             current_overall_end_dt = global_end_dt
+
+            # Ensure start/end dates are valid before proceeding
+            if not current_overall_start_dt or not current_overall_end_dt:
+                 print(f"      Skipping {site}-{data_type}: Invalid start/end dates determined.")
+                 continue
+
             start_year = current_overall_start_dt.year
             end_year = current_overall_end_dt.year
 
             yearly_files_for_dataset = []
+            year_iterator = range(start_year, end_year + 1)
 
-            for year in range(start_year, end_year + 1): # Simple iteration
-                year_start_dt = max(current_overall_start_dt, pd.Timestamp(f"{year}-01-01T00:00:00Z")) if year == start_year else pd.Timestamp(f"{year}-01-01T00:00:00Z")
-                year_end_dt = min(current_overall_end_dt, pd.Timestamp(f"{year}-12-31T23:59:59Z")) if year == end_year else pd.Timestamp(f"{year}-12-31T23:59:59Z")
+            # Inner progress bar: Use position=1, leave=False
+            for year in tqdm(year_iterator, desc=f"Download {site}-{data_type}", unit="year", position=1, leave=False):
+                # Calculate precise start/end for the year, respecting overall bounds
+                year_start_dt_naive = pd.Timestamp(f"{year}-01-01T00:00:00Z")
+                year_end_dt_naive = pd.Timestamp(f"{year}-12-31T23:59:59Z")
 
-                if year_start_dt > year_end_dt: continue
+                year_start_dt = max(current_overall_start_dt, year_start_dt_naive)
+                year_end_dt = min(current_overall_end_dt, year_end_dt_naive)
+
+                if year_start_dt > year_end_dt: continue # Skip if range is invalid for this year
 
                 year_start_str_url = year_start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
                 year_end_str_url = year_end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+                # Replace placeholders in URL
                 yearly_url = url_template.replace("{start_date}", year_start_str_url)\
-                                         .replace("{end_date}", year_end_str_url)\
-                                         .replace("{anom_start_date}", year_start_str_url)
+                                         .replace("{end_date}", year_end_str_url)
+                # Also replace anomaly start date if present (might be same as start_date)
+                if "{anom_start_date}" in yearly_url:
+                    yearly_url = yearly_url.replace("{anom_start_date}", year_start_str_url)
+
+
+                # Check for unresolved placeholders before downloading
+                if "{" in yearly_url:
+                    # This print will appear above the inner progress bar
+                    print(f"\n          Warning: Unresolved placeholder in URL for year {year} ({site}-{data_type}). Skipping year. URL: {yearly_url}")
+                    continue
 
                 fd, tmp_nc_path = tempfile.mkstemp(suffix=f'_{year}.nc', prefix=f"{site}_{data_type}_", dir=sat_temp_dir)
                 os.close(fd)
@@ -281,44 +309,52 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                     response = requests.get(yearly_url, timeout=300, stream=True)
                     response.raise_for_status()
                     with open(tmp_nc_path, 'wb') as f:
+                        # No progress bar for chunks here, yearly is usually fast enough
                         for chunk in response.iter_content(chunk_size=8192):
                             f.write(chunk)
-                    if os.path.getsize(tmp_nc_path) > 100:
+
+                    if os.path.getsize(tmp_nc_path) > 100: # Basic content check
                         yearly_files_for_dataset.append(tmp_nc_path)
                     else:
-                        print(f"          Warning: Downloaded file for year {year} ({site}-{data_type}) seems empty. Skipping.")
+                        # Print warnings above the inner progress bar
+                        print(f"\n          Warning: Downloaded file for year {year} ({site}-{data_type}) seems empty. Skipping.")
                         os.unlink(tmp_nc_path)
                 except requests.exceptions.RequestException as req_err:
-                    print(f"          ERROR downloading {yearly_url}: {req_err}. Skipping year {year}.")
+                    # Print errors above the inner progress bar
+                    print(f"\n          ERROR downloading year {year} ({site}-{data_type}): {req_err}. Skipping year.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
                 except Exception as e:
-                    print(f"          ERROR processing download for year {year} ({site}-{data_type}): {e}. Skipping.")
+                    # Print errors above the inner progress bar
+                    print(f"\n          ERROR processing download for year {year} ({site}-{data_type}): {e}. Skipping.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
-            # --- End of Yearly Download Loop ---
+            # --- End of Yearly Download Loop (Inner progress bar finishes here) ---
 
             # Process the collected yearly files
             if yearly_files_for_dataset:
+                # Processing happens after the inner bar is done
                 result_df = process_stitched_dataset(yearly_files_for_dataset, data_type, site)
                 if result_df is not None and not result_df.empty:
                     satellite_results_list.append(result_df)
 
-            # Clean up yearly files immediately
+            # Clean up yearly files immediately after processing attempt
             for f_path in yearly_files_for_dataset:
                 if os.path.exists(f_path):
                     try:
                         os.unlink(f_path)
                     except OSError as unlink_err:
-                        print(f"          Warning: Could not delete temp file {f_path}: {unlink_err}")
-        # --- End Main Task Loop ---
+                        # Print warnings above the outer progress bar
+                        print(f"\n          Warning: Could not delete temp file {f_path}: {unlink_err}")
+        # --- End Main Task Loop (Outer progress bar finishes here) ---
 
-        # --- Combine and Pivot Results ---
-        processed_satellite_pivot = None # Initialize
+        # --- Combine and Pivot Results (Same as before) ---
+        processed_satellite_pivot = None
         if not satellite_results_list:
-            print("\nERROR: No satellite data processed.")
+            print("\nERROR: No satellite data successfully processed.")
             processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
             processed_satellite_pivot['timestamp'] = pd.to_datetime([])
             print(f"Creating empty Parquet file at {output_path}")
         else:
+            print("\nCombining and pivoting results...") # Add newline for clarity after pbar
             combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
             if combined_satellite_df.empty:
                  print("ERROR: Combined satellite DataFrame is empty.")
@@ -344,12 +380,11 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                         # Flatten MultiIndex columns
                         if isinstance(processed_satellite_pivot.columns, pd.MultiIndex):
                              processed_satellite_pivot.columns = [
-                                 f"sat_{level1.replace('-', '_')}_{level0.replace('-', '_')}"
-                                 if len(value_cols)>1 else f"sat_{level1.replace('-', '_')}"
-                                 for level0, level1 in processed_satellite_pivot.columns.values
+                                f"sat_{level1.replace('-', '_')}_{level0.replace('-', '_')}" if len(value_cols) > 1 else f"sat_{level1.replace('-', '_')}"
+                                for level0, level1 in processed_satellite_pivot.columns.values
                              ]
                         else:
-                            processed_satellite_pivot.columns = [f"sat_{col.replace('-', '_')}" for col in processed_satellite_pivot.columns]
+                             processed_satellite_pivot.columns = [f"sat_{col.replace('-', '_')}" for col in processed_satellite_pivot.columns]
 
                         processed_satellite_pivot = processed_satellite_pivot.reset_index()
 
@@ -364,22 +399,23 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                          processed_satellite_pivot['timestamp'] = pd.to_datetime([])
                          print(f"Creating empty Parquet file at {output_path}")
 
-
         # --- Save to Parquet ---
-        if processed_satellite_pivot is not None: # Ensure pivot operation resulted in a DataFrame
+        if processed_satellite_pivot is not None:
             try:
                 processed_satellite_pivot.to_parquet(output_path, index=False)
-                # Only print success if we actually processed data or explicitly created an empty file
-                if not satellite_results_list or not combined_satellite_df.empty or processed_satellite_pivot.empty:
+                if satellite_results_list or processed_satellite_pivot.empty: # Check if processing happened or empty file was intended
                      print(f"Successfully saved processed satellite data to {output_path}")
                 final_output_path = output_path
             except Exception as save_err:
                  print(f"\nERROR saving final Parquet file to {output_path}: {save_err}")
                  final_output_path = None
         else:
-             # This case should be unlikely if logic above is correct, but acts as a safety net
              print("\nERROR: Final DataFrame was not generated. Cannot save Parquet file.")
              final_output_path = None
+
+    except Exception as main_err: # Catch errors in the main loop setup or iteration
+         print(f"\nFATAL ERROR during main processing loop: {main_err}")
+         final_output_path = None # Ensure failure is indicated
 
     finally:
         # --- Final Cleanup ---
