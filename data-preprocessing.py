@@ -105,6 +105,7 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
         'sst': ['sst', 'temperature'],
         'par': ['par'],
         'fluorescence': ['fluorescence', 'flr'],
+        'diffuse attenuation': ['diffuse attenuation', 'kd', 'k490'],
         'chla_anomaly': ['chla_anomaly', 'chlorophyll-anom'],
         'sst_anomaly': ['sst_anomaly', 'temperature-anom'],
     }
@@ -162,7 +163,6 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
 
     return df_final
 
-
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
     """
     Downloads yearly satellite data, processes via stitching, combines, pivots,
@@ -209,7 +209,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
     # --- Main Loop over Tasks (Outer progress bar) ---
     try:
-        # Use position=0 for the outer bar explicitly
         for task in tqdm(tasks, desc="Satellite Tasks", unit="task", position=0, leave=True):
             site = task["site"]
             data_type = task["data_type"]
@@ -252,7 +251,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
                 # Download Logic
                 try:
-                    response = requests.get(yearly_url, timeout=300, stream=True)
+                    response = requests.get(yearly_url, timeout=500, stream=True)
                     response.raise_for_status()
                     with open(tmp_nc_path, 'wb') as f:
                         for chunk in response.iter_content(chunk_size=8192):
@@ -287,12 +286,9 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
         # --- Combine and Pivot Results (Same as before) ---
         processed_satellite_pivot = None
         if not satellite_results_list:
-            print("\nERROR: No satellite data successfully processed.")
             processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
-            processed_satellite_pivot['timestamp'] = pd.to_datetime([]) # Ensure datetime type
-            print(f"Preparing to create empty Parquet file at {output_path}")
+            processed_satellite_pivot['timestamp'] = pd.to_datetime([]) 
         else:
-            print("\nCombining and pivoting results...") # Add newline for clarity after pbar
             combined_satellite_df = pd.concat(satellite_results_list, ignore_index=True)
             index_cols = ['site', 'timestamp']
             columns_col = 'data_type'
@@ -321,26 +317,21 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                     # Add an empty timestamp column if missing to maintain schema consistency for empty/error DFs
                     processed_satellite_pivot['timestamp'] = pd.NaT
             except Exception as pivot_err:
-                    print(f"ERROR: Failed during pivot operation: {pivot_err}")
                     processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
                     processed_satellite_pivot['timestamp'] = pd.to_datetime([]) # Ensure datetime type
-                    print(f"Preparing to create empty Parquet file at {output_path} due to pivot error.")
 
         # --- Save to Parquet ---
-        # Ensure processed_satellite_pivot is not None before saving
         if processed_satellite_pivot is None:
-             print("CRITICAL: processed_satellite_pivot was unexpectedly None before saving. Creating empty DataFrame.")
              processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
              processed_satellite_pivot['timestamp'] = pd.to_datetime([])
 
         processed_satellite_pivot.to_parquet(output_path, index=False)
         print(f"Satellite Parquet file write operation completed for path: {output_path}")
-        # ***** THE FIX: Update the return path upon successful save *****
         path_to_return = output_path
 
-    except Exception as main_err: # Catch errors in the main loop setup or iteration
+    except Exception as main_err:
          print(f"\nFATAL ERROR during satellite data generation: {main_err}")
-         path_to_return = None # Ensure None is returned on error (it was already None or will be set here)
+         path_to_return = None 
 
     finally:
         # --- Final Cleanup ---
@@ -356,9 +347,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     else:
         print(f"generate_satellite_parquet is returning None (error or no file generated).")
     return path_to_return
-
-import pandas as pd
-import numpy as np
 
 def find_best_satellite_match(target_row, sat_pivot_indexed):
     target_site = target_row.get('Site')
@@ -440,7 +428,6 @@ def add_satellite_data(target_df, satellite_parquet_path):
 
     # Clean up by dropping the temporary timestamp column
     result_df = result_df.drop(columns=['timestamp_dt'], errors='ignore')
-        
     return result_df
 
 # --- Environmental Data Processing ---
@@ -874,17 +861,20 @@ def main():
         "PN_Levels": "pn", 
     }
     
+    #insert satellite column renaming here (temp)
     # Add satellite column mappings
-    if len(sat_cols) >= 6:
+    if len(sat_cols) >= 7:
         sat_mapping = {
             sat_cols[0]: "chla-anom",
             sat_cols[1]: "modis-chla",
             sat_cols[2]: "modis-flr", 
             sat_cols[3]: "modis-par",
-            sat_cols[4]: "sst-anom", 
-            sat_cols[5]: "modis-sst"
+            sat_cols[4]: "modis-k490",
+            sat_cols[5]: "sst-anom", 
+            sat_cols[6]: "modis-sst"
         }
         col_mapping.update(sat_mapping)
+
         
     final_data = final_data.rename(columns=col_mapping)
     
