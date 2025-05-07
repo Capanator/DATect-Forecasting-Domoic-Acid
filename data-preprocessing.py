@@ -428,37 +428,71 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
     return final_output_path
 
+import pandas as pd
+import numpy as np
+
 def find_best_satellite_match(target_row, sat_pivot_indexed):
-    """Find best satellite data match for a given row"""
     target_site = target_row.get('Site')
     target_ts = target_row.get('timestamp_dt')
-        
-    # Normalize site names for matching
-    target_site_normalized = target_site.lower().replace('_', ' ').replace('-', ' ')
-    index_sites = sat_pivot_indexed.index.get_level_values('site')
-    unique_original_index_sites = index_sites.unique()
-    unique_normalized_index_sites = [str(s).lower().replace('_', ' ').replace('-', ' ') 
-                                   for s in unique_original_index_sites]
-        
-    # Find original case site name
+
+    expected_cols = sat_pivot_indexed.columns if not sat_pivot_indexed.empty else pd.Index([])
+
+    if not target_site or pd.isna(target_ts):
+        return pd.Series(index=expected_cols, dtype=float)
+
+    target_site_normalized = str(target_site).lower().replace('_', ' ').replace('-', ' ')
+    
+    unique_original_index_sites = sat_pivot_indexed.index.get_level_values('site').unique()
     original_index_site = None
-    for i, norm_site in enumerate(unique_normalized_index_sites):
-        if norm_site == target_site_normalized:
-            original_index_site = unique_original_index_sites[i]
+    for s_val in unique_original_index_sites:
+        if str(s_val).lower().replace('_', ' ').replace('-', ' ') == target_site_normalized:
+            original_index_site = s_val
             break
-        
-    # Get data for the specific site
-    site_data = sat_pivot_indexed.xs(original_index_site, level='site')
-        
-    # Ensure index is datetime
+            
+    if original_index_site is None:
+        return pd.Series(index=expected_cols, dtype=float)
+
+    try:
+        site_data = sat_pivot_indexed.xs(original_index_site, level='site')
+    except KeyError:
+        return pd.Series(index=expected_cols, dtype=float)
+
+    if site_data.empty:
+        return pd.Series(index=expected_cols, dtype=float)
+
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
-        site_data = site_data.dropna(axis=0)
+    
+    site_data = site_data[pd.notna(site_data.index)]
+    if site_data.empty:
+        return pd.Series(index=expected_cols, dtype=float)
 
-    # Find closest timestamp overall
-    time_diff_overall = np.abs(site_data.index - target_ts)
-    min_overall_pos = time_diff_overall.argmin()
-    return site_data.iloc[min_overall_pos]
+    # Calculate time differences and convert to Series for idxmin()
+    time_deltas_overall = np.abs(site_data.index - target_ts) 
+    
+    if time_deltas_overall.empty: # Check if TimedeltaIndex is empty
+        return pd.Series(index=expected_cols, dtype=float)
+    
+    time_diff_series_overall = pd.Series(time_deltas_overall, index=site_data.index)
+    closest_overall_timestamp = time_diff_series_overall.idxmin()
+    initial_closest_record = site_data.loc[closest_overall_timestamp].copy()
+
+    for var_name in initial_closest_record.index:
+        if pd.isna(initial_closest_record[var_name]):
+            var_series_at_site = site_data[var_name]
+            non_nan_var_series = var_series_at_site.dropna()
+            
+            if not non_nan_var_series.empty:
+                # Calculate time differences for the specific variable and convert to Series
+                time_deltas_specific_var = np.abs(non_nan_var_series.index - target_ts)
+                # No explicit empty check for time_deltas_specific_var needed here because
+                # non_nan_var_series.empty is already checked. If it's not empty, its index isn't empty.
+                time_diff_series_specific_var = pd.Series(time_deltas_specific_var, index=non_nan_var_series.index)
+                closest_timestamp_for_var = time_diff_series_specific_var.idxmin()
+                new_value_for_var = non_nan_var_series.loc[closest_timestamp_for_var]
+                initial_closest_record[var_name] = new_value_for_var
+
+    return initial_closest_record
 
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
