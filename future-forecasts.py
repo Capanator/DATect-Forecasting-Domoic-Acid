@@ -34,182 +34,72 @@ def load_and_prepare_data(file_path):
         bins=[-float('inf'), 5, 20, 40, float('inf')],
         labels=[0, 1, 2, 3]
     ).astype(int)
-    
-    # Drop rows with NaNs in critical columns (especially lags and target itself)
-    # This is important because if 'da' is NaN, 'da-category' will also be problematic.
-    # Lag features inherently create NaNs at the beginning of each site's series.
-    critical_cols_for_dropna = ['da', 'da-category'] + [f'da_lag_{lag}' for lag in [1,2,3]]
-    data.dropna(subset=critical_cols_for_dropna, inplace=True)
-    data.reset_index(drop=True, inplace=True)
 
     return data
 
 # ================================
 # FORECASTING
 # ================================
-def get_training_forecast_data(df_all_sites: pd.DataFrame, forecast_date: pd.Timestamp, site_for_forecast: str):
-    """
-    Extract training data from ALL sites up to an anchor date,
-    and forecast data for the specified date and site.
+def get_training_forecast_data(df, forecast_date, site):
+    """Extract training and forecast data for the specified date and site."""
+    df_site = df[df['site'] == site].copy()
+    df_site.sort_values('date', inplace=True)
 
-    Args:
-        df_all_sites: DataFrame containing data for all sites.
-        forecast_date: The date for which a forecast is desired.
-        site_for_forecast: The specific site for which the forecast is being made.
+    # Must have historical data
+    df_before = df_site[df_site['date'] < forecast_date]
 
-    Returns:
-        Tuple: (df_train, df_forecast, anchor_date, test_date)
-               df_train: Training data from all sites up to anchor_date.
-               df_forecast: The row(s) for the site_for_forecast at the forecast_date/test_date.
-               anchor_date: The latest date in data for site_for_forecast strictly before forecast_date.
-               test_date: The actual date of the forecast point (might be >= forecast_date).
-    """
-    # Work with data for the specific site to determine anchor_date and test_date
-    df_target_site = df_all_sites[df_all_sites['site'] == site_for_forecast].copy()
-    df_target_site.sort_values('date', inplace=True)
+    # Training anchor and test dates
+    anchor_date = df_before['date'].max()
+    df_after = df_site[df_site['date'] >= forecast_date]
+    test_date = df_after['date'].min() if not df_after.empty else None
 
-    # Determine anchor_date: latest date strictly before forecast_date for the target site
-    df_before_forecast_target_site = df_target_site[df_target_site['date'] < forecast_date]
-
-    if df_before_forecast_target_site.empty:
-        # Not enough historical data for this site before the forecast_date to determine an anchor
-        # Or the forecast_date is too early for this site.
-        print(f"Warning: No data found for site '{site_for_forecast}' before {forecast_date.date()} to set an anchor.")
-        return pd.DataFrame(), pd.DataFrame(), None, None
-
-    anchor_date = df_before_forecast_target_site['date'].max()
-
-    # Determine test_date and df_forecast for the target site
-    # test_date is the earliest date >= forecast_date for the target site
-    df_after_or_on_forecast_target_site = df_target_site[df_target_site['date'] >= forecast_date]
-    test_date = df_after_or_on_forecast_target_site['date'].min() if not df_after_or_on_forecast_target_site.empty else None
-
-    # Get forecast row (actual data if exists at forecast_date or test_date, otherwise synthetic)
-    if forecast_date in df_target_site['date'].values:
-        df_forecast = df_target_site[df_target_site['date'] == forecast_date].copy()
-    elif test_date is not None: # Actual data exists on or after forecast_date
-        df_forecast = df_target_site[df_target_site['date'] == test_date].copy()
+    # Get forecast row (real or synthetic)
+    if forecast_date in df_site['date'].values:
+        df_forecast = df_site[df_site['date'] == forecast_date].copy()
+    elif test_date is not None:
+        df_forecast = df_site[df_site['date'] == test_date].copy()
     else:
-        # Create a synthetic forecast row if no future data point exists for the target site.
-        # This scenario implies forecasting beyond the known data for that site.
-        last_known_row_target_site = df_target_site[df_target_site['date'] == anchor_date].iloc[[0]].copy() # Use iloc[[0]] to ensure DataFrame
-        
-        # Update date and clear target values for the synthetic row
-        last_known_row_target_site['date'] = forecast_date # Use the requested forecast_date
-        last_known_row_target_site[['da', 'da-category']] = np.nan
-        
-        # Re-create lag features for this synthetic row based on the *actual* last known row
-        # This is a simplification; true multi-step forecasting would update lags iteratively.
-        # For a one-step-ahead, the lags should ideally come from the anchor_date row.
-        # If 'da' from anchor_date is 'X', then da_lag_1 for forecast_date should be 'X'.
-        if not df_before_forecast_target_site.empty:
-            actual_anchor_row_for_lags = df_before_forecast_target_site[df_before_forecast_target_site['date'] == anchor_date].iloc[0]
-            last_known_row_target_site['da_lag_1'] = actual_anchor_row_for_lags['da']
-            if 'da_lag_1' in actual_anchor_row_for_lags: # if lag 1 existed
-                 last_known_row_target_site['da_lag_2'] = actual_anchor_row_for_lags['da_lag_1']
-            if 'da_lag_2' in actual_anchor_row_for_lags: # if lag 2 existed
-                 last_known_row_target_site['da_lag_3'] = actual_anchor_row_for_lags['da_lag_2']
-        
-        # Update seasonal features for the synthetic row for the new forecast_date
-        day_of_year_forecast = forecast_date.dayofyear
-        last_known_row_target_site['sin_day_of_year'] = np.sin(2 * np.pi * day_of_year_forecast / 365)
-        last_known_row_target_site['cos_day_of_year'] = np.cos(2 * np.pi * day_of_year_forecast / 365)
+        # Create synthetic forecast row
+        last_row = df_site[df_site['date'] == anchor_date].iloc[0]
+        new_row = last_row.copy()
+        new_row['date'] = forecast_date
+        new_row['da'] = new_row['da-category'] = np.nan
+        df_forecast = pd.DataFrame([new_row])
 
-        df_forecast = last_known_row_target_site
-        test_date = forecast_date # The test_date is the forecast_date itself for synthetic rows
-
-    # --- Training data: Use data from ALL sites up to and including the anchor_date ---
-    df_train = df_all_sites[df_all_sites['date'] <= anchor_date].copy()
-    
-    # Ensure df_train and df_forecast are not empty before proceeding
-    if df_train.empty:
-        print(f"Warning: Training data is empty for anchor_date {anchor_date}.")
-        return pd.DataFrame(), df_forecast, anchor_date, test_date
-    if df_forecast.empty:
-        # This case should be rare due to synthetic row creation, but good to check.
-        print(f"Warning: Forecast data frame is empty for site '{site_for_forecast}' at {forecast_date.date()}.")
-        return df_train, pd.DataFrame(), anchor_date, test_date
-
+    # Training data
+    df_train = df_site[df_site['date'] <= anchor_date].copy()
 
     return df_train, df_forecast, anchor_date, test_date
 
-
-def forecast_for_date(df_all_sites, forecast_date, site_for_forecast):
-    """Generate complete forecast for a specific date and site, using all past site data for training."""
-    # Get data splits: df_train now contains data from ALL sites up to anchor_date
-    result = get_training_forecast_data(df_all_sites, forecast_date, site_for_forecast)
+def forecast_for_date(df, forecast_date, site):
+    """Generate complete forecast for a specific date and site."""
+    # Get data splits
+    result = get_training_forecast_data(df, forecast_date, site)
     df_train, df_forecast, anchor_date, test_date = result
 
-    if df_train.empty or df_forecast.empty:
-        error_message = "Not enough data to generate forecast. "
-        if df_train.empty:
-            error_message += f"Training data empty (anchor: {anchor_date}). "
-        if df_forecast.empty:
-            error_message += f"Forecast row could not be constructed for site {site_for_forecast} on {forecast_date.date()}."
-        print(error_message) # Also print for server logs
-        # Return a dictionary with Nones or raise an error, depending on how caller handles it
-        return { # Match structure of successful return but with Nones
-            'ForecastPoint': forecast_date, 'Anchordate': anchor_date, 'Testdate': test_date,
-            'Predicted_da_Q05': None, 'Predicted_da_Q50': None, 'Predicted_da_Q95': None,
-            'Predicted_da_RF': None, 'Actual_da': None, 'SingledateCoverage': None,
-            'Predicted_da-category': None, 'Probabilities': [0.25]*4, # Placeholder
-            'Actual_da-category': None, 'SingledateLogLoss': None,
-            'Error': error_message # Add an error field for clarity
-        }
-
-
     # Common feature processing
-    # 'site' is dropped here. If you want the model to use 'site' as a feature,
-    # remove 'site' from drop_cols and ensure it's handled (e.g., one-hot encoded)
-    # by the preprocessor.
     drop_cols = ['date', 'site', 'da', 'da-category']
     numeric_processor = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', MinMaxScaler())
     ])
 
-    # Prepare features and targets
-    X_train = df_train.drop(columns=drop_cols, errors='ignore')
+    # REGRESSION FORECAST
+    X_train_reg = df_train.drop(columns=drop_cols)
     y_train_reg = df_train['da']
-    y_train_cls = df_train['da-category']
-
-    X_forecast = df_forecast.drop(columns=drop_cols, errors='ignore')
-    
-    # Ensure X_forecast has the same columns as X_train (after dropping)
-    # This is important if some features were entirely NaN in X_forecast and got dropped,
-    # or if new columns appeared due to different processing (less likely with fixed drop_cols).
-    X_forecast = X_forecast.reindex(columns=X_train.columns, fill_value=0) # Use 0 or np.nan, imputer handles np.nan
-
+    X_forecast_reg = df_forecast.drop(columns=drop_cols)
 
     # Check if actual target exists in forecast row
     y_test_reg = None if df_forecast['da'].isnull().all() else df_forecast['da']
-    y_test_cls = None if df_forecast['da-category'].isnull().all() else df_forecast['da-category']
-
 
     # Preprocess features
-    # Ensure consistent feature set for preprocessor based on X_train
-    num_cols = X_train.select_dtypes(include=[np.number]).columns
-    # If no numeric columns, preprocessor might fail or act unexpectedly.
-    if not num_cols.tolist(): # Check if num_cols is empty
-        print(f"Warning: No numeric columns found in training data for site {site_for_forecast}, date {forecast_date}.")
-        # Handle this scenario: maybe return Nones or an error structure
-        return { # Match structure but indicate error
-            'ForecastPoint': forecast_date, 'Anchordate': anchor_date, 'Testdate': test_date,
-             'Error': "No numeric features for training."
-        }
+    num_cols = X_train_reg.select_dtypes(include=[np.number]).columns
+    preprocessor = ColumnTransformer([('num', numeric_processor, num_cols)], remainder='drop')
 
-    preprocessor = ColumnTransformer([('num', numeric_processor, num_cols)], remainder='drop', verbose_feature_names_out=False)
-    preprocessor.set_output(transform="pandas") # Ensures output is DataFrame
+    X_train_processed = preprocessor.fit_transform(X_train_reg)
+    X_forecast_processed = preprocessor.transform(X_forecast_reg)
 
-    X_train_processed = preprocessor.fit_transform(X_train)
-    X_forecast_processed = preprocessor.transform(X_forecast)
-    
-    # Ensure X_forecast_processed has columns if X_train_processed did (e.g. if all values were imputed to a constant then scaled)
-    if hasattr(X_train_processed, 'columns') and not X_forecast_processed.columns.equals(X_train_processed.columns):
-        X_forecast_processed = X_forecast_processed.reindex(columns=X_train_processed.columns, fill_value=0)
-
-
-    # REGRESSION FORECAST
+    # Train quantile regressors (Gradient Boosting)
     quantiles = {'q05': 0.05, 'q50': 0.50, 'q95': 0.95}
     gb_preds = {}
 
@@ -224,54 +114,56 @@ def forecast_for_date(df_all_sites, forecast_date, site_for_forecast):
         model.fit(X_train_processed, y_train_reg)
         gb_preds[name] = float(model.predict(X_forecast_processed)[0])
 
+    # Train standard regressor (Random Forest)
     rf_model = RandomForestRegressor(
         n_estimators=100,
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1  # Use all available cores
     )
     rf_model.fit(X_train_processed, y_train_reg)
     rf_pred = float(rf_model.predict(X_forecast_processed)[0])
 
+    # Check if actual value is within prediction interval
     single_coverage = None
-    actual_levels = float(y_test_reg.iloc[0]) if y_test_reg is not None and not y_test_reg.empty else None
+    actual_levels = float(y_test_reg.iloc[0]) if y_test_reg is not None else None
     if actual_levels is not None:
         single_coverage = 1.0 if gb_preds['q05'] <= actual_levels <= gb_preds['q95'] else 0.0
 
-    # CLASSIFICATION FORECAST
+    # CLASSIFICATION FORECAST using Random Forest
+    X_train_cls = X_train_reg  # Reuse the same features
+    y_train_cls = df_train['da-category']
+    X_forecast_cls = X_forecast_reg
+    y_test_cls = None if df_forecast['da-category'].isnull().all() else df_forecast['da-category']
+
     clf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     clf.fit(X_train_processed, y_train_cls)
 
-    pred_cat_proba = clf.predict_proba(X_forecast_processed)[0]
-    pred_cat = int(np.argmax(pred_cat_proba)) # Get class with highest probability
-    prob_list = list(pred_cat_proba)
+    pred_cat = int(clf.predict(X_forecast_processed)[0])
+    prob_list = list(clf.predict_proba(X_forecast_processed)[0])
 
-
-    actual_cat = int(y_test_cls.iloc[0]) if y_test_cls is not None and not y_test_cls.empty else None
+    # Calculate metrics if actual value exists
+    actual_cat = int(y_test_cls.iloc[0]) if y_test_cls is not None else None
     single_logloss = None
 
     if actual_cat is not None:
-        # Ensure clf.classes_ aligns with the labels [0, 1, 2, 3] if not all are present in y_train_cls
-        # For log_loss, labels parameter should cover all possible true labels.
-        # If da-category is always 0,1,2,3 then this is fine.
-        possible_labels = sorted(df_all_sites['da-category'].unique()) # Use all possible known labels
-        single_logloss = log_loss([actual_cat], [prob_list], labels=possible_labels)
-
+        single_logloss = log_loss([actual_cat], [prob_list], labels=clf.classes_)
 
     return {
         'ForecastPoint': forecast_date,
         'Anchordate': anchor_date,
         'Testdate': test_date,
+        # Regression results
         'Predicted_da_Q05': gb_preds['q05'],
         'Predicted_da_Q50': gb_preds['q50'],
         'Predicted_da_Q95': gb_preds['q95'],
-        'Predicted_da_RF': rf_pred,
+        'Predicted_da_RF': rf_pred,  # Added RF prediction here
         'Actual_da': actual_levels,
         'SingledateCoverage': single_coverage,
+        # Classification results
         'Predicted_da-category': pred_cat,
         'Probabilities': prob_list,
         'Actual_da-category': actual_cat,
         'SingledateLogLoss': single_logloss,
-        'Error': None # Indicate success
     }
 
 # ================================

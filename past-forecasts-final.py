@@ -24,7 +24,7 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
-    "ENABLE_LAG_FEATURES": True, # Set to True as in the provided script
+    "ENABLE_LAG_FEATURES": False, # Set to True as in the provided script
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
@@ -216,49 +216,35 @@ def process_anchor_forecast(
     reg_drop_cols: List[str],
     cls_drop_cols: List[str],
     min_target_date: pd.Timestamp,
+    # anchor_num: int # No longer needed for logging here as tqdm handles iteration count
 ) -> Optional[pd.DataFrame]:
     """
     Processes a single random anchor forecast.
-    Trains on data from ALL SITES up to anchor_date,
-    predicts the single next point for the SPECIFIED SITE in anchor_info.
+    Trains on data up to anchor_date for a site, predicts the single next point.
     Returns the test DataFrame (single row) with predictions, or None if skipped/error.
     """
-    site_for_prediction, anchor_date = anchor_info
-
-    # --- Training Data: Use all data from all sites up to the anchor_date ---
-    # The 'site' column remains a feature in the training data if not dropped.
-    train_df = full_data[full_data["date"] <= anchor_date].copy()
-
-    # --- Test Data: Specific to the site from anchor_info and the next available date ---
-    site_specific_data_for_test = full_data[full_data["site"] == site_for_prediction].copy()
-    potential_test_points = site_specific_data_for_test[site_specific_data_for_test["date"] > anchor_date]
+    site, anchor_date = anchor_info
+    
+    site_data = full_data[full_data["site"] == site].copy()
+    
+    train_df = site_data[site_data["date"] <= anchor_date]
+    potential_test_points = site_data[site_data["date"] > anchor_date]
 
     if train_df.empty or potential_test_points.empty:
-        # print(f"[DEBUG] Skipping anchor {anchor_info}: No train ({len(train_df)}) or test ({len(potential_test_points)}) data.")
         return None
 
-    test_df_single_row = potential_test_points.iloc[[0]].copy()
+    test_df_single_row = potential_test_points.iloc[[0]].copy() 
     target_prediction_date = test_df_single_row["date"].min()
 
     if target_prediction_date < min_target_date:
-        # print(f"[DEBUG] Skipping anchor {anchor_info}: Target date {target_prediction_date} < {min_target_date}")
         return None
-
-    # Ensure 'site' column exists for training if it's a feature the model might use
-    # (it's typically part of X if not in drop_cols, and preprocessor handles it)
-
+    
     # --- Regression ---
-    # Note: create_numeric_transformer creates X by dropping reg_drop_cols from train_df.
-    # If 'site' is not in reg_drop_cols, it will be part of X_train_reg_all_cols and X_test_reg_all_cols.
     transformer_reg, X_train_reg_all_cols = create_numeric_transformer(train_df, reg_drop_cols)
-    if X_train_reg_all_cols.empty: # Safety check
-        # print(f"[DEBUG] Skipping anchor {anchor_info} for REG: X_train_reg_all_cols is empty after transform.")
-        return None
     X_train_reg_proc = transformer_reg.fit_transform(X_train_reg_all_cols)
     y_train_reg = train_df["da"]
 
     X_test_reg_all_cols = test_df_single_row.drop(columns=reg_drop_cols, errors="ignore")
-    # Reindex to ensure test columns match train columns, crucial if 'site' becomes a one-hot encoded feature etc.
     X_test_reg_all_cols = X_test_reg_all_cols.reindex(columns=X_train_reg_all_cols.columns, fill_value=0)
     X_test_reg_proc = transformer_reg.transform(X_test_reg_all_cols)
 
@@ -267,9 +253,6 @@ def process_anchor_forecast(
 
     # --- Classification ---
     transformer_cls, X_train_cls_all_cols = create_numeric_transformer(train_df, cls_drop_cols)
-    if X_train_cls_all_cols.empty: # Safety check
-        # print(f"[DEBUG] Skipping anchor {anchor_info} for CLS: X_train_cls_all_cols is empty after transform.")
-        return None
     X_train_cls_proc = transformer_cls.fit_transform(X_train_cls_all_cols)
     y_train_cls = train_df["da-category"]
 
@@ -280,7 +263,7 @@ def process_anchor_forecast(
     cls_model = clone(cls_model_base)
     y_pred_cls = safe_fit_predict(cls_model, X_train_cls_proc, y_train_cls, X_test_cls_proc, model_type="classification")
 
-    test_df_single_row["Predicted_da"] = y_pred_reg[0]
+    test_df_single_row["Predicted_da"] = y_pred_reg[0] 
     test_df_single_row["Predicted_da-category"] = y_pred_cls[0]
     return test_df_single_row
 # --- End Helper Function ---
