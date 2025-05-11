@@ -24,11 +24,11 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------
 CONFIG = {
-    "ENABLE_LAG_FEATURES": False, # Set to True as in the provided script
+    "ENABLE_LAG_FEATURES": True, # Set to True as in the provided script
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
-    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 200, # Number of random anchors per site for evaluation
+    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 500, # Number of random anchors per site for evaluation
     "N_SPLITS_TS_GRIDSEARCH": 10,    # Still used for GridSearchCV
     "MIN_TEST_DATE": "2008-01-01",  # Predictions will only be made for 'next_date' >= this
     "N_JOBS_EVAL": -1,
