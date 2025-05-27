@@ -20,7 +20,8 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
-RUN_SATELLITE_PROCESSING = False
+RUN_SATELLITE_PROCESSING = True  # Existing flag
+FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
 downloaded_files = []
@@ -368,21 +369,21 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
         print(f"generate_satellite_parquet is returning None (error or no file generated).")
     return path_to_return
 
+import pandas as pd
+import numpy as np
+
 def find_best_satellite_match(target_row, sat_pivot_indexed):
     target_site = target_row.get('Site')
     target_ts = target_row.get('timestamp_dt') # Weekly timestamp from target_df
 
-    # Determine expected columns for the output Series
     expected_cols = sat_pivot_indexed.columns if not sat_pivot_indexed.empty else pd.Index([])
-    # Initialize result Series with NaNs
     result_series = pd.Series(index=expected_cols, dtype=float)
 
-    if pd.isna(target_ts): # If target timestamp is NaT, cannot match
+    if pd.isna(target_ts):
         return result_series
 
     target_site_normalized = str(target_site).lower().replace('_', ' ').replace('-', ' ')
 
-    # Find the original site name as it appears in the satellite data index
     unique_original_index_sites = sat_pivot_indexed.index.get_level_values('site').unique()
     original_index_site = None
     for s_val in unique_original_index_sites:
@@ -390,82 +391,72 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
             original_index_site = s_val
             break
 
-    if original_index_site is None: # Site not found in satellite data
+    if original_index_site is None:
         return result_series
 
     try:
         site_data = sat_pivot_indexed.xs(original_index_site, level='site')
-    except KeyError: # Should be rare if original_index_site was found, but as a safeguard
+    except KeyError:
         return result_series
 
     if site_data.empty:
         return result_series
 
-    # Ensure satellite data index is DatetimeIndex and remove NaTs
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
     site_data = site_data[pd.notna(site_data.index)]
 
-    if site_data.empty: # Check again after NaT removal
+    if site_data.empty:
         return result_series
 
-    # --- Iterate through each satellite variable to find its best match ---
     for var_name in expected_cols:
-        if var_name not in site_data.columns: # Should not happen if expected_cols from sat_pivot_indexed
+        if var_name not in site_data.columns:
             continue
 
         var_series_at_site = site_data[var_name]
-        non_nan_var_series = var_series_at_site.dropna() # Only non-NaN values for this variable
+        non_nan_var_series = var_series_at_site.dropna()
 
-        if non_nan_var_series.empty: # No valid data for this variable at this site
+        if non_nan_var_series.empty:
             continue
 
-        # Determine if the variable is an "anomaly" type
-        # Assuming anomaly columns will contain "anom" in their name (case-insensitive)
-        # This matches your satellite_config.json structure where types like 'chla_anomaly'
-        # become columns like 'sat_chla_anomaly_...'
         is_anomaly_var = "anom" in var_name.lower()
 
         if is_anomaly_var:
-            # --- Strategy for Anomaly Variables ---
-            # 1. Primary: Match by previous calendar month
             current_month_period = target_ts.to_period('M')
             previous_month_period = current_month_period - 1
             prev_month_start_time = previous_month_period.start_time
-            # end_time of a period is the start of the next, so use < for filtering
             prev_month_end_time = previous_month_period.end_time
 
-            # Filter non_nan_var_series for data within the previous calendar month
             data_in_prev_month = non_nan_var_series[
                 (non_nan_var_series.index >= prev_month_start_time) &
-                (non_nan_var_series.index < prev_month_end_time) # Use < for end_time
+                (non_nan_var_series.index < prev_month_end_time)
             ]
 
             if not data_in_prev_month.empty:
-                # If data exists in prev month, take the most recent one (max timestamp)
                 chosen_ts = data_in_prev_month.index.max()
                 result_series[var_name] = data_in_prev_month.loc[chosen_ts]
             else:
-                # 2. Fallback for Anomaly: Absolute closest overall
+                # Fallback for Anomaly: Absolute closest overall
                 time_deltas = np.abs(non_nan_var_series.index - target_ts)
-                closest_ts_for_var = time_deltas.idxmin()
+                # Convert TimedeltaIndex to Series before idxmin()
+                time_deltas_series = pd.Series(time_deltas, index=non_nan_var_series.index)
+                closest_ts_for_var = time_deltas_series.idxmin()
                 result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
         else:
-            # --- Strategy for Non-Anomaly (e.g., "MODIS") Variables ---
-            # 1. Primary: Most recent data on or before target_ts
+            # Strategy for Non-Anomaly (e.g., "MODIS") Variables
             data_on_or_before = non_nan_var_series[non_nan_var_series.index <= target_ts]
 
             if not data_on_or_before.empty:
                 chosen_ts = data_on_or_before.index.max()
                 result_series[var_name] = data_on_or_before.loc[chosen_ts]
             else:
-                # 2. Fallback for Non-Anomaly: Absolute closest overall
+                # Fallback for Non-Anomaly: Absolute closest overall
                 time_deltas = np.abs(non_nan_var_series.index - target_ts)
-                closest_ts_for_var = time_deltas.idxmin()
+                # Convert TimedeltaIndex to Series before idxmin()
+                time_deltas_series = pd.Series(time_deltas, index=non_nan_var_series.index)
+                closest_ts_for_var = time_deltas_series.idxmin()
                 result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
-
     return result_series
-
 
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
@@ -890,109 +881,209 @@ def main():
     """Main data processing pipeline"""
     print("\n======= Starting Data Processing Pipeline =======")
     start_time = datetime.now()
-    
+
     # Create temp directory for downloads
     download_temp_dir = tempfile.mkdtemp(prefix="data_dl_")
     print(f"Using temporary directory: {download_temp_dir}")
-    
+
     # Convert input CSVs to Parquet
     da_files_parquet = convert_files_to_parquet(da_files)
     pn_files_parquet = convert_files_to_parquet(pn_files)
-    
-    # Generate satellite data if needed
-    satellite_parquet_file_path = None
+
+    # --- Satellite Data Handling ---
+    satellite_parquet_file_path = None  # Initialize path
+
     if RUN_SATELLITE_PROCESSING:
-        satellite_parquet_file_path = generate_satellite_parquet(
-            satellite_metadata,
-            list(sites.keys()),
-            SATELLITE_OUTPUT_PARQUET
+        # Determine if we need to generate a new satellite file
+        should_generate_new_satellite_file = False
+
+        if FORCE_SATELLITE_REPROCESSING:
+            print(
+                f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---"
+            )
+            should_generate_new_satellite_file = True
+        elif not os.path.exists(SATELLITE_OUTPUT_PARQUET):
+            print(
+                f"\n--- Intermediate satellite data file '{SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---"
+            )
+            should_generate_new_satellite_file = True
+        else:
+            print(
+                f"\n--- Found existing satellite data: {SATELLITE_OUTPUT_PARQUET}. Using this file. ---"
+            )
+            print(
+                f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---"
+            )
+            satellite_parquet_file_path = (
+                SATELLITE_OUTPUT_PARQUET  # Use existing file
+            )
+
+        if should_generate_new_satellite_file:
+            print(
+                f"--- Generating satellite data. This may take a while... ---"
+            )
+            # Optional: If forcing, you might want to remove the old file first,
+            # though generate_satellite_parquet should overwrite it.
+            if FORCE_SATELLITE_REPROCESSING and os.path.exists(
+                SATELLITE_OUTPUT_PARQUET
+            ):
+                try:
+                    os.remove(SATELLITE_OUTPUT_PARQUET)
+                    print(
+                        f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
+                    )
+                except OSError as e:
+                    print(
+                        f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
+                    )
+
+            generated_path = generate_satellite_parquet(
+                satellite_metadata,
+                list(sites.keys()),
+                SATELLITE_OUTPUT_PARQUET,
+            )
+            if generated_path and os.path.exists(generated_path):
+                print(
+                    f"--- Satellite data successfully generated and saved to: {generated_path} ---"
+                )
+                satellite_parquet_file_path = generated_path
+            else:
+                print(
+                    f"--- WARNING: Satellite data generation failed or file not created. ---"
+                )
+                # Ensure path is None if generation failed, especially if we were forcing reprocessing
+                satellite_parquet_file_path = None
+    else:
+        print(
+            "\n--- Satellite processing is disabled (RUN_SATELLITE_PROCESSING=False). No satellite data will be loaded or generated. ---"
         )
-    
+
     # Process core data
     da_data = process_da(da_files_parquet)
     pn_data = process_pn(pn_files_parquet)
-    
+
     # Process environmental data
     streamflow_data = process_streamflow(streamflow_url, download_temp_dir)
-    pdo_data = fetch_climate_index(pdo_url, 'pdo', download_temp_dir)
-    oni_data = fetch_climate_index(oni_url, 'oni', download_temp_dir)
+    pdo_data = fetch_climate_index(pdo_url, "pdo", download_temp_dir)
+    oni_data = fetch_climate_index(oni_url, "oni", download_temp_dir)
     beuti_data = fetch_beuti_data(beuti_url, sites, download_temp_dir)
-    
+
     # Generate and merge data
     compiled_base = generate_compiled_data(sites, start_date, end_date)
     lt_data = compile_data(compiled_base, oni_data, pdo_data, streamflow_data)
     lt_da_pn = compile_da_pn(lt_data, da_data, pn_data)
-    
+
     # Filter, process duplicates, and final processing
     base_final_data = convert_and_fill(lt_da_pn)
-    
+
     # Merge BEUTI data
     print("\n--- Merging BEUTI Data ---")
-    beuti_data['Date'] = pd.to_datetime(beuti_data['Date'])
-    beuti_data['Site'] = beuti_data['Site'].astype(str).str.replace('_', ' ').str.title()
-    base_final_data = pd.merge(base_final_data, beuti_data, on=['Date', 'Site'], how='left')
-    base_final_data['beuti'] = base_final_data['beuti'].fillna(0)
-                
-    # Add satellite data if available
+    beuti_data["Date"] = pd.to_datetime(beuti_data["Date"])
+    beuti_data["Site"] = (
+        beuti_data["Site"].astype(str).str.replace("_", " ").str.title()
+    )
+    base_final_data = pd.merge(
+        base_final_data, beuti_data, on=["Date", "Site"], how="left"
+    )
+    base_final_data["beuti"] = base_final_data["beuti"].fillna(0)
+
+    # Add satellite data if a valid path was determined and the file exists
     final_data = base_final_data
-    if satellite_parquet_file_path:
-        final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
-        
+    if satellite_parquet_file_path and os.path.exists(
+        satellite_parquet_file_path
+    ):
+        print(
+            f"\n--- Adding satellite data from: {satellite_parquet_file_path} ---"
+        )
+        final_data = add_satellite_data(
+            base_final_data, satellite_parquet_file_path
+        )
+    elif RUN_SATELLITE_PROCESSING:
+        # This case means RUN_SATELLITE_PROCESSING was True, but we don't have a valid file path
+        # (either it didn't exist and generation failed, or FORCE_SATELLITE_REPROCESSING was true and generation failed)
+        print(
+            f"\n--- SKIPPING satellite data addition: File '{SATELLITE_OUTPUT_PARQUET}' was not available or generation failed. ---"
+        )
+    # No specific message needed if RUN_SATELLITE_PROCESSING was False, as it was announced earlier.
+
+
     # Final processing and save
     print("\n--- Final Checks and Saving Output ---")
-    
+
     # Sort columns
-    final_core_cols = ["Date", "Site", "lat", "lon", "oni", "pdo", 
-                     "discharge", "DA_Levels", "PN_Levels", "beuti"]
-    sat_cols = sorted([col for col in final_data.columns if col.startswith('sat_')])
-    
-    final_cols = [col for col in final_core_cols if col in final_data.columns] + sat_cols
+    final_core_cols = [
+        "Date",
+        "Site",
+        "lat",
+        "lon",
+        "oni",
+        "pdo",
+        "discharge",
+        "DA_Levels",
+        "PN_Levels",
+        "beuti",
+    ]
+    sat_cols = sorted(
+        [col for col in final_data.columns if col.startswith("sat_")]
+    )
+
+    final_cols = [
+        col for col in final_core_cols if col in final_data.columns
+    ] + sat_cols
     final_data = final_data[final_cols]
-    
+
     # Convert Date to string format
-    final_data['Date'] = final_data['Date'].dt.strftime('%m/%d/%Y')
-    
+    final_data["Date"] = final_data["Date"].dt.strftime("%m/%d/%Y")
+
     # Rename columns if needed
     col_mapping = {
-        "Date": "date", 
-        "Site": "site", 
-        "DA_Levels": "da", 
-        "PN_Levels": "pn", 
+        "Date": "date",
+        "Site": "site",
+        "DA_Levels": "da",
+        "PN_Levels": "pn",
     }
-    
-    if len(sat_cols) >= 7:
-        sat_mapping = {
-            sat_cols[0]: "chla-anom",
-            sat_cols[1]: "modis-chla",
-            sat_cols[2]: "modis-flr", 
-            sat_cols[3]: "modis-par",
-            sat_cols[4]: "modis-k490",
-            sat_cols[5]: "sst-anom", 
-            sat_cols[6]: "modis-sst"
-        }
+
+    if len(sat_cols) >= 7: # Ensure this check is robust if sat_cols can be less than 7
+        # Make sure sat_cols has enough elements before trying to access them by index
+        # This mapping assumes a fixed order and number of satellite columns.
+        # Consider making this mapping more dynamic if column names/order can change.
+        sat_mapping = {}
+        if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
+        if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla"
+        if len(sat_cols) > 2: sat_mapping[sat_cols[2]] = "modis-flr"
+        if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-par"
+        if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-k490"
+        if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "sst-anom"
+        if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "modis-sst"
         col_mapping.update(sat_mapping)
 
-        
     final_data = final_data.rename(columns=col_mapping)
-    
+
     # Save output
     print(f"Saving final data to {final_output_path}...")
-    
+
     # Check if final_output_path has a directory component
     output_dir = os.path.dirname(final_output_path)
-    if output_dir:  # Only create directories if there's actually a directory path
+    if output_dir: # Only create directories if there's actually a directory path
         os.makedirs(output_dir, exist_ok=True)
-        
+
     final_data.to_parquet(final_output_path, index=False)
-    
+
     # Clean up
     print("\n--- Cleaning Up ---")
     for f in set(downloaded_files + generated_parquet_files):
         if os.path.exists(f):
-            os.remove(f)
-            
-    shutil.rmtree(download_temp_dir)
-    
+            try:
+                os.remove(f)
+            except OSError as e:
+                print(f"  Warning: Could not remove temporary file {f}: {e}")
+
+    try:
+        shutil.rmtree(download_temp_dir)
+    except OSError as e:
+        print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
+
+
     end_time = datetime.now()
     print(f"\n======= Script Finished in {end_time - start_time} =======")
 
