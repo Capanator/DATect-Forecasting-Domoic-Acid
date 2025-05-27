@@ -20,7 +20,6 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
-RUN_SATELLITE_PROCESSING = True  # Existing flag
 FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
@@ -893,70 +892,64 @@ def main():
     # --- Satellite Data Handling ---
     satellite_parquet_file_path = None  # Initialize path
 
-    if RUN_SATELLITE_PROCESSING:
-        # Determine if we need to generate a new satellite file
-        should_generate_new_satellite_file = False
-
-        if FORCE_SATELLITE_REPROCESSING:
-            print(
-                f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---"
-            )
-            should_generate_new_satellite_file = True
-        elif not os.path.exists(SATELLITE_OUTPUT_PARQUET):
-            print(
-                f"\n--- Intermediate satellite data file '{SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---"
-            )
-            should_generate_new_satellite_file = True
-        else:
-            print(
-                f"\n--- Found existing satellite data: {SATELLITE_OUTPUT_PARQUET}. Using this file. ---"
-            )
-            print(
-                f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---"
-            )
-            satellite_parquet_file_path = (
-                SATELLITE_OUTPUT_PARQUET  # Use existing file
-            )
-
-        if should_generate_new_satellite_file:
-            print(
-                f"--- Generating satellite data. This may take a while... ---"
-            )
-            # Optional: If forcing, you might want to remove the old file first,
-            # though generate_satellite_parquet should overwrite it.
-            if FORCE_SATELLITE_REPROCESSING and os.path.exists(
-                SATELLITE_OUTPUT_PARQUET
-            ):
-                try:
-                    os.remove(SATELLITE_OUTPUT_PARQUET)
-                    print(
-                        f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
-                    )
-                except OSError as e:
-                    print(
-                        f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
-                    )
-
-            generated_path = generate_satellite_parquet(
-                satellite_metadata,
-                list(sites.keys()),
-                SATELLITE_OUTPUT_PARQUET,
-            )
-            if generated_path and os.path.exists(generated_path):
-                print(
-                    f"--- Satellite data successfully generated and saved to: {generated_path} ---"
-                )
-                satellite_parquet_file_path = generated_path
-            else:
-                print(
-                    f"--- WARNING: Satellite data generation failed or file not created. ---"
-                )
-                # Ensure path is None if generation failed, especially if we were forcing reprocessing
-                satellite_parquet_file_path = None
+    # Determine if we need to generate a new satellite file
+    should_generate_new_satellite_file = False
+    if FORCE_SATELLITE_REPROCESSING:
+        print(
+            f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---"
+        )
+        should_generate_new_satellite_file = True
+    elif not os.path.exists(SATELLITE_OUTPUT_PARQUET):
+        print(
+            f"\n--- Intermediate satellite data file '{SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---"
+        )
+        should_generate_new_satellite_file = True
     else:
         print(
-            "\n--- Satellite processing is disabled (RUN_SATELLITE_PROCESSING=False). No satellite data will be loaded or generated. ---"
+            f"\n--- Found existing satellite data: {SATELLITE_OUTPUT_PARQUET}. Using this file. ---"
         )
+        print(
+            f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---"
+        )
+        satellite_parquet_file_path = (
+            SATELLITE_OUTPUT_PARQUET  # Use existing file
+        )
+
+    if should_generate_new_satellite_file:
+        print(
+            f"--- Generating satellite data. This may take a while... ---"
+        )
+        # Optional: If forcing, you might want to remove the old file first,
+        # though generate_satellite_parquet should overwrite it.
+        if FORCE_SATELLITE_REPROCESSING and os.path.exists(
+            SATELLITE_OUTPUT_PARQUET
+        ):
+            try:
+                os.remove(SATELLITE_OUTPUT_PARQUET)
+                print(
+                    f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
+                )
+            except OSError as e:
+                print(
+                    f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
+                )
+
+        generated_path = generate_satellite_parquet(
+            satellite_metadata,
+            list(sites.keys()),
+            SATELLITE_OUTPUT_PARQUET,
+        )
+        if generated_path and os.path.exists(generated_path):
+            print(
+                f"--- Satellite data successfully generated and saved to: {generated_path} ---"
+            )
+            satellite_parquet_file_path = generated_path
+        else:
+            print(
+                f"--- WARNING: Satellite data generation failed or file not created. ---"
+            )
+            # Ensure path is None if generation failed, especially if we were forcing reprocessing
+            satellite_parquet_file_path = None
 
     # Process core data
     da_data = process_da(da_files_parquet)
@@ -998,14 +991,6 @@ def main():
         final_data = add_satellite_data(
             base_final_data, satellite_parquet_file_path
         )
-    elif RUN_SATELLITE_PROCESSING:
-        # This case means RUN_SATELLITE_PROCESSING was True, but we don't have a valid file path
-        # (either it didn't exist and generation failed, or FORCE_SATELLITE_REPROCESSING was true and generation failed)
-        print(
-            f"\n--- SKIPPING satellite data addition: File '{SATELLITE_OUTPUT_PARQUET}' was not available or generation failed. ---"
-        )
-    # No specific message needed if RUN_SATELLITE_PROCESSING was False, as it was announced earlier.
-
 
     # Final processing and save
     print("\n--- Final Checks and Saving Output ---")
