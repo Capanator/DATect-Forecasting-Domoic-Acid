@@ -370,52 +370,102 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
 def find_best_satellite_match(target_row, sat_pivot_indexed):
     target_site = target_row.get('Site')
-    target_ts = target_row.get('timestamp_dt')
+    target_ts = target_row.get('timestamp_dt') # Weekly timestamp from target_df
 
+    # Determine expected columns for the output Series
     expected_cols = sat_pivot_indexed.columns if not sat_pivot_indexed.empty else pd.Index([])
+    # Initialize result Series with NaNs
+    result_series = pd.Series(index=expected_cols, dtype=float)
+
+    if pd.isna(target_ts): # If target timestamp is NaT, cannot match
+        return result_series
 
     target_site_normalized = str(target_site).lower().replace('_', ' ').replace('-', ' ')
-    
+
+    # Find the original site name as it appears in the satellite data index
     unique_original_index_sites = sat_pivot_indexed.index.get_level_values('site').unique()
     original_index_site = None
     for s_val in unique_original_index_sites:
         if str(s_val).lower().replace('_', ' ').replace('-', ' ') == target_site_normalized:
             original_index_site = s_val
             break
-            
-    if original_index_site is None:
-        return pd.Series(index=expected_cols, dtype=float)
+
+    if original_index_site is None: # Site not found in satellite data
+        return result_series
 
     try:
         site_data = sat_pivot_indexed.xs(original_index_site, level='site')
-    except KeyError:
-        return pd.Series(index=expected_cols, dtype=float)
+    except KeyError: # Should be rare if original_index_site was found, but as a safeguard
+        return result_series
 
+    if site_data.empty:
+        return result_series
+
+    # Ensure satellite data index is DatetimeIndex and remove NaTs
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
-    
     site_data = site_data[pd.notna(site_data.index)]
 
-    # Calculate time differences and convert to Series for idxmin()
-    time_deltas_overall = np.abs(site_data.index - target_ts) 
-    
-    time_diff_series_overall = pd.Series(time_deltas_overall, index=site_data.index)
-    closest_overall_timestamp = time_diff_series_overall.idxmin()
-    initial_closest_record = site_data.loc[closest_overall_timestamp].copy()
+    if site_data.empty: # Check again after NaT removal
+        return result_series
 
-    for var_name in initial_closest_record.index:
-        if pd.isna(initial_closest_record[var_name]):
-            var_series_at_site = site_data[var_name]
-            non_nan_var_series = var_series_at_site.dropna()
-            
-            if not non_nan_var_series.empty:
-                time_deltas_specific_var = np.abs(non_nan_var_series.index - target_ts)
-                time_diff_series_specific_var = pd.Series(time_deltas_specific_var, index=non_nan_var_series.index)
-                closest_timestamp_for_var = time_diff_series_specific_var.idxmin()
-                new_value_for_var = non_nan_var_series.loc[closest_timestamp_for_var]
-                initial_closest_record[var_name] = new_value_for_var
+    # --- Iterate through each satellite variable to find its best match ---
+    for var_name in expected_cols:
+        if var_name not in site_data.columns: # Should not happen if expected_cols from sat_pivot_indexed
+            continue
 
-    return initial_closest_record
+        var_series_at_site = site_data[var_name]
+        non_nan_var_series = var_series_at_site.dropna() # Only non-NaN values for this variable
+
+        if non_nan_var_series.empty: # No valid data for this variable at this site
+            continue
+
+        # Determine if the variable is an "anomaly" type
+        # Assuming anomaly columns will contain "anom" in their name (case-insensitive)
+        # This matches your satellite_config.json structure where types like 'chla_anomaly'
+        # become columns like 'sat_chla_anomaly_...'
+        is_anomaly_var = "anom" in var_name.lower()
+
+        if is_anomaly_var:
+            # --- Strategy for Anomaly Variables ---
+            # 1. Primary: Match by previous calendar month
+            current_month_period = target_ts.to_period('M')
+            previous_month_period = current_month_period - 1
+            prev_month_start_time = previous_month_period.start_time
+            # end_time of a period is the start of the next, so use < for filtering
+            prev_month_end_time = previous_month_period.end_time
+
+            # Filter non_nan_var_series for data within the previous calendar month
+            data_in_prev_month = non_nan_var_series[
+                (non_nan_var_series.index >= prev_month_start_time) &
+                (non_nan_var_series.index < prev_month_end_time) # Use < for end_time
+            ]
+
+            if not data_in_prev_month.empty:
+                # If data exists in prev month, take the most recent one (max timestamp)
+                chosen_ts = data_in_prev_month.index.max()
+                result_series[var_name] = data_in_prev_month.loc[chosen_ts]
+            else:
+                # 2. Fallback for Anomaly: Absolute closest overall
+                time_deltas = np.abs(non_nan_var_series.index - target_ts)
+                closest_ts_for_var = time_deltas.idxmin()
+                result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
+        else:
+            # --- Strategy for Non-Anomaly (e.g., "MODIS") Variables ---
+            # 1. Primary: Most recent data on or before target_ts
+            data_on_or_before = non_nan_var_series[non_nan_var_series.index <= target_ts]
+
+            if not data_on_or_before.empty:
+                chosen_ts = data_on_or_before.index.max()
+                result_series[var_name] = data_on_or_before.loc[chosen_ts]
+            else:
+                # 2. Fallback for Non-Anomaly: Absolute closest overall
+                time_deltas = np.abs(non_nan_var_series.index - target_ts)
+                closest_ts_for_var = time_deltas.idxmin()
+                result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
+
+    return result_series
+
 
 def add_satellite_data(target_df, satellite_parquet_path):
     """Add satellite data to the target DataFrame"""        
