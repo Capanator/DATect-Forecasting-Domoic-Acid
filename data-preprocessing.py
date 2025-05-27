@@ -698,53 +698,86 @@ def generate_compiled_data(sites_dict, start_dt, end_dt):
     return compiled_df.sort_values(['Site', 'Date'])
 
 def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
-    """Merge climate indices and streamflow data into base DataFrame"""
+    """Merge climate indices and streamflow data into base DataFrame.
+    ONI and PDO are merged based on the previous month's value.
+    Streamflow is merged using backward fill within a 7-day tolerance.
+    """
     print("\n--- Merging Environmental Data ---")
-    
-    # Prepare for Monthly Merge
+
+    # Ensure Date is datetime type
     compiled_df['Date'] = pd.to_datetime(compiled_df['Date'])
-    compiled_df['Month'] = compiled_df['Date'].dt.to_period('M')
-    compiled_df = compiled_df.sort_values('Month')
-    
-    # Merge ONI using nearest month
-    oni_df = oni_df.sort_values('Month')
-    oni_df['Month'] = pd.to_datetime(oni_df['Month'].astype(str)).dt.to_period('M')
+
+    # Calculate the target 'previous month' for merging ONI/PDO data.
+    # If compiled_df['Date'] is '2023-07-15', its month is Period('2023-07', 'M').
+    # TargetPrevMonth will be Period('2023-06', 'M').
+    compiled_df['TargetPrevMonth'] = compiled_df['Date'].dt.to_period(
+        "M"
+    ) - 1  # Corrected line: subtract 1 to get the previous period
+
+    # Sort compiled_df initially (optional for merge, but good for consistency)
+    compiled_df = compiled_df.sort_values(["Site", "Date"])
+
+    # --- Merge ONI data ---
+    # oni_df['Month'] is already a Period[M] object from fetch_climate_index.
+    # We'll merge compiled_df['TargetPrevMonth'] with oni_df['Month'].
+    # Prepare oni_df for merge: select columns, rename for clarity, and ensure uniqueness.
+    oni_to_merge = oni_df[["Month", "index"]].rename(
+        columns={"index": "oni", "Month": "ClimateIndexMonth"}
+    )
+    # fetch_climate_index should already provide unique months, but drop_duplicates is a safeguard.
+    oni_to_merge = oni_to_merge.drop_duplicates(subset=["ClimateIndexMonth"])
+
+    compiled_df = pd.merge(
+        compiled_df,
+        oni_to_merge,
+        left_on="TargetPrevMonth",
+        right_on="ClimateIndexMonth",
+        how="left",
+    )
+    # Clean up columns: remove the merge key from the right table.
+    if "ClimateIndexMonth" in compiled_df.columns:
+        compiled_df.drop(columns=["ClimateIndexMonth"], inplace=True)
+
+    # --- Merge PDO data ---
+    # pdo_df['Month'] is already a Period[M] object.
+    pdo_to_merge = pdo_df[["Month", "index"]].rename(
+        columns={"index": "pdo", "Month": "ClimateIndexMonth"}
+    )
+    pdo_to_merge = pdo_to_merge.drop_duplicates(subset=["ClimateIndexMonth"])
+
+    compiled_df = pd.merge(
+        compiled_df,
+        pdo_to_merge,
+        left_on="TargetPrevMonth",
+        right_on="ClimateIndexMonth",
+        how="left",
+    )
+    if "ClimateIndexMonth" in compiled_df.columns:
+        compiled_df.drop(columns=["ClimateIndexMonth"], inplace=True)
+
+    # Drop the temporary 'TargetPrevMonth' column from compiled_df
+    compiled_df.drop(columns=["TargetPrevMonth"], inplace=True)
+
+    # --- Merge Streamflow data ---
+    # This part remains the same: daily data, backward fill with tolerance.
+    streamflow_df["Date"] = pd.to_datetime(streamflow_df["Date"])
+    streamflow_df = streamflow_df.sort_values("Date")
+
+    # Ensure compiled_df is sorted by 'Date' for merge_asof.
+    # This might temporarily disrupt 'Site' order, so a final sort is crucial.
+    compiled_df = compiled_df.sort_values("Date")
+
     compiled_df = pd.merge_asof(
         compiled_df,
-        oni_df[['Month', 'index']],
-        on='Month',
-        direction='nearest'
+        streamflow_df[["Date", "Flow"]],
+        on="Date",
+        direction="backward",
+        tolerance=pd.Timedelta("7days"),
     )
-    compiled_df.rename(columns={'index': 'oni'}, inplace=True)
-        
-    # Merge PDO using nearest month
-    pdo_df = pdo_df.sort_values('Month')
-    pdo_df['Month'] = pd.to_datetime(pdo_df['Month'].astype(str)).dt.to_period('M')
-    compiled_df = pd.merge_asof(
-        compiled_df,
-        pdo_df[['Month', 'index']],
-        on='Month',
-        direction='nearest'
-    )
-    compiled_df.rename(columns={'index': 'pdo'}, inplace=True)
-        
-    # Drop temporary Month column
-    compiled_df.drop(columns=['Month'], inplace=True)
-    
-    # Merge Streamflow data
-    streamflow_df['Date'] = pd.to_datetime(streamflow_df['Date'])
-    streamflow_df = streamflow_df.sort_values('Date')
-    compiled_df = compiled_df.sort_values('Date')
-    compiled_df = pd.merge_asof(
-        compiled_df,
-        streamflow_df[['Date', 'Flow']],
-        on='Date',
-        direction='backward',
-        tolerance=pd.Timedelta('7days')
-    )
-    compiled_df.rename(columns={'Flow': 'discharge'}, inplace=True)
-        
-    return compiled_df.sort_values(['Site', 'Date'])
+    compiled_df.rename(columns={"Flow": "discharge"}, inplace=True)
+
+    # Final sort to ensure consistent output order
+    return compiled_df.sort_values(["Site", "Date"])
 
 def compile_da_pn(lt_df, da_df, pn_df):
     """Merge DA and PN data with interpolation"""
