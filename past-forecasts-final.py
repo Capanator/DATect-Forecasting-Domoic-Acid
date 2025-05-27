@@ -22,7 +22,7 @@ import plotly.express as px
 
 # ---------------------------------------------------------
 # Configuration
-# ---------------------------------------------------------
+# ---------------------------------------------------------x
 CONFIG = {
     "ENABLE_LAG_FEATURES": True, # Set to True as in the provided script
     "ENABLE_LINEAR_LOGISTIC": True,
@@ -335,10 +335,6 @@ def train_and_evaluate(
     print(f"[INFO] Parallel processing complete. Processed {processed_forecast_count}, skipped {skipped_forecast_count} anchor forecasts.")
 
     # --- Aggregation and Final Evaluation ---
-    if not forecast_dfs_with_preds:
-        print(f"[ERROR] No valid anchor forecasts processed. Cannot aggregate results.")
-        return {"DA_Level": {}, "da-category": {}}
-
     print(f"\n[INFO] Aggregating results across {processed_forecast_count} anchor forecasts...")
     final_test_df = pd.concat(forecast_dfs_with_preds).sort_values(["date", "site"])
     final_test_df = final_test_df.drop_duplicates(subset=["date", "site"], keep="last")

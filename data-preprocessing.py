@@ -20,6 +20,7 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
+RUN_SATELLITE_PROCESSING = False
 
 # Lists to track temporary files for cleanup
 downloaded_files = []
@@ -485,48 +486,48 @@ def fetch_climate_index(url, var_name, temp_dir):
     ds.close()
     return result[['Month', 'index']].sort_values('Month')
 
-def process_streamflow(url, temp_dir):
-    """Process USGS streamflow data"""
+def process_streamflow(url, sites_dict, temp_dir):
+    """Process USGS streamflow data with daily resolution"""
     print("Fetching streamflow data...")
-        
+    
     # Download file
     fname = local_filename(url, '.json', temp_dir=temp_dir)
     download_file(url, fname)
-            
+    
     # Load JSON
-    with open(fname) as f:
+    with open(fname, 'r') as f:
         data = json.load(f)
-        
+    
     # Extract values
     values = []
     ts_data = data.get('value', {}).get('timeSeries', [])
     if ts_data:
         # Find discharge time series
         discharge_ts = next((ts for ts in ts_data 
-                        if ts.get('variable', {}).get('variableCode', [{}])[0].get('value') == '00060'), 
-                       ts_data[0] if len(ts_data) == 1 else None)
-                       
+                            if ts.get('variable', {}).get('variableCode', [{}])[0].get('value') == '00060'), 
+                           ts_data[0] if len(ts_data) == 1 else None)
+        
         if discharge_ts:
             values = discharge_ts.get('values', [{}])[0].get('value', [])
-        
-    # Parse records
+    
+    # Process records
     records = []
     for item in values:
         if isinstance(item, dict) and 'dateTime' in item and 'value' in item:
             dt = pd.to_datetime(item['dateTime'], utc=True)
             flow = pd.to_numeric(item['value'], errors='coerce')
             if pd.notna(dt) and pd.notna(flow) and flow >= 0:
-                records.append({'Date': dt.tz_localize(None), 'Flow': flow})
+                # Convert to local time (remove timezone info)
+                dt_local = dt.tz_localize(None)
+                records.append({'Date': dt_local, 'Flow': flow})
 
     df = pd.DataFrame(records)
-
-    # Aggregate weekly
-    df['week_key'] = df['Date'].dt.strftime('%G-%V')
-    weekly_flow = df.groupby('week_key')['Flow'].mean().reset_index()
-    weekly_flow['Date'] = pd.to_datetime(weekly_flow['week_key'] + '-1', format='%G-%V-%w')
-    weekly_flow = weekly_flow.dropna(subset=['Date'])
-
-    return weekly_flow[['Date', 'Flow']].sort_values('Date')
+    if not df.empty:
+        df['Date'] = pd.to_datetime(df['Date'])
+        # Sort by date
+        df = df.sort_values('Date')
+    
+    return df[['Date', 'Flow']].sort_values('Date')
 
 def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     """Process BEUTI data with minimal error handling"""
@@ -824,11 +825,13 @@ def main():
     pn_files_parquet = convert_files_to_parquet(pn_files)
     
     # Generate satellite data if needed
-    satellite_parquet_file_path = generate_satellite_parquet(
-        satellite_metadata,
-        list(sites.keys()),
-        SATELLITE_OUTPUT_PARQUET
-    )
+    satellite_parquet_file_path = None
+    if RUN_SATELLITE_PROCESSING:
+        satellite_parquet_file_path = generate_satellite_parquet(
+            satellite_metadata,
+            list(sites.keys()),
+            SATELLITE_OUTPUT_PARQUET
+        )
     
     # Process core data
     da_data = process_da(da_files_parquet)
@@ -856,7 +859,9 @@ def main():
     base_final_data['beuti'] = base_final_data['beuti'].fillna(0)
                 
     # Add satellite data if available
-    final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
+    final_data = base_final_data
+    if satellite_parquet_file_path:
+        final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
         
     # Final processing and save
     print("\n--- Final Checks and Saving Output ---")
@@ -880,8 +885,6 @@ def main():
         "PN_Levels": "pn", 
     }
     
-    #insert satellite column renaming here (temp)
-    # Add satellite column mappings
     if len(sat_cols) >= 7:
         sat_mapping = {
             sat_cols[0]: "chla-anom",
