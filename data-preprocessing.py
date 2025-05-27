@@ -486,48 +486,40 @@ def fetch_climate_index(url, var_name, temp_dir):
     ds.close()
     return result[['Month', 'index']].sort_values('Month')
 
-def process_streamflow(url, sites_dict, temp_dir):
-    """Process USGS streamflow data with daily resolution"""
+def process_streamflow(url, temp_dir):
+    """Process USGS streamflow data (daily)"""
     print("Fetching streamflow data...")
-    
     # Download file
     fname = local_filename(url, '.json', temp_dir=temp_dir)
     download_file(url, fname)
-    
-    # Load JSON
-    with open(fname, 'r') as f:
+    with open(fname) as f:
         data = json.load(f)
-    
+        
     # Extract values
     values = []
     ts_data = data.get('value', {}).get('timeSeries', [])
     if ts_data:
         # Find discharge time series
         discharge_ts = next((ts for ts in ts_data 
-                            if ts.get('variable', {}).get('variableCode', [{}])[0].get('value') == '00060'), 
-                           ts_data[0] if len(ts_data) == 1 else None)
-        
+                        if ts.get('variable', {}).get('variableCode', [{}])[0].get('value') == '00060'), 
+                       ts_data[0] if len(ts_data) == 1 else None)
+                       
         if discharge_ts:
             values = discharge_ts.get('values', [{}])[0].get('value', [])
-    
-    # Process records
+        
+    # Parse records
     records = []
     for item in values:
         if isinstance(item, dict) and 'dateTime' in item and 'value' in item:
             dt = pd.to_datetime(item['dateTime'], utc=True)
             flow = pd.to_numeric(item['value'], errors='coerce')
             if pd.notna(dt) and pd.notna(flow) and flow >= 0:
-                # Convert to local time (remove timezone info)
-                dt_local = dt.tz_localize(None)
-                records.append({'Date': dt_local, 'Flow': flow})
+                records.append({'Date': dt.tz_localize(None), 'Flow': flow})
 
     df = pd.DataFrame(records)
-    if not df.empty:
-        df['Date'] = pd.to_datetime(df['Date'])
-        # Sort by date
-        df = df.sort_values('Date')
-    
+    df = df.dropna(subset=['Date', 'Flow'])  # Remove invalid entries
     return df[['Date', 'Flow']].sort_values('Date')
+
 
 def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     """Process BEUTI data with minimal error handling"""
