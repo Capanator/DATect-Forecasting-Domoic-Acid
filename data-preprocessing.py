@@ -390,23 +390,9 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
             original_index_site = s_val
             break
 
-    if original_index_site is None:
-        return result_series
-
-    try:
-        site_data = sat_pivot_indexed.xs(original_index_site, level='site')
-    except KeyError:
-        return result_series
-
-    if site_data.empty:
-        return result_series
-
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
     site_data = site_data[pd.notna(site_data.index)]
-
-    if site_data.empty:
-        return result_series
 
     for var_name in expected_cols:
         if var_name not in site_data.columns:
@@ -1036,10 +1022,10 @@ def main():
         if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
         if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla"
         if len(sat_cols) > 2: sat_mapping[sat_cols[2]] = "modis-flr"
-        if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-par"
-        if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-k490"
-        if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "sst-anom"
-        if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "modis-sst"
+        if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-k490"
+        if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-par"
+        if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "modis-sst"
+        if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "sst-anom"
         col_mapping.update(sat_mapping)
 
     final_data = final_data.rename(columns=col_mapping)

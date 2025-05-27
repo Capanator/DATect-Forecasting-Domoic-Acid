@@ -24,7 +24,7 @@ import plotly.express as px
 # Configuration
 # ---------------------------------------------------------x
 CONFIG = {
-    "ENABLE_LAG_FEATURES": True, # Set to True as in the provided script
+    "ENABLE_LAG_FEATURES": False, # Set to True as in the provided script
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
