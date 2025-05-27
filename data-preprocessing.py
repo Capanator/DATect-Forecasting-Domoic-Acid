@@ -390,9 +390,23 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
             original_index_site = s_val
             break
 
+    if original_index_site is None:
+        return result_series
+
+    try:
+        site_data = sat_pivot_indexed.xs(original_index_site, level='site')
+    except KeyError:
+        return result_series
+
+    if site_data.empty:
+        return result_series
+
     if not isinstance(site_data.index, pd.DatetimeIndex):
         site_data.index = pd.to_datetime(site_data.index)
     site_data = site_data[pd.notna(site_data.index)]
+
+    if site_data.empty:
+        return result_series
 
     for var_name in expected_cols:
         if var_name not in site_data.columns:
