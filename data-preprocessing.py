@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
-FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
+FORCE_SATELLITE_REPROCESSING = True # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
 downloaded_files = []
@@ -919,11 +919,7 @@ def main():
         print(
             f"--- Generating satellite data. This may take a while... ---"
         )
-        # Optional: If forcing, you might want to remove the old file first,
-        # though generate_satellite_parquet should overwrite it.
-        if FORCE_SATELLITE_REPROCESSING and os.path.exists(
-            SATELLITE_OUTPUT_PARQUET
-        ):
+        if FORCE_SATELLITE_REPROCESSING and os.path.exists(SATELLITE_OUTPUT_PARQUET):
             try:
                 os.remove(SATELLITE_OUTPUT_PARQUET)
                 print(
@@ -945,10 +941,6 @@ def main():
             )
             satellite_parquet_file_path = generated_path
         else:
-            print(
-                f"--- WARNING: Satellite data generation failed or file not created. ---"
-            )
-            # Ensure path is None if generation failed, especially if we were forcing reprocessing
             satellite_parquet_file_path = None
 
     # Process core data
@@ -970,7 +962,6 @@ def main():
     base_final_data = convert_and_fill(lt_da_pn)
 
     # Merge BEUTI data
-    print("\n--- Merging BEUTI Data ---")
     beuti_data["Date"] = pd.to_datetime(beuti_data["Date"])
     beuti_data["Site"] = (
         beuti_data["Site"].astype(str).str.replace("_", " ").str.title()
@@ -1028,10 +1019,7 @@ def main():
         "PN_Levels": "pn",
     }
 
-    if len(sat_cols) >= 7: # Ensure this check is robust if sat_cols can be less than 7
-        # Make sure sat_cols has enough elements before trying to access them by index
-        # This mapping assumes a fixed order and number of satellite columns.
-        # Consider making this mapping more dynamic if column names/order can change.
+    if len(sat_cols) >= 7:
         sat_mapping = {}
         if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
         if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla"
