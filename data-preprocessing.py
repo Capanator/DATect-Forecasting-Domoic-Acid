@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
 SATELLITE_CONFIG_FILE = 'satellite_config.json'
-FORCE_SATELLITE_REPROCESSING = True # New flag: Set to True to always regenerate
+FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
 downloaded_files = []
@@ -58,7 +58,7 @@ print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data typ
 
 # --- Helper Functions ---
 def download_file(url, filename):
-    response = requests.get(url, timeout=180, stream=True)
+    response = requests.get(url, timeout=500, stream=True)
     response.raise_for_status()
     
     with open(filename, 'wb') as f:
@@ -271,7 +271,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
                 # Download Logic
                 try:
-                    response = requests.get(chunk_url, timeout=900, stream=True)
+                    response = requests.get(chunk_url, timeout = 1200, stream=True)
                     response.raise_for_status()
                     with open(tmp_nc_path, 'wb') as f:
                         for chunk in response.iter_content(chunk_size=8192):
