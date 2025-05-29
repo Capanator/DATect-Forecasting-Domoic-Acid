@@ -1,15 +1,14 @@
-import numpy as np
-import pandas as pd
+import numpy as np, pandas as pd
 from joblib import Parallel, delayed
-from typing import Tuple, List, Dict, Any, Optional
-import random # For random anchor selection
-from tqdm import tqdm # Import tqdm for the progress bar
+from tqdm import tqdm
+import random
+from typing import Dict
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import TimeSeriesSplit, GridSearchCV # TimeSeriesSplit still used by GridSearchCV
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.metrics import accuracy_score, mean_absolute_error, r2_score
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -20,24 +19,22 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 
-# ---------------------------------------------------------
 # Configuration
-# ---------------------------------------------------------x
 CONFIG = {
-    "ENABLE_LAG_FEATURES": False, # Set to True as in the provided script
+    "ENABLE_LAG_FEATURES": False,
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
     "PORT": 8071,
-    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 500, # Number of random anchors per site for evaluation
-    "N_SPLITS_TS_GRIDSEARCH": 10,    # Still used for GridSearchCV
-    "MIN_TEST_DATE": "2008-01-01",  # Predictions will only be made for 'next_date' >= this
+    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 500,
+    "N_SPLITS_TS_GRIDSEARCH": 10,
+    "MIN_TEST_DATE": "2008-01-01",
     "N_JOBS_EVAL": -1,
-    "RANDOM_SEED": 42, # For reproducibility of random anchor selection
+    "RANDOM_SEED": 42,
 }
 random.seed(CONFIG["RANDOM_SEED"])
 np.random.seed(CONFIG["RANDOM_SEED"])
 
-# --- GridSearchCV Parameter Grids ---
+# Parameter Grids
 PARAM_GRID_REG = {
     "model__n_estimators": [100, 200],
     "model__max_depth": [10, 20, None],
@@ -52,298 +49,155 @@ PARAM_GRID_CLS = {
     "model__min_samples_leaf": [1, 3],
     "model__class_weight": ["balanced", None],
 }
-# --- End Parameter Grids ---
 
-# ---------------------------------------------------------
-# Data Processing Functions (largely unchanged)
-# ---------------------------------------------------------
-def create_numeric_transformer(
-    df: pd.DataFrame, drop_cols: List[str]
-) -> Tuple[ColumnTransformer, pd.DataFrame]:
-    """
-    Creates a numeric transformer pipeline and returns the features DataFrame.
-    """
+# Data Processing
+def create_numeric_transformer(df, drop_cols):
     X = df.drop(columns=drop_cols, errors="ignore")
     numeric_cols = X.select_dtypes(include=[np.number]).columns
-
-    numeric_pipeline = Pipeline(
-        [
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", MinMaxScaler()),
-        ]
-    )
-
+    numeric_pipeline = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", MinMaxScaler()),
+    ])
     transformer = ColumnTransformer(
-        transformers=[("num", numeric_pipeline, numeric_cols)],
-        remainder="passthrough",
-        verbose_feature_names_out=False,
+        [("num", numeric_pipeline, numeric_cols)],
+        remainder="passthrough", verbose_feature_names_out=False
     )
     transformer.set_output(transform="pandas")
     return transformer, X
 
-
-def add_lag_features(
-    df: pd.DataFrame, group_col: str, value_col: str, lags: List[int]
-) -> pd.DataFrame:
-    """
-    Adds lag features for the specified value column, grouping by the provided column.
-    """
+def add_lag_features(df, group_col, value_col, lags):
     for lag in lags:
         df[f"{value_col}_lag_{lag}"] = df.groupby(group_col)[value_col].shift(lag)
     return df
 
-
-def load_and_prepare_data(file_path: str) -> pd.DataFrame:
-    """
-    Loads data, sorts, creates features, categorizes target, and drops rows with critical NaNs.
-    """
-    print(f"[INFO] Loading data from {file_path}")
+def load_and_prepare_data(file_path):
+    print(f"[INFO] Loading {file_path}")
     data = pd.read_parquet(file_path, engine="pyarrow")
     data["date"] = pd.to_datetime(data["date"])
-    data.sort_values(["site", "date"], inplace=True) # Sort by site then date for anchor logic
+    data.sort_values(["site", "date"], inplace=True)
     data.reset_index(drop=True, inplace=True)
 
-    # Temporal Features
+    # Temporal features
     day_of_year = data["date"].dt.dayofyear
     data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
     data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
 
-    # Lag Features
+    # Lag features
     if CONFIG["ENABLE_LAG_FEATURES"]:
-        print("[INFO] Creating lag features...")
-        data = add_lag_features(data, group_col="site", value_col="da", lags=[1, 2, 3])
-    else:
-        print("[INFO] Skipping lag features creation per configuration")
+        print("[INFO] Creating lag features")
+        data = add_lag_features(data, "site", "da", [1, 2, 3])
 
-    # Target Categorization - Updated to match the bins from the script provided in the prompt
-    print("[INFO] Categorizing 'da'...")
+    # Target categorization
     data["da-category"] = pd.cut(
         data["da"],
         bins=[-float("inf"), 5, 20, 40, float("inf")],
-        labels=[0, 1, 2, 3], # Matches the 4 categories
+        labels=[0, 1, 2, 3],
         right=True,
     ).astype(pd.Int64Dtype())
 
-
-    # Drop rows with NaN values in critical columns (lags, target)
+    # Clean data
     lag_cols = [f"da_lag_{lag}" for lag in [1,2,3]] if CONFIG["ENABLE_LAG_FEATURES"] else []
-    critical_cols = lag_cols + ["da", "da-category"]
     initial_rows = len(data)
-    data.dropna(subset=critical_cols, inplace=True)
-    print(f"[INFO] Dropped {initial_rows - len(data)} rows due to NaNs in critical columns.")
-    data.reset_index(drop=True, inplace=True)
-    return data
+    data.dropna(subset=lag_cols + ["da", "da-category"], inplace=True)
+    print(f"[INFO] Dropped {initial_rows - len(data)} rows")
+    return data.reset_index(drop=True)
 
-
-# ---------------------------------------------------------
-# Model Training Functions (safe_fit_predict, run_grid_search, get_model_configs unchanged)
-# ---------------------------------------------------------
-def safe_fit_predict(
-    model, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, model_type="regression"
-):
-    """
-    Fits a model and returns predictions. Assumes y_train has no NaNs
-    due to prior cleaning in load_and_prepare_data.
-    """
-    y_train = y_train.astype(int) if model_type == "classification" else y_train.astype(float)
-    model.fit(X_train, y_train)
+# Model Functions
+def safe_fit_predict(model, X_train, y_train, X_test, model_type):
+    model.fit(X_train, y_train.astype(int if model_type == "classification" else float))
     return model.predict(X_test)
 
-
-def run_grid_search(
-    base_model: Any,
-    param_grid: Dict,
-    X: pd.DataFrame,
-    y: pd.Series,
-    preprocessor: ColumnTransformer,
-    scoring: str,
-    cv_splits: int,
-    model_type: str,
-) -> Dict:
-    """
-    Runs GridSearchCV using a pipeline. TimeSeriesSplit is used for CV.
-    """
-    print(f"\n[INFO] Starting GridSearchCV for {model_type}...")
+def run_grid_search(base_model, param_grid, X, y, preprocessor, scoring, cv_splits, model_type):
+    print(f"\n[INFO] GridSearchCV for {model_type}")
     pipeline = Pipeline([("preprocessor", preprocessor), ("model", base_model)])
-    # GridSearchCV still uses TimeSeriesSplit as it's a sound method for hyperparameter tuning in time series
-    cv = TimeSeriesSplit(n_splits=cv_splits)
     grid_search = GridSearchCV(
-        estimator=pipeline,
-        param_grid=param_grid,
-        scoring=scoring,
-        cv=cv,
-        n_jobs=-1, # Uses all available cores for GridSearchCV
-        verbose=0, # Set to 0 or 1 if tqdm provides enough feedback for the main loop
-        error_score="raise",
+        pipeline, param_grid, scoring=scoring,
+        cv=TimeSeriesSplit(n_splits=cv_splits), n_jobs=-1, verbose=0, error_score="raise"
     )
-    print(f"[INFO] Fitting GridSearchCV on {len(X)} samples...")
     grid_search.fit(X, y)
-    print(f"[INFO] GridSearchCV for {model_type} complete. Best Score ({scoring}): {grid_search.best_score_:.4f}")
-    print(f"  Best Params: {grid_search.best_params_}")
-    best_params_cleaned = {
-        key.replace("model__", ""): value for key, value in grid_search.best_params_.items()
-    }
-    return best_params_cleaned
+    print(f"[INFO] Best {scoring}: {grid_search.best_score_:.4f}\nParams: {grid_search.best_params_}")
+    return {k.replace("model__", ""): v for k, v in grid_search.best_params_.items()}
 
-
-def get_model_configs(
-    best_reg_params: Dict = None, best_cls_params: Dict = None
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Returns a dictionary of model configurations.
-    """
-    best_reg_params = best_reg_params or {}
-    best_cls_params = best_cls_params or {}
-    model_configs = {
+def get_model_configs(best_reg_params=None, best_cls_params=None):
+    return {
         "ml": {
-            "reg": RandomForestRegressor(random_state=CONFIG["RANDOM_SEED"], n_jobs=1, **best_reg_params),
-            "cls": RandomForestClassifier(random_state=CONFIG["RANDOM_SEED"], n_jobs=1, **best_cls_params),
+            "reg": RandomForestRegressor(random_state=CONFIG["RANDOM_SEED"], n_jobs=1, **(best_reg_params or {})),
+            "cls": RandomForestClassifier(random_state=CONFIG["RANDOM_SEED"], n_jobs=1, **(best_cls_params or {})),
         },
         "lr": {
             "reg": LinearRegression(n_jobs=1),
             "cls": LogisticRegression(solver="lbfgs", max_iter=1000, random_state=CONFIG["RANDOM_SEED"], n_jobs=1),
         },
     }
-    return model_configs
 
-
-# --- Helper function for processing a single random anchor forecast ---
-def process_anchor_forecast(
-    anchor_info: Tuple[str, pd.Timestamp], # (site, anchor_date)
-    full_data: pd.DataFrame, # The complete dataset, already sorted by site, date
-    reg_model_base: Any,
-    cls_model_base: Any,
-    reg_drop_cols: List[str],
-    cls_drop_cols: List[str],
-    min_target_date: pd.Timestamp,
-    # anchor_num: int # No longer needed for logging here as tqdm handles iteration count
-) -> Optional[pd.DataFrame]:
-    """
-    Processes a single random anchor forecast.
-    Trains on data up to anchor_date for a site, predicts the single next point.
-    Returns the test DataFrame (single row) with predictions, or None if skipped/error.
-    """
+def process_anchor_forecast(anchor_info, full_data, reg_model_base, cls_model_base, reg_drop_cols, cls_drop_cols, min_target_date):
     site, anchor_date = anchor_info
-    
-    site_data = full_data[full_data["site"] == site].copy()
-    
+    site_data = full_data[full_data["site"] == site]
     train_df = site_data[site_data["date"] <= anchor_date]
-    potential_test_points = site_data[site_data["date"] > anchor_date]
-
-    if train_df.empty or potential_test_points.empty:
-        return None
-
-    test_df_single_row = potential_test_points.iloc[[0]].copy() 
-    target_prediction_date = test_df_single_row["date"].min()
-
-    if target_prediction_date < min_target_date:
-        return None
+    test_df_single_row = site_data[site_data["date"] > anchor_date].iloc[:1].copy()
     
-    # --- Regression ---
-    transformer_reg, X_train_reg_all_cols = create_numeric_transformer(train_df, reg_drop_cols)
-    X_train_reg_proc = transformer_reg.fit_transform(X_train_reg_all_cols)
-    y_train_reg = train_df["da"]
+    if train_df.empty or test_df_single_row.empty or test_df_single_row["date"].min() < min_target_date:
+        return None
 
-    X_test_reg_all_cols = test_df_single_row.drop(columns=reg_drop_cols, errors="ignore")
-    X_test_reg_all_cols = X_test_reg_all_cols.reindex(columns=X_train_reg_all_cols.columns, fill_value=0)
-    X_test_reg_proc = transformer_reg.transform(X_test_reg_all_cols)
-
+    # Regression processing
+    transformer_reg, X_train_reg = create_numeric_transformer(train_df, reg_drop_cols)
+    X_test_reg = test_df_single_row.drop(columns=reg_drop_cols, errors="ignore")
+    X_test_reg = X_test_reg.reindex(columns=X_train_reg.columns, fill_value=0)
     reg_model = clone(reg_model_base)
-    y_pred_reg = safe_fit_predict(reg_model, X_train_reg_proc, y_train_reg, X_test_reg_proc, model_type="regression")
+    y_pred_reg = safe_fit_predict(
+        reg_model, transformer_reg.fit_transform(X_train_reg), train_df["da"],
+        transformer_reg.transform(X_test_reg), "regression"
+    )[0]
 
-    # --- Classification ---
-    transformer_cls, X_train_cls_all_cols = create_numeric_transformer(train_df, cls_drop_cols)
-    X_train_cls_proc = transformer_cls.fit_transform(X_train_cls_all_cols)
-    y_train_cls = train_df["da-category"]
-
-    X_test_cls_all_cols = test_df_single_row.drop(columns=cls_drop_cols, errors="ignore")
-    X_test_cls_all_cols = X_test_cls_all_cols.reindex(columns=X_train_cls_all_cols.columns, fill_value=0)
-    X_test_cls_proc = transformer_cls.transform(X_test_cls_all_cols)
-
+    # Classification processing
+    transformer_cls, X_train_cls = create_numeric_transformer(train_df, cls_drop_cols)
+    X_test_cls = test_df_single_row.drop(columns=cls_drop_cols, errors="ignore")
+    X_test_cls = X_test_cls.reindex(columns=X_train_cls.columns, fill_value=0)
     cls_model = clone(cls_model_base)
-    y_pred_cls = safe_fit_predict(cls_model, X_train_cls_proc, y_train_cls, X_test_cls_proc, model_type="classification")
+    y_pred_cls = safe_fit_predict(
+        cls_model, transformer_cls.fit_transform(X_train_cls), train_df["da-category"],
+        transformer_cls.transform(X_test_cls), "classification"
+    )[0]
 
-    test_df_single_row["Predicted_da"] = y_pred_reg[0] 
-    test_df_single_row["Predicted_da-category"] = y_pred_cls[0]
+    test_df_single_row["Predicted_da"] = y_pred_reg
+    test_df_single_row["Predicted_da-category"] = y_pred_cls
     return test_df_single_row
-# --- End Helper Function ---
 
-
-def train_and_evaluate(
-    data: pd.DataFrame,
-    method="ml",
-    best_reg_params: Dict = None,
-    best_cls_params: Dict = None,
-):
-    """
-    Trains models using Random Anchor Forecasts (parallel) and evaluates performance.
-    """
-    print(f"\n[INFO] Starting evaluation using method: {method} with PARALLEL Random Anchor Forecasts.")
-    model_configs = get_model_configs(best_reg_params, best_cls_params)
-    if method not in model_configs:
-        raise ValueError(f"Method '{method}' not supported")
-
-    reg_model_base = model_configs[method]["reg"]
-    cls_model_base = model_configs[method]["cls"]
-
-    data_sorted = data.copy() 
-    min_target_date = pd.Timestamp(CONFIG["MIN_TEST_DATE"]) 
-    n_jobs = CONFIG["N_JOBS_EVAL"]
-    num_anchors_per_site = CONFIG["NUM_RANDOM_ANCHORS_PER_SITE_EVAL"]
-
-    print(f"[INFO] Generating random anchor points. Num anchors per site: {num_anchors_per_site}. Predictions for dates >= {min_target_date.date()}")
-
-    anchor_infos_to_process = []
-    unique_sites = data_sorted["site"].unique()
-    for site_val in unique_sites:
-        site_dates = data_sorted[data_sorted["site"] == site_val]["date"].sort_values().unique()
-        if len(site_dates) > 1:
-            potential_anchor_dates = site_dates[:-1]
-            num_to_sample = min(len(potential_anchor_dates), num_anchors_per_site)
-            if num_to_sample > 0:
-                sampled_anchor_dates = random.sample(list(potential_anchor_dates), num_to_sample)
-                for ad_date in sampled_anchor_dates:
-                    anchor_infos_to_process.append((site_val, pd.Timestamp(ad_date)))
+def train_and_evaluate(data, method="ml", best_reg_params=None, best_cls_params=None):
+    print(f"\n[INFO] Evaluating {method} with parallel anchors")
+    configs = get_model_configs(best_reg_params, best_cls_params)
+    reg_model_base, cls_model_base = configs[method]["reg"], configs[method]["cls"]
+    min_target_date = pd.Timestamp(CONFIG["MIN_TEST_DATE"])
     
-    if not anchor_infos_to_process:
-        print("[ERROR] No valid anchor points generated. Cannot proceed with evaluation.")
+    # Generate anchor points
+    anchor_infos = []
+    for site in data["site"].unique():
+        dates = data[data["site"] == site]["date"].sort_values().unique()
+        if len(dates) > 1:
+            anchors = random.sample(list(dates[:-1]), min(len(dates)-1, CONFIG["NUM_RANDOM_ANCHORS_PER_SITE_EVAL"]))
+            anchor_infos.extend([(site, pd.Timestamp(d)) for d in anchors])
+    
+    if not anchor_infos:
+        print("[ERROR] No anchor points")
         return {"DA_Level": {}, "da-category": {}}
         
-    print(f"[INFO] Generated {len(anchor_infos_to_process)} total random anchor points for processing.")
-    
-    common_cols = ["date", "site"] 
-    reg_drop_cols = common_cols + ["da", "da-category"] 
-    cls_drop_cols = common_cols + ["da", "da-category"]
-
-    # --- Parallel Execution with tqdm progress bar ---
-    print(f"[INFO] Starting parallel processing for {len(anchor_infos_to_process)} anchor forecasts...")
-    
-    # Wrap the generator with tqdm for a progress bar
-    # The description for tqdm will be "Processing Anchors"
-    # total specifies the total number of iterations for tqdm
-    results_list = Parallel(n_jobs=n_jobs, verbose=1)( # Reduced verbose for Parallel if tqdm is primary
+    # Parallel processing
+    common_cols = ["date", "site"]
+    results = Parallel(n_jobs=CONFIG["N_JOBS_EVAL"], verbose=1)(
         delayed(process_anchor_forecast)(
-            anchor_info, data_sorted, reg_model_base,
-            cls_model_base, reg_drop_cols, cls_drop_cols, min_target_date
-        )
-        for anchor_info in tqdm(anchor_infos_to_process, desc="Processing Random Anchors", total=len(anchor_infos_to_process))
+            ai, data, reg_model_base, cls_model_base, 
+            common_cols + ["da", "da-category"], common_cols + ["da", "da-category"], min_target_date
+        ) for ai in tqdm(anchor_infos, desc="Processing Anchors")
     )
+    
+    # Process results
+    forecast_dfs = [df for df in results if df is not None]
+    final_test_df = pd.concat(forecast_dfs).sort_values(["date", "site"]).drop_duplicates(["date", "site"])
+    print(f"[INFO] Processed {len(forecast_dfs)} forecasts")
 
-    forecast_dfs_with_preds = [df for df in results_list if df is not None and not df.empty]
-    processed_forecast_count = len(forecast_dfs_with_preds)
-    skipped_forecast_count = len(anchor_infos_to_process) - processed_forecast_count
-    print(f"[INFO] Parallel processing complete. Processed {processed_forecast_count}, skipped {skipped_forecast_count} anchor forecasts.")
-
-    # --- Aggregation and Final Evaluation ---
-    print(f"\n[INFO] Aggregating results across {processed_forecast_count} anchor forecasts...")
-    final_test_df = pd.concat(forecast_dfs_with_preds).sort_values(["date", "site"])
-    final_test_df = final_test_df.drop_duplicates(subset=["date", "site"], keep="last")
-
-    results = {}
-    last_reg_model = reg_model_base 
-    last_cls_model = cls_model_base
-
-    # Evaluate Regression
+    # Evaluation metrics
+    results_dict = {}
+    # Regression evaluation
     df_reg = final_test_df.dropna(subset=["da", "Predicted_da"])
     overall_r2, overall_mae = np.nan, np.nan
     site_stats_reg = pd.DataFrame(columns=["site", "r2", "mae"])
@@ -360,15 +214,15 @@ def train_and_evaluate(
             .reset_index()
         )
 
-    results["DA_Level"] = {
+    results_dict["DA_Level"] = {
         "test_df": final_test_df, 
         "site_stats": site_stats_reg.set_index("site"),
         "overall_r2": overall_r2,
         "overall_mae": overall_mae,
-        "model": last_reg_model, 
+        "model": reg_model_base, 
     }
 
-    # Evaluate Classification
+    # Classification evaluation
     df_cls = final_test_df.dropna(subset=["da-category", "Predicted_da-category"])
     df_cls["da-category"] = pd.to_numeric(df_cls["da-category"], errors='coerce').astype('Int64')
     df_cls["Predicted_da-category"] = pd.to_numeric(df_cls["Predicted_da-category"], errors='coerce').astype('Int64')
@@ -385,41 +239,23 @@ def train_and_evaluate(
             .reset_index(name="accuracy")
         )
 
-    results["da-category"] = {
+    results_dict["da-category"] = {
         "test_df": final_test_df, 
         "site_stats": site_stats_cls.set_index("site")["accuracy"],
         "overall_accuracy": overall_accuracy,
-        "model": last_cls_model, 
+        "model": cls_model_base, 
     }
 
-    print(f"[INFO] {method.upper()} random anchor forecast evaluation complete.")
-    return results
+    return results_dict
 
-
-def prepare_all_predictions(
-    data: pd.DataFrame,
-    best_reg_params: Dict = None,
-    best_cls_params: Dict = None,
-) -> Dict:
-    """
-    Runs evaluation for the ML method and optionally for LR if enabled, using random anchor forecasts.
-    """
-    predictions = {}
-    predictions["ml"] = train_and_evaluate(
-        data, method="ml", best_reg_params=best_reg_params, best_cls_params=best_cls_params
-    )
+def prepare_all_predictions(data, best_reg_params=None, best_cls_params=None):
+    predictions = {"ml": train_and_evaluate(data, "ml", best_reg_params, best_cls_params)}
     if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-        predictions["lr"] = train_and_evaluate(data, method="lr") 
+        predictions["lr"] = train_and_evaluate(data, "lr")
     return predictions
 
-
-# ---------------------------------------------------------
-# Dash App Setup (Text changes for titles)
-# ---------------------------------------------------------
+# Dash App (Original version with optimizations preserved)
 def create_dash_app(predictions: Dict, data: pd.DataFrame):
-    """
-    Creates and configures the Dash application.
-    """
     app = dash.Dash(__name__)
     sites_list = sorted(data["site"].unique().tolist())
     forecast_methods = [{"label": "Random Forest (ML)", "value": "ml"}]
@@ -583,50 +419,36 @@ def create_dash_app(predictions: Dict, data: pd.DataFrame):
         return fig
     return app
 
-# ---------------------------------------------------------
 # Main Execution
-# ---------------------------------------------------------
 if __name__ == "__main__":
-    print("[INFO] Loading and preparing data...")
+    print("[INFO] Loading data")
     data = load_and_prepare_data(CONFIG["DATA_FILE"])
-
     if data.empty:
-        print("[ERROR] Data is empty after loading and preparation. Exiting.")
+        print("[ERROR] Data empty")
     else:
-        print("[INFO] Data loaded successfully.")
+        # Grid search setup
+        common_cols = ["date", "site"]
+        reg_drop_cols = common_cols + ["da", "da-category"]
+        cls_drop_cols = common_cols + ["da", "da-category"]
+        
+        trans_reg, X_reg = create_numeric_transformer(data, reg_drop_cols)
+        trans_cls, X_cls = create_numeric_transformer(data, cls_drop_cols)
+        
+        best_rf_reg_params = run_grid_search(
+            RandomForestRegressor(random_state=CONFIG["RANDOM_SEED"], n_jobs=1),
+            PARAM_GRID_REG, X_reg, data["da"].astype(float), trans_reg, "r2",
+            CONFIG["N_SPLITS_TS_GRIDSEARCH"], "Regressor"
+        )
+        best_rf_cls_params = run_grid_search(
+            RandomForestClassifier(random_state=CONFIG["RANDOM_SEED"], n_jobs=1),
+            PARAM_GRID_CLS, X_cls, data["da-category"].astype(int), trans_cls, "accuracy",
+            CONFIG["N_SPLITS_TS_GRIDSEARCH"], "Classifier"
+        )
 
-        common_cols_gs = ["date", "site"] 
-        reg_drop_cols_gs = common_cols_gs + ["da", "da-category"]
-        cls_drop_cols_gs = common_cols_gs + ["da", "da-category"]
-
-        temp_transformer_reg, X_full_reg = create_numeric_transformer(data, reg_drop_cols_gs)
-        y_full_reg = data["da"].astype(float)
-        temp_transformer_cls, X_full_cls = create_numeric_transformer(data, cls_drop_cols_gs)
-        y_full_cls = data["da-category"].astype(int)
-
-        if X_full_reg.empty or X_full_cls.empty:
-            print("[ERROR] Feature set for GridSearchCV is empty. Exiting.")
-        else:
-            best_rf_reg_params = run_grid_search(
-                base_model=RandomForestRegressor(random_state=CONFIG["RANDOM_SEED"], n_jobs=1),
-                param_grid=PARAM_GRID_REG, X=X_full_reg, y=y_full_reg,
-                preprocessor=temp_transformer_reg, scoring="r2",
-                cv_splits=CONFIG["N_SPLITS_TS_GRIDSEARCH"], model_type="Regressor",
-            )
-            best_rf_cls_params = run_grid_search(
-                base_model=RandomForestClassifier(random_state=CONFIG["RANDOM_SEED"], n_jobs=1),
-                param_grid=PARAM_GRID_CLS, X=X_full_cls, y=y_full_cls,
-                preprocessor=temp_transformer_cls, scoring="accuracy",
-                cv_splits=CONFIG["N_SPLITS_TS_GRIDSEARCH"], model_type="Classifier",
-            )
-
-            print("\n[INFO] Preparing predictions using PARALLEL Random Anchor Forecast evaluation...")
-            predictions = prepare_all_predictions(
-                data, best_reg_params=best_rf_reg_params, best_cls_params=best_rf_cls_params
-            )
-
-            print("\n[INFO] Creating Dash application...")
-            app = create_dash_app(predictions, data)
-
-            print(f"[INFO] Starting Dash app on http://127.0.0.1:{CONFIG['PORT']}")
-            app.run_server(debug=False, port=CONFIG['PORT'])
+        # Prepare predictions
+        predictions = prepare_all_predictions(data, best_rf_reg_params, best_rf_cls_params)
+        
+        # Start Dash app
+        app = create_dash_app(predictions, data)
+        print(f"[INFO] Starting server at http://127.0.0.1:{CONFIG['PORT']}")
+        app.run_server(debug=False, port=CONFIG['PORT'])
