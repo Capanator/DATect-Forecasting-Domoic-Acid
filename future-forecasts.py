@@ -10,6 +10,10 @@ import plotly.graph_objs as go
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
+import warnings
+
+warnings.filterwarnings(category=DeprecationWarning)
+
 
 # ================================
 # DATA HANDLING
