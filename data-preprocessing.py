@@ -368,9 +368,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
         print(f"generate_satellite_parquet is returning None (error or no file generated).")
     return path_to_return
 
-import pandas as pd
-import numpy as np
-
 def find_best_satellite_match(target_row, sat_pivot_indexed):
     target_site = target_row.get('Site')
     target_ts = target_row.get('timestamp_dt') # Weekly timestamp from target_df
