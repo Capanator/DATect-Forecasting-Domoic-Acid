@@ -104,7 +104,20 @@ def load_and_prepare_data(file_path):
 
 # Model Functions
 def safe_fit_predict(model, X_train, y_train, X_test, model_type):
-    model.fit(X_train, y_train.astype(int if model_type == "classification" else float))
+    if model_type == "classification":
+        # y_train is expected to be a pandas Series.
+        # .nunique() correctly counts distinct non-NA values.
+        if y_train.nunique() < 2:
+            print(f"[WARN] Not enough classes in y_train for classification model {type(model).__name__}. "
+                  f"Found {y_train.nunique()} unique value(s): {y_train.unique().tolist()}. "
+                  f"Required at least 2. X_test has {X_test.shape[0]} sample(s). Returning NaN predictions.")
+            # Return an array of NaNs with the same shape as expected predictions
+            return np.full(X_test.shape[0], np.nan)
+        y_train_processed = y_train.astype(int)
+    else: # regression
+        y_train_processed = y_train.astype(float)
+
+    model.fit(X_train, y_train_processed)
     return model.predict(X_test)
 
 def run_grid_search(base_model, param_grid, X, y, preprocessor, scoring, cv_splits, model_type):
