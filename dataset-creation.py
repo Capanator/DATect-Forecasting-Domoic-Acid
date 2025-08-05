@@ -18,7 +18,6 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-
 
 # --- Configuration Loading ---
 CONFIG_FILE = 'config.json'
-SATELLITE_CONFIG_FILE = 'satellite_config.json'
 FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
@@ -48,12 +47,10 @@ SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
 print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
-# Load satellite configuration if needed
-satellite_metadata = {}
-print(f"\n--- Loading Satellite Configuration from {SATELLITE_CONFIG_FILE} ---")
-with open(SATELLITE_CONFIG_FILE, 'r') as f:
-    satellite_metadata = json.load(f)
-print(f"Satellite configuration loaded with {len(satellite_metadata)-1} data types.")
+# Load satellite configuration from main config
+satellite_metadata = config.get('satellite_data', {})
+print(f"\n--- Satellite Configuration loaded from main config ---")
+print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
 # --- Helper Functions ---
 def download_file(url, filename):
@@ -170,8 +167,8 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     """
 
     # --- Date Range Setup ---
-    global_start_str = satellite_metadata_dict.get("start_date")
-    global_anom_start_str = satellite_metadata_dict.get("anom_start_date")
+    global_start_str = satellite_metadata_dict.get("satellite_start_date")
+    global_anom_start_str = satellite_metadata_dict.get("satellite_anom_start_date")
     with open(CONFIG_FILE, 'r') as f:
         main_config = json.load(f)
     main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
@@ -192,7 +189,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     tasks = []
     processed_site_datatype_pairs = set()
     for data_type, sat_sites_dict in satellite_metadata_dict.items():
-        if data_type in ["end_date", "start_date", "anom_start_date"] or not isinstance(sat_sites_dict, dict):
+        if data_type in ["satellite_end_date", "satellite_start_date", "satellite_anom_start_date"] or not isinstance(sat_sites_dict, dict):
             continue
         for site, url_template in sat_sites_dict.items():
             normalized_site_name = site.lower().replace("_", " ").replace("-", " ")
