@@ -417,40 +417,39 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         is_anomaly_var = "anom" in var_name.lower()
 
         if is_anomaly_var:
+            # FIXED: Use data from at least 2 months before target to avoid leakage
             current_month_period = target_ts.to_period('M')
-            previous_month_period = current_month_period - 1
-            prev_month_start_time = previous_month_period.start_time
-            prev_month_end_time = previous_month_period.end_time
+            # Use data from 2 months prior to ensure no temporal overlap
+            safe_month_period = current_month_period - 2
+            safe_month_start_time = safe_month_period.start_time
+            safe_month_end_time = safe_month_period.end_time
 
-            data_in_prev_month = non_nan_var_series[
-                (non_nan_var_series.index >= prev_month_start_time) &
-                (non_nan_var_series.index < prev_month_end_time)
+            data_in_safe_month = non_nan_var_series[
+                (non_nan_var_series.index >= safe_month_start_time) &
+                (non_nan_var_series.index <= safe_month_end_time)
             ]
 
-            if not data_in_prev_month.empty:
-                chosen_ts = data_in_prev_month.index.max()
-                result_series[var_name] = data_in_prev_month.loc[chosen_ts]
+            if not data_in_safe_month.empty:
+                chosen_ts = data_in_safe_month.index.max()
+                result_series[var_name] = data_in_safe_month.loc[chosen_ts]
             else:
-                # Fallback for Anomaly: Absolute closest overall
-                time_deltas = np.abs(non_nan_var_series.index - target_ts)
-                # Convert TimedeltaIndex to Series before idxmin()
-                time_deltas_series = pd.Series(time_deltas, index=non_nan_var_series.index)
-                closest_ts_for_var = time_deltas_series.idxmin()
-                result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
+                # Fallback: Use data from at least 1 month before target
+                cutoff_date = target_ts - pd.DateOffset(months=1)
+                data_before_cutoff = non_nan_var_series[non_nan_var_series.index <= cutoff_date]
+                if not data_before_cutoff.empty:
+                    chosen_ts = data_before_cutoff.index.max()
+                    result_series[var_name] = data_before_cutoff.loc[chosen_ts]
         else:
-            # Strategy for Non-Anomaly (e.g., "MODIS") Variables
-            data_on_or_before = non_nan_var_series[non_nan_var_series.index <= target_ts]
+            # FIXED: For regular satellite data, use strict temporal cutoff (1 week minimum)
+            cutoff_date = target_ts - pd.Timedelta(days=7)
+            data_on_or_before = non_nan_var_series[non_nan_var_series.index <= cutoff_date]
 
             if not data_on_or_before.empty:
                 chosen_ts = data_on_or_before.index.max()
                 result_series[var_name] = data_on_or_before.loc[chosen_ts]
             else:
-                # Fallback for Non-Anomaly: Absolute closest overall
-                time_deltas = np.abs(non_nan_var_series.index - target_ts)
-                # Convert TimedeltaIndex to Series before idxmin()
-                time_deltas_series = pd.Series(time_deltas, index=non_nan_var_series.index)
-                closest_ts_for_var = time_deltas_series.idxmin()
-                result_series[var_name] = non_nan_var_series.loc[closest_ts_for_var]
+                # No fallback - if no data available with safe temporal distance, leave as NaN
+                pass
     return result_series
 
 def add_satellite_data(target_df, satellite_parquet_path):
@@ -735,7 +734,7 @@ def generate_compiled_data(sites_dict, start_dt, end_dt):
 
 def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
     """Merge climate indices and streamflow data into base DataFrame.
-    ONI and PDO are merged based on the previous month's value.
+    ONI and PDO are merged based on the previous month's value with temporal buffer.
     Streamflow is merged using backward fill within a 7-day tolerance.
     """
     print("\n--- Merging Environmental Data ---")
@@ -743,12 +742,11 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
     # Ensure Date is datetime type
     compiled_df['Date'] = pd.to_datetime(compiled_df['Date'])
 
-    # Calculate the target 'previous month' for merging ONI/PDO data.
-    # If compiled_df['Date'] is '2023-07-15', its month is Period('2023-07', 'M').
-    # TargetPrevMonth will be Period('2023-06', 'M').
+    # FIXED: Add temporal buffer for climate indices to account for reporting delays
+    # Use data from 2 months prior to ensure it was available at prediction time
     compiled_df['TargetPrevMonth'] = compiled_df['Date'].dt.to_period(
         "M"
-    ) - 1  # Corrected line: subtract 1 to get the previous period
+    ) - 2  # Use 2 months prior to account for reporting delays
 
     # Sort compiled_df initially (optional for merge, but good for consistency)
     compiled_df = compiled_df.sort_values(["Site", "Date"])
@@ -840,19 +838,19 @@ def compile_da_pn(lt_df, da_df, pn_df):
     lt_df_merged = pd.merge(lt_df_merged, pn_df_copy[['Date', 'Site', 'PN_Levels']], 
                             on=['Date', 'Site'], how='left')
         
-    # Interpolate missing values
-    print("  Interpolating missing values...")
+    # FIXED: Interpolate missing values using only forward direction to prevent future data leakage
+    print("  Interpolating missing values (forward-only to prevent leakage)...")
     lt_df_merged = lt_df_merged.sort_values(by=['Site', 'Date'])
     
-    # Interpolate DA
+    # Interpolate DA - ONLY forward direction
     lt_df_merged['DA_Levels'] = lt_df_merged.groupby('Site')['DA_Levels_orig'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='both')
+        lambda x: x.interpolate(method='linear', limit_direction='forward')
     )
     lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
         
-    # Interpolate PN
+    # Interpolate PN - ONLY forward direction
     lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='both')
+        lambda x: x.interpolate(method='linear', limit_direction='forward')
     )
     
     return lt_df_merged
