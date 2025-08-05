@@ -92,20 +92,20 @@ class ImprovedDAForecast:
         data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
         data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
 
+        # Target categorization (like past-forecasts-final.py)
+        data["da-category"] = pd.cut(
+            data["da"],
+            bins=[-float("inf"), 5, 20, 40, float("inf")],
+            labels=[0, 1, 2, 3],
+            right=True,
+        ).astype(pd.Int64Dtype())
+
         # Lag features (will be created per forecast to avoid leakage)
         if CONFIG["ENABLE_LAG_FEATURES"]:
             print("[INFO] Will create lag features per forecast")
 
         return data
     
-    def create_da_categories_for_training(self, da_values):
-        """Create DA categories from training data only (fixes leakage)."""
-        return pd.cut(
-            da_values,
-            bins=[-float("inf"), 5, 20, 40, float("inf")],
-            labels=[0, 1, 2, 3],
-            right=True,
-        ).astype(pd.Int64Dtype())
     
     def get_model(self, task, model_type):
         """Get model based on task and model type (no hyperparameter tuning)."""
@@ -117,7 +117,9 @@ class ImprovedDAForecast:
                     n_jobs=1
                 )
             elif model_type == "linear":
-                return LinearRegression(n_jobs=1)
+                # Add regularization to prevent numerical overflow
+                from sklearn.linear_model import Ridge
+                return Ridge(alpha=1.0, random_state=CONFIG["RANDOM_SEED"])
         elif task == "classification":
             if model_type == "rf":
                 return RandomForestClassifier(
@@ -129,6 +131,7 @@ class ImprovedDAForecast:
                 return LogisticRegression(
                     solver="lbfgs", 
                     max_iter=1000, 
+                    C=1.0,  # Add regularization
                     random_state=CONFIG["RANDOM_SEED"], 
                     n_jobs=1
                 )
@@ -160,53 +163,41 @@ class ImprovedDAForecast:
             if test_df_single_row["date"].min() < min_target_date:
                 return None
             
-            # Create categories ONLY from training data (FIXES LEAKAGE)
-            train_df["da-category"] = self.create_da_categories_for_training(train_df["da"])
-            
-            # Don't drop NaN values like original - let sklearn handle them
-            # Original past-forecasts-final.py does have dropna but for different purpose
-            
-            # Run only the selected task
+            # Always make both predictions (like past-forecasts-final.py)
             common_cols = ["date", "site"]
+            drop_cols = common_cols + ["da", "da-category"]
             
-            if CONFIG["SELECTED_TASK"] == "regression":
-                # Regression processing
-                drop_cols = common_cols + ["da", "da-category"]
-                transformer, X_train = self.create_numeric_transformer(train_df, drop_cols)
-                X_test = test_df_single_row.drop(columns=drop_cols, errors="ignore")
-                X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
-                
-                model = self.get_model("regression", CONFIG["SELECTED_MODEL"])
-                X_train_processed = transformer.fit_transform(X_train)
-                X_test_processed = transformer.transform(X_test)
-                model.fit(X_train_processed, train_df["da"])
-                y_pred = model.predict(X_test_processed)[0]
-                
-                result = test_df_single_row.copy()
-                result["Predicted_da"] = y_pred
-                result["Predicted_da-category"] = np.nan
-                
-            elif CONFIG["SELECTED_TASK"] == "classification":
-                # Classification processing
-                drop_cols = common_cols + ["da", "da-category"]
-                transformer, X_train = self.create_numeric_transformer(train_df, drop_cols)
-                X_test = test_df_single_row.drop(columns=drop_cols, errors="ignore")
-                X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
-                
-                # Check if we have multiple classes
-                unique_classes = train_df["da-category"].dropna().nunique()
-                if unique_classes < 2:
-                    y_pred = np.nan
-                else:
-                    model = self.get_model("classification", CONFIG["SELECTED_MODEL"])
-                    X_train_processed = transformer.fit_transform(X_train)
-                    X_test_processed = transformer.transform(X_test)
-                    model.fit(X_train_processed, train_df["da-category"])
-                    y_pred = model.predict(X_test_processed)[0]
-                
-                result = test_df_single_row.copy()
-                result["Predicted_da"] = np.nan
-                result["Predicted_da-category"] = y_pred
+            # Regression processing
+            transformer_reg, X_train_reg = self.create_numeric_transformer(train_df, drop_cols)
+            X_test_reg = test_df_single_row.drop(columns=drop_cols, errors="ignore")
+            X_test_reg = X_test_reg.reindex(columns=X_train_reg.columns, fill_value=0)
+            
+            reg_model = self.get_model("regression", CONFIG["SELECTED_MODEL"])
+            X_train_reg_processed = transformer_reg.fit_transform(X_train_reg)
+            X_test_reg_processed = transformer_reg.transform(X_test_reg)
+            reg_model.fit(X_train_reg_processed, train_df["da"])
+            y_pred_reg = reg_model.predict(X_test_reg_processed)[0]
+            
+            # Classification processing
+            transformer_cls, X_train_cls = self.create_numeric_transformer(train_df, drop_cols)
+            X_test_cls = test_df_single_row.drop(columns=drop_cols, errors="ignore")
+            X_test_cls = X_test_cls.reindex(columns=X_train_cls.columns, fill_value=0)
+            
+            # Check if we have multiple classes
+            unique_classes = train_df["da-category"].dropna().nunique()
+            if unique_classes < 2:
+                y_pred_cls = np.nan
+            else:
+                cls_model = self.get_model("classification", CONFIG["SELECTED_MODEL"])
+                X_train_cls_processed = transformer_cls.fit_transform(X_train_cls)
+                X_test_cls_processed = transformer_cls.transform(X_test_cls)
+                cls_model.fit(X_train_cls_processed, train_df["da-category"])
+                y_pred_cls = cls_model.predict(X_test_cls_processed)[0]
+            
+            # Return result with both predictions
+            result = test_df_single_row.copy()
+            result["Predicted_da"] = y_pred_reg
+            result["Predicted_da-category"] = y_pred_cls
             
             return result
             
@@ -287,11 +278,8 @@ class ImprovedDAForecast:
                 new_row['da'] = np.nan
                 df_forecast = pd.DataFrame([new_row])
             
-            # Training data
+            # Training data (categories already created globally)
             df_train = df_site[df_site['date'] <= anchor_date].copy()
-            
-            # Create categories ONLY from training data (FIXES LEAKAGE)
-            df_train['da-category'] = self.create_da_categories_for_training(df_train['da'])
             
             # Don't drop NaN values like original - let sklearn handle them
             # Original future-forecasts.py doesn't have dropna() calls
@@ -528,33 +516,11 @@ class ImprovedForecastApp:
             
         app = dash.Dash(__name__)
         sites_list = sorted(self.results_df["site"].unique().tolist())
-        forecast_methods = [{"label": "Random Forest (ML)", "value": "ml"}]
-        if CONFIG["ENABLE_LINEAR_LOGISTIC"]:
-            forecast_methods.append({"label": "Linear/Logistic Regression (LR)", "value": "lr"})
 
         app.layout = html.Div([
-            html.H1("Domoic Acid Forecast Dashboard (Random Anchor Evaluation)"), 
-            html.Div([
-                html.Label("Select Model Method:"),
-                dcc.Dropdown(
-                    id="forecast-method-dropdown",
-                    options=forecast_methods,
-                    value="ml",
-                    clearable=False,
-                    style={"width": "30%", "marginLeft": "10px"},
-                ),
-            ], style={"display": "flex", "alignItems": "center", "marginBottom": "20px"}),
+            html.H1("Domoic Acid Forecast Dashboard (Random Anchor Evaluation)"),
             html.Div([
                 html.H3("Overall Analysis (Aggregated Random Anchor Forecasts)"),
-                dcc.Dropdown(
-                    id="forecast-type-dropdown",
-                    options=[
-                        {"label": "DA Levels (Regression)", "value": "DA_Level"},
-                        {"label": "DA Category (Classification)", "value": "da-category"},
-                    ],
-                    value="DA_Level",
-                    style={"width": "50%", "marginBottom": "15px"},
-                ),
                 dcc.Dropdown(
                     id="site-dropdown",
                     options=[{"label": "All sites", "value": "All sites"}] + [
@@ -569,31 +535,25 @@ class ImprovedForecastApp:
 
         @app.callback(
             Output("analysis-graph", "figure"),
-            [
-                Input("forecast-type-dropdown", "value"),
-                Input("site-dropdown", "value"),
-                Input("forecast-method-dropdown", "value"),
-            ],
+            [Input("site-dropdown", "value")],
         )
-        def update_graph(forecast_type, selected_site, forecast_method):
+        def update_graph(selected_site):
             df_plot = self.results_df.copy()
             
             if selected_site and selected_site != "All sites":
                 df_plot = df_plot[df_plot["site"] == selected_site]
             
-            if forecast_type == "DA_Level":
-                # Time series line plot (like original)
+            # Show results based on the selected task
+            if CONFIG["SELECTED_TASK"] == "regression":
+                # Show regression results
                 df_clean = df_plot.dropna(subset=['da', 'Predicted_da']).copy()
                 if df_clean.empty:
-                    return px.line(title="No data available")
+                    return px.line(title="No regression data available")
                     
                 df_clean = df_clean.sort_values('date')
-                
-                # Create time series plot
                 fig = go.Figure()
                 
                 if selected_site == "All sites" or not selected_site:
-                    # Multiple sites - use different colors
                     for site in df_clean['site'].unique():
                         site_data = df_clean[df_clean['site'] == site]
                         fig.add_trace(go.Scatter(
@@ -607,7 +567,6 @@ class ImprovedForecastApp:
                             line=dict(dash='dash')
                         ))
                 else:
-                    # Single site
                     fig.add_trace(go.Scatter(
                         x=df_clean['date'], y=df_clean['da'],
                         mode='lines+markers', name='Actual DA',
@@ -619,7 +578,6 @@ class ImprovedForecastApp:
                         line=dict(color='red', width=2, dash='dash')
                     ))
                 
-                # Calculate and display metrics
                 r2 = r2_score(df_clean['da'], df_clean['Predicted_da'])
                 mae = mean_absolute_error(df_clean['da'], df_clean['Predicted_da'])
                 
@@ -630,42 +588,49 @@ class ImprovedForecastApp:
                     hovermode='x unified'
                 )
                 
-            else:  # da-category
-                df_clean = df_plot.dropna(subset=['da-category', 'Predicted_da-category']).copy()
+            elif CONFIG["SELECTED_TASK"] == "classification":
+                # Show classification results
+                cat_cols = []
+                if 'da-category' in df_plot.columns and 'Predicted_da-category' in df_plot.columns:
+                    cat_cols = ['da-category', 'Predicted_da-category']
+                elif 'da_category' in df_plot.columns and 'Predicted_da_category' in df_plot.columns:
+                    cat_cols = ['da_category', 'Predicted_da_category']
+                
+                df_clean = df_plot.dropna(subset=cat_cols).copy()
                 if df_clean.empty:
                     return px.line(title="No classification data available")
                     
                 df_clean = df_clean.sort_values('date')
-                
-                # Create category time series
+                actual_col, pred_col = cat_cols
                 fig = go.Figure()
                 
                 if selected_site == "All sites" or not selected_site:
                     for site in df_clean['site'].unique():
                         site_data = df_clean[df_clean['site'] == site]
                         fig.add_trace(go.Scatter(
-                            x=site_data['date'], y=site_data['da-category'],
+                            x=site_data['date'], y=site_data[actual_col],
                             mode='lines+markers', name=f'{site} - Actual Category',
                             line=dict(dash='solid')
                         ))
                         fig.add_trace(go.Scatter(
-                            x=site_data['date'], y=site_data['Predicted_da-category'],
+                            x=site_data['date'], y=site_data[pred_col],
                             mode='lines+markers', name=f'{site} - Predicted Category',
                             line=dict(dash='dash')
                         ))
                 else:
                     fig.add_trace(go.Scatter(
-                        x=df_clean['date'], y=df_clean['da-category'],
+                        x=df_clean['date'], y=df_clean[actual_col],
                         mode='lines+markers', name='Actual Category',
                         line=dict(color='blue', width=2)
                     ))
                     fig.add_trace(go.Scatter(
-                        x=df_clean['date'], y=df_clean['Predicted_da-category'],
+                        x=df_clean['date'], y=df_clean[pred_col],
                         mode='lines+markers', name='Predicted Category',
                         line=dict(color='red', width=2, dash='dash')
                     ))
                 
-                accuracy = accuracy_score(df_clean['da-category'], df_clean['Predicted_da-category'])
+                from sklearn.metrics import accuracy_score
+                accuracy = accuracy_score(df_clean[actual_col], df_clean[pred_col])
                 
                 fig.update_layout(
                     title=f"DA Category Forecast - {selected_site or 'All Sites'}<br>Accuracy = {accuracy:.3f}",
@@ -675,6 +640,9 @@ class ImprovedForecastApp:
                              ticktext=['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)']),
                     hovermode='x unified'
                 )
+                
+            else:
+                return px.line(title=f"Unknown task: {CONFIG['SELECTED_TASK']}")
             
             return fig
 
