@@ -16,20 +16,17 @@ Date: 2025-01-08
 import argparse
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 import warnings
 import random
-from typing import Dict
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor
 from sklearn.linear_model import Ridge, LogisticRegression
-from sklearn.base import clone
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
@@ -576,8 +573,6 @@ class LeakFreeForecastApp:
 
         app.layout = html.Div([
             html.H1("LEAK-FREE Domoic Acid Forecast Dashboard"),
-            html.H3("⚠️ CORRECTED RESULTS - All Data Leakage Issues Fixed ⚠️", 
-                   style={'color': 'green', 'backgroundColor': '#f0f8f0', 'padding': '10px'}),
             html.Div([
                 dcc.Dropdown(
                     id="site-dropdown",
@@ -707,8 +702,6 @@ class LeakFreeForecastApp:
 
         app.layout = html.Div([
             html.H3("LEAK-FREE Forecast by Specific Date & Site"),
-            html.Div("✅ All Data Leakage Issues Fixed", 
-                    style={'color': 'green', 'fontWeight': 'bold', 'marginBottom': '20px'}),
 
             html.Label("Choose a site:"),
             dcc.Dropdown(
