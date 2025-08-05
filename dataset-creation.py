@@ -9,6 +9,7 @@ from datetime import datetime
 from tqdm import tqdm
 import warnings
 import shutil
+import config
 
 # Suppress warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -17,7 +18,6 @@ warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer
 warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision") # Add this for xarray date handling
 
 # --- Configuration Loading ---
-CONFIG_FILE = 'config.json'
 FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
 
 # Lists to track temporary files for cleanup
@@ -27,28 +27,26 @@ temporary_nc_files_for_stitching = [] # Track yearly files per dataset
 
 
 # Load main configuration
-print(f"--- Loading Configuration from {CONFIG_FILE} ---")
-with open(CONFIG_FILE, 'r') as f:
-    config = json.load(f)
+print(f"--- Loading Configuration from config.py ---")
 
 # Extract config values
-da_files = config.get('original_da_files', {})
-pn_files = config.get('original_pn_files', {})
-sites = config.get('sites', {})
-pdo_url = config.get('pdo_url')
-oni_url = config.get('oni_url')
-beuti_url = config.get('beuti_url')
-streamflow_url = config.get('streamflow_url')
-start_date = pd.to_datetime(config.get('start_date', '2000-01-01'))
-end_date = pd.to_datetime(config.get('end_date', datetime.now().strftime('%Y-%m-%d')))
-final_output_path = config.get('final_output_path', 'config_final_output.parquet')
+da_files = config.ORIGINAL_DA_FILES
+pn_files = config.ORIGINAL_PN_FILES
+sites = config.SITES
+pdo_url = config.PDO_URL
+oni_url = config.ONI_URL
+beuti_url = config.BEUTI_URL
+streamflow_url = config.STREAMFLOW_URL
+start_date = pd.to_datetime(config.START_DATE)
+end_date = pd.to_datetime(config.END_DATE)
+final_output_path = config.FINAL_OUTPUT_PATH
 SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
 
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
 print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
 # Load satellite configuration from main config
-satellite_metadata = config.get('satellite_data', {})
+satellite_metadata = config.SATELLITE_DATA
 print(f"\n--- Satellite Configuration loaded from main config ---")
 print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
@@ -169,9 +167,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
     # --- Date Range Setup ---
     global_start_str = satellite_metadata_dict.get("satellite_start_date")
     global_anom_start_str = satellite_metadata_dict.get("satellite_anom_start_date")
-    with open(CONFIG_FILE, 'r') as f:
-        main_config = json.load(f)
-    main_end_date_str = main_config.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+    main_end_date_str = config.END_DATE
 
     main_end_dt = pd.to_datetime(main_end_date_str)
     # Ensure the global_end_dt represents the very end of the specified day

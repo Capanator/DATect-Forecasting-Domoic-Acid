@@ -13,12 +13,12 @@ Author: Claude Code Analysis & Correction
 Date: 2025-01-08
 """
 
-import argparse
 import pandas as pd
 import numpy as np
 from datetime import datetime
 import warnings
 import random
+import config
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -37,16 +37,16 @@ import plotly.graph_objects as go
 
 warnings.filterwarnings('ignore')
 
-# Configuration
+# Configuration loaded from config.py
 CONFIG = {
-    "DATA_FILE": "final_output.parquet",
-    "PORT_RETRO": 8071,
-    "PORT_REALTIME": 8065,
-    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 50,
+    "DATA_FILE": config.FINAL_OUTPUT_PATH,
+    "PORT_RETRO": 8071,  # Keep separate port for retrospective dashboard
+    "PORT_REALTIME": config.DASHBOARD_PORT,
+    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": config.NUM_ANCHORS,
     "MIN_TEST_DATE": "2008-01-01",
     "N_JOBS_EVAL": -1,
-    "RANDOM_SEED": 42,
-    "TEMPORAL_BUFFER_DAYS": 1,  # Minimum days between training data and prediction (reduced for better performance)
+    "RANDOM_SEED": config.RANDOM_SEED,
+    "TEMPORAL_BUFFER_DAYS": config.TEMPORAL_BUFFER_DAYS,
 }
 
 random.seed(CONFIG["RANDOM_SEED"])
@@ -57,8 +57,8 @@ class LeakFreeDAForecast:
     """Completely leak-free DA forecasting system."""
     
     def __init__(self):
-        self.da_category_bins = [-float("inf"), 5, 20, 40, float("inf")]
-        self.da_category_labels = [0, 1, 2, 3]
+        self.da_category_bins = config.DA_CATEGORY_BINS
+        self.da_category_labels = config.DA_CATEGORY_LABELS
         
     def load_and_prepare_base_data(self, file_path):
         """Load base data WITHOUT any target-based preprocessing."""
@@ -851,37 +851,39 @@ class LeakFreeForecastApp:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="LEAK-FREE DA Forecasting Application")
-    parser.add_argument('--mode', choices=['retrospective', 'realtime'], required=True)
-    parser.add_argument('--task', choices=['regression', 'classification', 'both'], default='both',
-                       help='Task for retrospective mode')
-    parser.add_argument('--model', choices=['rf', 'linear'], default='rf',
-                       help='Model type: rf (Random Forest) or linear')
-    parser.add_argument('--data', default='final_output.parquet')
-    parser.add_argument('--port', type=int, default=None)
-    parser.add_argument('--anchors', type=int, default=None, 
-                       help='Number of anchor forecasts per site')
-    parser.add_argument('--min-test-date', default='2008-01-01')
+    """
+    Main function using configuration from config.py
+    No command line arguments needed - all settings controlled via config.py
+    """
+    print("=== LEAK-FREE DA Forecasting Application ===")
+    print(f"Mode: {config.FORECAST_MODE}")
+    print(f"Task: {config.FORECAST_TASK}")
+    print(f"Model: {config.FORECAST_MODEL}")
+    print(f"Anchors: {config.NUM_ANCHORS}")
+    print(f"Port: {config.DASHBOARD_PORT}")
+    print()
     
-    args = parser.parse_args()
-    
-    # Override anchors per site if specified
-    if args.anchors is not None:
-        CONFIG["NUM_RANDOM_ANCHORS_PER_SITE_EVAL"] = args.anchors
-    
-    # Initialize app
-    app = LeakFreeForecastApp(args.data)
+    # Initialize app with configured data file
+    app = LeakFreeForecastApp(config.FINAL_OUTPUT_PATH)
     app.load_data()
     
-    if args.mode == 'retrospective':
-        port = args.port or CONFIG["PORT_RETRO"]
-        n_anchors = CONFIG["NUM_RANDOM_ANCHORS_PER_SITE_EVAL"]
+    if config.FORECAST_MODE == 'retrospective':
+        port = CONFIG["PORT_RETRO"]  # Use separate port for retrospective
+        n_anchors = config.NUM_ANCHORS
         print(f"[INFO] Using {n_anchors} leak-free anchor forecasts per site")
-        app.run_retrospective_evaluation(args.task, args.model, n_anchors, args.min_test_date)
-        app.create_retrospective_dashboard(args.task, port)
-    else:  # realtime
-        port = args.port or CONFIG["PORT_REALTIME"]
+        
+        # Convert model shorthand to supported format
+        model_type = 'rf' if config.FORECAST_MODEL in ['rf', 'gb'] else 'linear'
+        
+        app.run_retrospective_evaluation(config.FORECAST_TASK, model_type, n_anchors, CONFIG["MIN_TEST_DATE"])
+        app.create_retrospective_dashboard(config.FORECAST_TASK, port)
+    
+    elif config.FORECAST_MODE == 'realtime':
+        port = config.DASHBOARD_PORT
         app.create_realtime_dashboard(port)
+    
+    else:
+        raise ValueError(f"Invalid forecast mode: {config.FORECAST_MODE}. Must be 'retrospective' or 'realtime'")
 
 
 if __name__ == "__main__":
