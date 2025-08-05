@@ -8,7 +8,7 @@ This is a Domoic Acid (DA) forecasting system that predicts harmful algal bloom 
 
 ## Core Architecture
 
-**Data Processing Pipeline (`data-preprocessing.py`)**
+**Data Processing Pipeline (`dataset-creation.py`)**
 - Fetches and processes satellite oceanographic data (MODIS chlorophyll, SST, PAR, fluorescence, K490)
 - Downloads climate indices (PDO, ONI, BEUTI) and streamflow data from NOAA/USGS APIs  
 - Processes shellfish DA/PN measurements from CSV files
