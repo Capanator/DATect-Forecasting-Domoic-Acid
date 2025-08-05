@@ -281,8 +281,10 @@ class ImprovedDAForecast:
             # Training data (categories already created globally)
             df_train = df_site[df_site['date'] <= anchor_date].copy()
             
-            # Don't drop NaN values like original - let sklearn handle them
-            # Original future-forecasts.py doesn't have dropna() calls
+            # Remove rows with NaN targets to prevent sklearn errors
+            df_train = df_train.dropna(subset=['da'])
+            if df_train.empty or len(df_train) < 5:
+                return None
             
             # Feature processing
             base_drop_cols = ['date', 'site', 'da']

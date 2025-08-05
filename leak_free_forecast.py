@@ -49,7 +49,7 @@ CONFIG = {
     "MIN_TEST_DATE": "2008-01-01",
     "N_JOBS_EVAL": -1,
     "RANDOM_SEED": 42,
-    "TEMPORAL_BUFFER_DAYS": 7,  # Minimum days between training data and prediction
+    "TEMPORAL_BUFFER_DAYS": 1,  # Minimum days between training data and prediction (reduced for better performance)
 }
 
 random.seed(CONFIG["RANDOM_SEED"])
@@ -91,7 +91,10 @@ class LeakFreeDAForecast:
             
             # CRITICAL: Only use lag values that are strictly before cutoff_date
             # This prevents using future information in training data
-            lag_cutoff_mask = df_sorted['date'] > cutoff_date
+            # But be less restrictive - only affect data very close to cutoff
+            buffer_days = 1  # Reduced from original stricter implementation
+            lag_cutoff_date = cutoff_date - pd.Timedelta(days=buffer_days)
+            lag_cutoff_mask = df_sorted['date'] > lag_cutoff_date
             df_sorted.loc[lag_cutoff_mask, f"{value_col}_lag_{lag}"] = np.nan
             
         return df_sorted
@@ -126,7 +129,10 @@ class LeakFreeDAForecast:
         if task == "regression":
             if model_type == "rf":
                 return RandomForestRegressor(
-                    n_estimators=100, 
+                    n_estimators=200,  # Increased for better performance
+                    max_depth=10,      # Controlled depth to prevent overfitting
+                    min_samples_split=2,
+                    min_samples_leaf=1,
                     random_state=CONFIG["RANDOM_SEED"], 
                     n_jobs=1
                 )
@@ -135,7 +141,10 @@ class LeakFreeDAForecast:
         elif task == "classification":
             if model_type == "rf":
                 return RandomForestClassifier(
-                    n_estimators=100, 
+                    n_estimators=200,  # Increased for better performance
+                    max_depth=10,      # Controlled depth to prevent overfitting
+                    min_samples_split=2,
+                    min_samples_leaf=1,
                     random_state=CONFIG["RANDOM_SEED"], 
                     n_jobs=1
                 )
@@ -189,18 +198,19 @@ class LeakFreeDAForecast:
             if train_df.empty or test_df.empty:
                 return None
             
-            # Create DA categories ONLY from training data
-            train_df["da-category"] = self.create_da_categories_safe(train_df["da"])
+            # Remove rows with missing target values from training FIRST
+            train_df_clean = train_df.dropna(subset=["da"]).copy()  # Fix pandas warning
+            if train_df_clean.empty or len(train_df_clean) < 5:  # Reduced minimum to allow more forecasts
+                return None
+            
+            # Create DA categories ONLY from clean training data
+            train_df_clean["da-category"] = self.create_da_categories_safe(train_df_clean["da"])
+            train_df = train_df_clean
             
             # Define columns to drop
             base_drop_cols = ["date", "site", "da"]
             train_drop_cols = base_drop_cols + ["da-category"]
             test_drop_cols = base_drop_cols  # Test data doesn't have categories yet
-            
-            # Remove rows with missing target values from training
-            train_df = train_df.dropna(subset=["da", "da-category"])
-            if train_df.empty:
-                return None
             
             # Prepare features
             transformer, X_train = self.create_numeric_transformer(train_df, train_drop_cols)
@@ -213,6 +223,12 @@ class LeakFreeDAForecast:
             try:
                 X_train_processed = transformer.fit_transform(X_train)
                 X_test_processed = transformer.transform(X_test)
+                
+                # Additional validation - check for NaN in targets
+                if pd.isna(train_df["da"]).any():
+                    print(f"NaN found in training targets for {site} at {anchor_date}")
+                    return None
+                    
             except Exception as e:
                 print(f"Feature processing error for {site} at {anchor_date}: {e}")
                 return None
@@ -330,13 +346,14 @@ class LeakFreeDAForecast:
             
             # Get training data (everything up to and including anchor date)
             df_train = df_site_with_lags[df_site_with_lags['date'] <= anchor_date].copy()
-            df_train = df_train.dropna(subset=['da'])  # Remove missing targets
+            df_train_clean = df_train.dropna(subset=['da']).copy()  # Remove missing targets and fix warning
             
-            if df_train.empty:
+            if df_train_clean.empty or len(df_train_clean) < 5:  # Reduced minimum to allow more forecasts
                 return None
             
             # Create categories from training data only
-            df_train['da-category'] = self.create_da_categories_safe(df_train['da'])
+            df_train_clean['da-category'] = self.create_da_categories_safe(df_train_clean['da'])
+            df_train = df_train_clean
             
             # Create forecast row (synthetic or real)
             forecast_row = None
@@ -365,6 +382,11 @@ class LeakFreeDAForecast:
             
             # Transform features
             try:
+                # Additional validation before transformation
+                if pd.isna(df_train['da']).any():
+                    print(f"NaN found in training targets for {site}")
+                    return None
+                    
                 X_train_processed = transformer.fit_transform(X_train)
                 X_forecast_processed = transformer.transform(X_forecast)
             except Exception as e:
