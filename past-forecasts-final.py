@@ -21,12 +21,12 @@ import plotly.express as px
 
 # Configuration
 CONFIG = {
-    "ENABLE_LAG_FEATURES": False,
+    "ENABLE_LAG_FEATURES": True,
     "ENABLE_LINEAR_LOGISTIC": True,
     "DATA_FILE": "final_output.parquet",
-    "PORT": 8071,
-    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 500,
-    "N_SPLITS_TS_GRIDSEARCH": 10,
+    "PORT": 8072,
+    "NUM_RANDOM_ANCHORS_PER_SITE_EVAL": 100,
+    "N_SPLITS_TS_GRIDSEARCH": 2,
     "MIN_TEST_DATE": "2008-01-01",
     "N_JOBS_EVAL": -1,
     "RANDOM_SEED": 42,

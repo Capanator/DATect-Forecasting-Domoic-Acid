@@ -1,188 +1,158 @@
 # Unified Domoic Acid Forecasting Pipeline
 
-This unified pipeline replaces the fragile, monolithic `future-forecasts.py` and `past-forecasts-final.py` scripts with a properly engineered, modular system that prevents data leakage and follows software engineering best practices.
+This unified pipeline replaces both `past-forecasts-final.py` and `future-forecasts.py` with a proper, modular, leak-free forecasting system.
 
 ## Key Improvements
 
-### 1. **Eliminated Data Leakage**
-- **Fixed DA Category Creation**: Categories are now created within individual training sets, not globally across the entire dataset
-- **Proper Lag Features**: Lag features are created only from historical data available at prediction time
-- **Clean Train/Test Splits**: No information from future observations leaks into training data
+### 1. **Eliminates Data Leakage**
+- **Problem Fixed**: The original code created `da-category` using `pd.cut()` on the entire dataset before train/test splits, causing look-ahead bias
+- **Solution**: Category encoding now happens within sklearn pipelines on training data only
+- **Problem Fixed**: Lag features were created on the entire dataframe at once
+- **Solution**: Lag features are now created per forecast using proper time series splits
 
-### 2. **Modular Architecture**
-- **`data_processing.py`**: Clean data handling and feature engineering
-- **`modeling.py`**: Complete sklearn pipelines with proper preprocessing
-- **`app.py`**: Unified dashboard for both evaluation and forecasting
+### 2. **Proper sklearn Pipeline Implementation**
+- **Problem Fixed**: Original code only used Pipeline for imputation/scaling after manual feature engineering
+- **Solution**: All preprocessing steps (feature creation, imputation, scaling) are now encapsulated in sklearn Pipelines
+- **Benefit**: Prevents leakage and makes the process reproducible
 
-### 3. **Proper sklearn Pipelines**
-- All preprocessing (imputation, scaling, feature creation) happens within pipelines
-- Prevents leakage between training and testing phases
-- Ensures reproducible and consistent transformations
+### 3. **Modular Architecture**
+- **Problem Fixed**: Monolithic files with mixed concerns
+- **Solution**: Separated into logical modules:
+  - `pipeline/feature_engineering.py` - Feature creation transformers
+  - `pipeline/models.py` - Model definitions and training
+  - `pipeline/data_splitter.py` - Time series splitting without leakage
+  - `pipeline/evaluation.py` - Performance evaluation
+  - `pipeline/forecast_pipeline.py` - Main orchestration
 
-## Quick Start
+### 4. **Unified Interface**
+- **Problem Fixed**: Two separate applications with different interfaces
+- **Solution**: Single application with command-line arguments for different modes
 
-### Installation Requirements
+## Usage
+
+### Retrospective Evaluation Mode
 ```bash
-pip install pandas numpy scikit-learn plotly dash tqdm joblib pyarrow
+python unified_forecast_app.py --mode retrospective --anchors 500
 ```
+- Generates random anchor points for evaluation
+- Runs time series cross-validation
+- Provides comprehensive performance metrics
+- Launches interactive dashboard on port 8071
 
-### Running the Application
+### Real-time Forecasting Mode
 ```bash
-python3 app.py
+python unified_forecast_app.py --mode realtime
 ```
+- Interactive forecasting for specific dates/sites
+- Provides point predictions and uncertainty intervals
+- Shows quantile predictions and classification probabilities
+- Launches dashboard on port 8065
 
-Navigate to http://localhost:8080 to access the unified dashboard.
-
-### Testing the Pipeline
+### Command Line Options
 ```bash
-python3 test_pipeline.py
+python unified_forecast_app.py \
+    --mode {retrospective|realtime} \
+    --data final_output.parquet \
+    --port 8071 \
+    --anchors 500 \
+    --min-test-date 2008-01-01 \
+    --enable-lag-features
 ```
 
-## File Structure
+## Architecture
 
-```
-├── data_processing.py      # Clean data processing without leakage
-├── modeling.py            # sklearn pipelines and forecasting models  
-├── app.py                # Unified dashboard application
-├── test_pipeline.py      # Comprehensive testing suite
-└── README_UNIFIED_PIPELINE.md
-```
+### Data Flow (Leak-Free)
+1. **Data Loading**: Raw data loaded from parquet file
+2. **Pipeline Fitting**: Feature transformers fitted on full dataset (learns scalers, encoders only)
+3. **Per-Forecast Processing**:
+   - Time series split (training < forecast date)
+   - Feature pipeline applied to training data only
+   - Models trained on processed training features
+   - Predictions made on forecast data
 
-## Architecture Overview
-
-### DataProcessor (`data_processing.py`)
-- **`load_data()`**: Basic data loading and preparation
-- **`get_train_test_split()`**: Clean temporal splits by site and anchor date
-- **`prepare_training_data()`**: Creates features and targets for training (prevents leakage)
-- **`prepare_forecast_data()`**: Prepares forecast data using only historical information
-- **`create_da_categories()`**: Creates categorical targets from continuous values
-
-### TimeSeriesForecaster (`modeling.py`)
-- Complete sklearn pipelines for both regression and classification
-- Automatic feature preprocessing (imputation, scaling)
-- Supports multiple model types: Random Forest, Gradient Boosting, Linear models
-- Prevents data leakage through proper pipeline structure
-
-### UnifiedForecastingApp (`app.py`)
-- **Future Forecasting Mode**: Generate predictions for specific dates/sites
-- **Past Evaluation Mode**: Comprehensive retrospective evaluation with random anchors
-- Interactive dashboard with visualizations
-- Supports both point predictions and uncertainty quantification
-
-## Usage Examples
-
-### 1. Future Forecasting
+### Feature Engineering Pipeline
 ```python
-from data_processing import DataProcessor
-from modeling import TimeSeriesForecaster
-
-# Load and prepare data
-processor = DataProcessor()
-data = processor.load_data('final_output.parquet')
-
-# Get training data up to anchor date
-train_data, _ = processor.get_train_test_split(data, 'SiteName', anchor_date)
-train_prepared = processor.prepare_training_data(train_data)
-train_filtered = processor.filter_features(train_prepared)
-
-# Create and train forecaster
-forecaster = TimeSeriesForecaster(model_type='random_forest', task='regression')
-forecaster.fit(train_filtered, train_prepared['da'])
-
-# Make prediction
-forecast_data = processor.prepare_forecast_data(forecast_row, train_prepared)
-forecast_filtered = processor.filter_features(forecast_data)
-prediction = forecaster.predict(forecast_filtered)
+Pipeline([
+    ('cleaner', DataCleaner()),
+    ('temporal', TemporalFeatures()),
+    ('category_encoder', CategoryEncoder()),  # Fits on training data only
+    ('lag_features', LagFeatures()),           # Creates lags per forecast
+    ('feature_selector', FeatureSelector())
+])
 ```
 
-### 2. Model Optimization
-```python
-from modeling import ModelOptimizer
+### Model Training
+- **Regression**: Random Forest + Quantile Gradient Boosting
+- **Classification**: Random Forest with class probabilities
+- **Validation**: TimeSeriesSplit for hyperparameter tuning
+- **Training**: Per-forecast model fitting (no global models)
 
-optimizer = ModelOptimizer(n_splits=5)
-best_params = optimizer.optimize(forecaster, X_train, y_train, scoring='r2')
-```
+## Key Classes
 
-### 3. Uncertainty Quantification
-```python
-from modeling import QuantileForecaster
+### `DAForecastPipeline`
+Main orchestration class that handles:
+- Feature pipeline creation and fitting
+- Single forecast generation
+- Retrospective evaluation with random anchors
+- Performance evaluation
 
-quantile_forecaster = QuantileForecaster(quantiles=[0.05, 0.5, 0.95])
-quantile_forecaster.fit(X_train, y_train)
-uncertainty_preds = quantile_forecaster.predict(X_test)
-```
+### `TimeSeriesSplitter`
+Handles proper time series data splitting:
+- Ensures no future data leaks into training
+- Creates synthetic forecast rows when needed
+- Validates splits for data integrity
 
-## Key Features
+### `ModelTrainer` & `ModelPredictor`
+Encapsulates model training and prediction:
+- Proper sklearn Pipeline usage
+- Error handling for edge cases
+- Multiple model types (regression, classification, quantile)
 
-### Data Leakage Prevention
-- ✅ DA categories created from training data only
-- ✅ Lag features use only historical information
-- ✅ No global statistics computed across train/test splits
-- ✅ Proper time series cross-validation
+## Performance Metrics
 
-### Robust Pipeline Design
-- ✅ All preprocessing encapsulated in sklearn pipelines
-- ✅ Automatic handling of missing values
-- ✅ Consistent feature scaling and transformation
-- ✅ Reproducible results with random seeds
+### Regression
+- R² Score
+- Mean Absolute Error (MAE)
+- Quantile Coverage (90% prediction intervals)
 
-### Comprehensive Evaluation
-- ✅ Random anchor point evaluation
-- ✅ Site-specific and overall performance metrics
-- ✅ Both regression (R², MAE, RMSE) and classification (accuracy) metrics
-- ✅ Uncertainty quantification with prediction intervals
+### Classification
+- Accuracy
+- Confusion Matrix
+- Per-class performance
 
-### Interactive Dashboard
-- ✅ Toggle between past evaluation and future forecasting
-- ✅ Site and date selection
-- ✅ Model comparison (Random Forest vs Linear)
-- ✅ Real-time visualization of results
+### Evaluation
+- Overall metrics across all forecasts
+- Site-specific performance breakdown
+- Coverage analysis for uncertainty quantification
 
-## Performance
+## Data Requirements
 
-The unified pipeline is designed for efficiency:
-- Parallel processing for evaluation runs
-- Optimized data structures and operations
-- Configurable evaluation sample sizes
-- Proper memory management
-
-## Migration from Old Scripts
-
-### Replacing `future-forecasts.py`
-The new system provides the same functionality through the **Future Forecasting Mode** in the unified dashboard, but with proper data leakage prevention.
-
-### Replacing `past-forecasts-final.py` 
-The **Past Evaluation Mode** provides comprehensive retrospective evaluation with the same random anchor approach, but using clean pipelines.
+The pipeline expects a parquet file with columns:
+- `date`: Time series dates
+- `site`: Location identifiers  
+- `da`: Target variable (Domoic Acid levels)
+- Feature columns: Oceanographic and climate data
 
 ## Configuration
 
-Key configuration options in `app.py`:
+Easily configurable via `DAForecastConfig`:
 ```python
-config = {
-    'random_state': 42,           # Reproducibility
-    'n_evaluation_samples': 200,  # Number of evaluation points
-    'min_training_points': 10,    # Minimum training data required
-    'include_lags': True,         # Enable lag features
-    'port': 8080                  # Dashboard port
-}
+config = DAForecastConfig.create_config(
+    enable_lag_features=True,
+    random_state=42,
+    n_jobs=-1,
+    quantiles=[0.05, 0.5, 0.95]
+)
 ```
 
-## Validation
+## Benefits Over Original Code
 
-The pipeline includes comprehensive validation:
-- Unit tests for all major components
-- Integration tests with real data
-- Data leakage detection
-- Performance benchmarking
+1. **No Data Leakage**: Proper time series validation
+2. **Reproducible**: All preprocessing in sklearn Pipelines  
+3. **Modular**: Clean separation of concerns
+4. **Maintainable**: Well-documented, testable components
+5. **Robust**: Proper error handling and validation
+6. **Flexible**: Easy to modify models and features
+7. **Unified**: Single interface for all forecasting needs
 
-Run `python3 test_pipeline.py` to verify everything works correctly.
-
-## Next Steps
-
-1. **Run the unified pipeline**: `python3 app.py`
-2. **Compare results**: Verify predictions match expectations
-3. **Customize models**: Add new model types or features as needed
-4. **Scale up**: Increase evaluation samples for more robust statistics
-5. **Deploy**: Set up production deployment if desired
-
-The unified pipeline addresses all the critical issues mentioned in the feedback while providing a much more maintainable and robust forecasting system.
+This implementation follows best practices for time series forecasting and machine learning pipeline design, ensuring reliable and unbiased model evaluation.
