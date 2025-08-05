@@ -193,7 +193,7 @@ SATELLITE_DATA = {
 }
 
 # =============================================================================
-# LEAK-FREE FORECAST CONFIGURATION
+# FORECAST CONFIGURATION
 # =============================================================================
 
 # Operation Mode Configuration
@@ -235,8 +235,9 @@ SATELLITE_BUFFER_DAYS = 7  # Minimum days for satellite data temporal cutoff
 CLIMATE_BUFFER_MONTHS = 2  # Minimum months for climate index reporting delays
 
 # Model Performance Settings
-MIN_TRAINING_SAMPLES = 5  # Minimum samples required to train a model
+MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
+N_RANDOM_ANCHORS = 50  # Number of random anchor points for retrospective evaluation
 
 # DA Category Thresholds (μg/g)
 # Used for classification tasks and risk level assignment
