@@ -524,7 +524,8 @@ class RealtimeDashboard:
                 
                 try:
                     text_labels = [f"100%" if i == pred_cat else "" for i in range(len(CATEGORY_LABELS))]
-                except:
+                except (ValueError, TypeError, IndexError):
+                    # Fallback for label generation errors
                     text_labels = [""] * len(CATEGORY_LABELS)
                 
                 fig.add_trace(go.Bar(

@@ -323,7 +323,8 @@ class ForecastEngine:
                         try:
                             probabilities = model.predict_proba(X_forecast)[0]
                             result['class_probabilities'] = probabilities
-                        except:
+                        except Exception:
+                            # Silently skip probability calculation if not supported
                             pass
                 else:
                     return None

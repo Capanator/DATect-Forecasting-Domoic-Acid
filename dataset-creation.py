@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+"""
+Domoic Acid Dataset Creation Pipeline
+====================================
+
+Comprehensive data processing pipeline that downloads and processes:
+- Satellite oceanographic data (MODIS)
+- Climate indices (PDO, ONI, BEUTI)
+- Streamflow data (USGS)
+- Shellfish toxin measurements (DA/PN)
+
+Combines all data sources into unified weekly time series with temporal safeguards.
+
+Usage:
+    python dataset-creation.py
+    
+Configuration:
+    See config.py for all data sources, sites, and processing parameters.
+"""
+
 import pandas as pd
 import numpy as np
 import json
@@ -11,19 +31,23 @@ import warnings
 import shutil
 import config
 
-# Suppress warnings
+# Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
 warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`")
-warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision") # Add this for xarray date handling
+warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision")
 
-# --- Configuration Loading ---
-FORCE_SATELLITE_REPROCESSING = False # New flag: Set to True to always regenerate
+# =============================================================================
+# CONFIGURATION AND GLOBAL VARIABLES
+# =============================================================================
 
-# Lists to track temporary files for cleanup
+# Processing flags
+FORCE_SATELLITE_REPROCESSING = False  # Set to True to always regenerate satellite data
+
+# File tracking for cleanup
 downloaded_files = []
 generated_parquet_files = []
-temporary_nc_files_for_stitching = [] # Track yearly files per dataset
+temporary_nc_files_for_stitching = []  # Track yearly files per dataset
 
 
 # Load main configuration
@@ -50,8 +74,24 @@ satellite_metadata = config.SATELLITE_DATA
 print(f"\n--- Satellite Configuration loaded from main config ---")
 print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
-# --- Helper Functions ---
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
 def download_file(url, filename):
+    """
+    Download file from URL with error handling and progress tracking.
+    
+    Args:
+        url (str): URL to download from
+        filename (str): Local filename to save to
+        
+    Returns:
+        str: Path to downloaded file
+        
+    Raises:
+        requests.RequestException: If download fails
+    """
     response = requests.get(url, timeout=5000, stream=True)
     response.raise_for_status()
     
@@ -63,14 +103,33 @@ def download_file(url, filename):
     return filename
 
 def local_filename(url, ext, temp_dir=None):
-    """Generate appropriate local filename for download"""
+    """
+    Generate sanitized local filename from URL.
+    
+    Args:
+        url (str): Source URL
+        ext (str): File extension to use
+        temp_dir (str, optional): Temporary directory path
+        
+    Returns:
+        str: Sanitized local filename
+    """
     base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2]
     sanitized_base = "".join(c for c in base if c.isalnum() or c in ('-', '_', '.'))
-    root, existing_ext = os.path.splitext(sanitized_base or f"downloaded_file")
+    root, existing_ext = os.path.splitext(sanitized_base or "downloaded_file")
     base_name = root + (ext if not existing_ext or existing_ext == '.' else existing_ext)
     return os.path.join(temp_dir, base_name) if temp_dir else base_name
 
 def csv_to_parquet(csv_path):
+    """
+    Convert CSV file to Parquet format for faster I/O.
+    
+    Args:
+        csv_path (str): Path to CSV file
+        
+    Returns:
+        str: Path to generated Parquet file
+    """
     parquet_path = csv_path[:-4] + '.parquet'
     df = pd.read_csv(csv_path, low_memory=False)
     df.to_parquet(parquet_path, index=False)
@@ -78,7 +137,15 @@ def csv_to_parquet(csv_path):
     return parquet_path
 
 def convert_files_to_parquet(files_dict):
-    """Convert multiple CSV files to Parquet format"""
+    """
+    Convert multiple CSV files to Parquet format.
+    
+    Args:
+        files_dict (dict): Dictionary mapping names to CSV file paths
+        
+    Returns:
+        dict: Dictionary mapping names to Parquet file paths
+    """
     new_files = {}
     for name, path in files_dict.items():
         new_files[name] = csv_to_parquet(path)
@@ -621,7 +688,7 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     ds.close()
     return beuti_final_df[['Date', 'Site', 'beuti']].sort_values(['Site', 'Date'])
 
-# --- Core Data Processing ---
+# =============================================================================\n# CORE DATA PROCESSING FUNCTIONS\n# =============================================================================
 def process_da(da_files_dict):
     """Processes DA data from Parquet files, returns weekly aggregated DataFrame."""
     print("\n--- Processing DA Data ---")
@@ -665,12 +732,27 @@ def process_da(da_files_dict):
     final_da_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat to handle cases where different files might represent the same site-week
     if not final_da_df.empty:
-         final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
+        final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
     print(f"Combined DA data shape: {final_da_df.shape}")
     return final_da_df
 
 def process_pn(pn_files_dict):
-    """Processes PN data from Parquet files, returns weekly aggregated DataFrame."""
+    """
+    Process Pseudo-nitzschia (PN) cell count data from Parquet files.
+    
+    Args:
+        pn_files_dict (dict): Dictionary mapping site names to PN Parquet file paths
+        
+    Returns:
+        pd.DataFrame: Weekly aggregated PN data with columns:
+                     - Year-Week: ISO week format (YYYY-WW)
+                     - PN_Levels: Average cell counts per week
+                     - Site: Site name extracted from filename
+                     
+    Note:
+        Uses ISO week format for temporal consistency with other data sources.
+        Handles various PN column name formats and date column variations.
+    """
     print("\n--- Processing PN Data ---")
     data_frames = []
 
@@ -864,7 +946,24 @@ def convert_and_fill(data_df):
     return df_processed
 
 def main():
-    """Main data processing pipeline"""
+    """
+    Main data processing pipeline for Domoic Acid forecasting dataset.
+    
+    This function orchestrates the complete data processing workflow:
+    1. Downloads and processes satellite oceanographic data (MODIS)
+    2. Fetches climate indices (PDO, ONI, BEUTI) from NOAA
+    3. Downloads USGS streamflow data
+    4. Processes DA and PN measurement files
+    5. Combines all data sources into unified weekly time series
+    6. Applies temporal safeguards to prevent data leakage
+    7. Outputs final dataset as Parquet file
+    
+    The entire process typically takes 30-60 minutes depending on 
+    satellite data volume and network conditions.
+    
+    Raises:
+        Exception: If critical data sources cannot be accessed or processed
+    """
     print("\n======= Starting Data Processing Pipeline =======")
     start_time = datetime.now()
 
