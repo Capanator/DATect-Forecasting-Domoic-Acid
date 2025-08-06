@@ -1,5 +1,5 @@
 """
-LEAK-FREE Domoic Acid Forecasting System
+Domoic Acid Forecasting System
 ========================================
 
 A modular, temporally-safe forecasting system for predicting harmful algal bloom
