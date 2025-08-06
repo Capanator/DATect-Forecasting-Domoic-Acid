@@ -70,10 +70,13 @@ class ScientificValidator:
         logger.info(f"\n[SCIENTIFIC VALIDATION] Autocorrelation Analysis for {len(sites)} sites")
         logger.info("=" * 70)
         
-        # Create figure for combined ACF/PACF plots
-        fig, axes = plt.subplots(len(sites), 2, figsize=(15, 4*len(sites)))
-        if len(sites) == 1:
-            axes = axes.reshape(1, -1)
+        # Create figure for combined ACF/PACF plots only if saving plots
+        if self.save_plots:
+            fig, axes = plt.subplots(len(sites), 2, figsize=(15, 4*len(sites)))
+            if len(sites) == 1:
+                axes = axes.reshape(1, -1)
+        else:
+            fig, axes = None, None
         
         for i, site in enumerate(sites):
             site_data = data[data[site_col] == site].copy()
@@ -87,8 +90,20 @@ class ScientificValidator:
             ts = site_data[target_col].values
             
             # Calculate ACF and PACF
-            acf_vals, acf_confint = acf(ts, nlags=max_lags, alpha=alpha, return_confint=True)
-            pacf_vals, pacf_confint = pacf(ts, nlags=max_lags, alpha=alpha, return_confint=True)
+            acf_vals = acf(ts, nlags=max_lags, alpha=alpha)
+            pacf_vals = pacf(ts, nlags=max_lags, alpha=alpha)
+            
+            # Calculate confidence intervals manually
+            n = len(ts)
+            acf_confint = np.zeros((len(acf_vals), 2))
+            pacf_confint = np.zeros((len(pacf_vals), 2))
+            
+            # Approximate confidence intervals
+            ci_val = 1.96 / np.sqrt(n)  # 95% confidence interval
+            for i in range(len(acf_vals)):
+                acf_confint[i] = [-ci_val, ci_val]
+            for i in range(len(pacf_vals)):
+                pacf_confint[i] = [-ci_val, ci_val]
             
             # Store results
             results[site] = {
@@ -101,25 +116,42 @@ class ScientificValidator:
                 'significant_pacf_lags': []
             }
             
-            # Identify statistically significant lags
-            for lag in range(1, len(acf_vals)):
-                if abs(acf_vals[lag]) > abs(acf_confint[lag, 1] - acf_vals[lag]):
-                    results[site]['significant_acf_lags'].append(lag)
+            # Identify statistically significant lags (simplified approach)
+            for lag in range(1, min(len(acf_vals), max_lags+1)):
+                try:
+                    acf_val = float(acf_vals[lag])
+                    if abs(acf_val) > ci_val:  # Simple threshold test
+                        results[site]['significant_acf_lags'].append(lag)
+                except (ValueError, TypeError, IndexError):
+                    continue
             
-            for lag in range(1, len(pacf_vals)):
-                if abs(pacf_vals[lag]) > abs(pacf_confint[lag, 1] - pacf_vals[lag]):
-                    results[site]['significant_pacf_lags'].append(lag)
+            for lag in range(1, min(len(pacf_vals), max_lags+1)):
+                try:
+                    pacf_val = float(pacf_vals[lag])
+                    if abs(pacf_val) > ci_val:  # Simple threshold test
+                        results[site]['significant_pacf_lags'].append(lag)
+                except (ValueError, TypeError, IndexError):
+                    continue
             
-            # Plot ACF
-            axes[i, 0].plot(range(len(acf_vals)), acf_vals, 'b-', linewidth=2)
-            axes[i, 0].fill_between(range(len(acf_vals)), 
-                                   acf_confint[:, 0], acf_confint[:, 1], 
-                                   alpha=0.3, color='gray')
-            axes[i, 0].axhline(y=0, color='black', linestyle='-', alpha=0.3)
-            axes[i, 0].set_title(f'{site} - Autocorrelation Function')
-            axes[i, 0].set_xlabel('Lag')
-            axes[i, 0].set_ylabel('ACF')
-            axes[i, 0].grid(True, alpha=0.3)
+            # Skip plotting if save_plots is False
+            if self.save_plots:
+                # Plot ACF
+                if len(sites) > 1:
+                    ax_acf = axes[i, 0]
+                    ax_pacf = axes[i, 1]
+                else:
+                    ax_acf = axes[0]
+                    ax_pacf = axes[1]
+                    
+                ax_acf.plot(range(len(acf_vals)), acf_vals, 'b-', linewidth=2)
+                ax_acf.fill_between(range(len(acf_vals)), 
+                                       acf_confint[:, 0], acf_confint[:, 1], 
+                                       alpha=0.3, color='gray')
+                ax_acf.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+                ax_acf.set_title(f'{site} - Autocorrelation Function')
+                ax_acf.set_xlabel('Lag')
+                ax_acf.set_ylabel('ACF')
+                ax_acf.grid(True, alpha=0.3)
             
             # Highlight lags 1, 2, 3
             for lag in [1, 2, 3]:

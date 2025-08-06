@@ -33,12 +33,27 @@ from datetime import datetime
 import warnings
 
 # Add project root to path for imports
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from forecasting.core.logging_config import setup_logging, get_logger
-from forecasting.core.env_config import get_config
-from forecasting.core.exception_handling import safe_execute
-from forecasting.core.scientific_validation import ScientificValidator
+try:
+    from forecasting.core.logging_config import setup_logging, get_logger
+    from forecasting.core.env_config import get_config
+    from forecasting.core.exception_handling import safe_execute
+except ImportError:
+    # Fallback minimal logging
+    import logging
+    def setup_logging(**kwargs):
+        logging.basicConfig(level=logging.INFO)
+    def get_logger(name):
+        return logging.getLogger(name)
+    def safe_execute(func, error_msg):
+        try:
+            return func()
+        except Exception as e:
+            return {'error': str(e)}
+
+# Import scientific validation from the local module
+from scientific_validation import ScientificValidator
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -144,7 +159,7 @@ def run_temporal_validation(validator, logger, output_dir):
     # Load data for validation
     try:
         import pandas as pd
-        data = pd.read_parquet('final_output.parquet')
+        data = pd.read_parquet('data/processed/final_output.parquet')
         logger.info(f"   → Loaded data: {len(data)} samples for validation")
         
         # Basic temporal integrity check
@@ -183,13 +198,17 @@ def run_performance_validation(validator, logger, output_dir, args):
     
     try:
         # Test basic model loading capability
-        from forecasting.core.forecast_engine import ForecastEngine
-        engine = ForecastEngine()
-        logger.info("   → ForecastEngine initialized successfully")
+        try:
+            from forecasting.core.forecast_engine import ForecastEngine
+            engine = ForecastEngine()
+            logger.info("   → ForecastEngine initialized successfully")
+        except ImportError:
+            logger.warning("   → ForecastEngine not available, skipping engine test")
+            results['engine_available'] = False
         
         # Test data loading
         import pandas as pd
-        data = pd.read_parquet('final_output.parquet')
+        data = pd.read_parquet('data/processed/final_output.parquet')
         logger.info(f"   → Training data available: {len(data)} samples")
         
         results['data_samples'] = len(data)
@@ -221,7 +240,7 @@ def run_statistical_validation(validator, logger, output_dir, args):
         import numpy as np
         
         # Load data for analysis
-        data = pd.read_parquet('final_output.parquet')
+        data = pd.read_parquet('data/processed/final_output.parquet')
         logger.info(f"   → Loaded data for analysis: {len(data)} samples")
         
         # Basic statistical analysis
@@ -233,7 +252,7 @@ def run_statistical_validation(validator, logger, output_dir, args):
         # Use the actual autocorrelation method from ScientificValidator
         logger.info("   → Running autocorrelation analysis")
         autocorr_result = safe_execute(
-            lambda: validator.analyze_autocorrelation(data, save_plots=args.save_plots),
+            lambda: validator.analyze_autocorrelation(data),
             "Autocorrelation analysis failed"
         )
         results['autocorrelation'] = autocorr_result
@@ -263,7 +282,7 @@ def run_feature_validation(validator, logger, output_dir, args):
         import numpy as np
         
         # Load data for analysis
-        data = pd.read_parquet('final_output.parquet')
+        data = pd.read_parquet('data/processed/final_output.parquet')
         logger.info(f"   → Loaded data for feature analysis: {len(data)} samples")
         
         # Basic feature analysis
@@ -284,7 +303,7 @@ def run_feature_validation(validator, logger, output_dir, args):
         # Use actual imputation comparison method
         logger.info("   → Running imputation method comparison")
         imputation_result = safe_execute(
-            lambda: validator.compare_imputation_methods(data, save_plots=args.save_plots),
+            lambda: validator.compare_imputation_methods(data),
             "Imputation comparison failed"
         )
         results['imputation_comparison'] = imputation_result

@@ -16,10 +16,8 @@ import sys
 import time
 import argparse
 import subprocess
-import os
 from pathlib import Path
 from datetime import datetime
-import pandas as pd
 
 
 class PipelineTester:
@@ -106,7 +104,7 @@ class PipelineTester:
         
         if self.quick_mode:
             self.log("⚡ Quick mode: Skipping data creation (using existing data)")
-            return self.check_file_exists("final_output.parquet", "Final output data")
+            return self.check_file_exists("./data/processed/final_output.parquet", "Final output data")
         
         # Run data creation
         success = self.run_command(
@@ -117,7 +115,7 @@ class PipelineTester:
         
         if success:
             # Verify output files
-            success &= self.check_file_exists("final_output.parquet", "Final output data")
+            success &= self.check_file_exists("./data/processed/final_output.parquet", "Final output data")
             
         return success
     
@@ -129,14 +127,14 @@ class PipelineTester:
         
         # Run comprehensive scientific validation
         success = self.run_command(
-            "python3 run_scientific_validation.py --tests all --verbose --output-dir ./validation_test/",
+            "python3 analysis/scientific-validation/run_scientific_validation.py --tests all --output-dir ./tools/testing/results/validation/",
             "Scientific validation suite"
         )
         
         if success:
             # Check validation outputs
-            success &= self.check_file_exists("validation_test/comprehensive_validation_report.json", "Validation report")
-            success &= self.check_file_exists("validation_test/validation_summary.txt", "Validation summary")
+            success &= self.check_file_exists("./tools/testing/results/validation/comprehensive_validation_report.json", "Validation report")
+            success &= self.check_file_exists("./tools/testing/results/validation/validation_summary.txt", "Validation summary")
         
         return success
     
@@ -148,7 +146,7 @@ class PipelineTester:
         
         # Run temporal integrity tests
         success = self.run_command(
-            "python3 test_temporal_integrity.py",
+            "PYTHONPATH=. python3 analysis/scientific-validation/test_temporal_integrity.py",
             "Temporal integrity unit tests"
         )
         
@@ -162,13 +160,13 @@ class PipelineTester:
         
         # Run performance profiler
         success = self.run_command(
-            "python3 performance_profiler.py --data-path final_output.parquet --output-dir ./perf_test/",
+            "PYTHONPATH=. python3 analysis/scientific-validation/performance_profiler.py --data-path data/processed/final_output.parquet --output-dir ./tools/testing/results/performance/",
             "Performance profiling"
         )
         
         if success:
             # Check performance outputs
-            perf_files = list(Path("./perf_test/").glob("performance_*.json"))
+            perf_files = list(Path("./tools/testing/results/performance/").glob("performance_*.json"))
             if perf_files:
                 self.log(f"✅ Performance report generated: {perf_files[0].name}")
             else:
@@ -193,7 +191,7 @@ from forecasting.core.model_factory import ModelFactory
 
 try:
     # Test engine initialization
-    engine = ForecastEngine('final_output.parquet')
+    engine = ForecastEngine('./data/processed/final_output.parquet')
     print("✅ ForecastEngine initialized")
     
     # Test model factory
@@ -202,7 +200,7 @@ try:
     print("✅ XGBoost model created")
     
     # Test data loading
-    data = pd.read_parquet('final_output.parquet')
+    data = pd.read_parquet('./data/processed/final_output.parquet')
     print(f"✅ Data loaded: {len(data)} samples")
     
     print("SUCCESS: Core components working")

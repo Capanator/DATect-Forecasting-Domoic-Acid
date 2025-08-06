@@ -1,0 +1,99 @@
+2025-08-06 06:37:25 - root - INFO - File logging enabled: logs/datect_20250806_063725.log
+2025-08-06 06:37:25 - root - INFO - File logging enabled: logs/datect_20250806_063725.log
+2025-08-06 06:37:25 - __main__ - INFO - ================================================================================
+2025-08-06 06:37:25 - __main__ - INFO - DATect Scientific Validation Suite
+2025-08-06 06:37:25 - __main__ - INFO - ================================================================================
+2025-08-06 06:37:25 - __main__ - INFO - Output directory: tools/testing/results/validation
+2025-08-06 06:37:25 - __main__ - INFO - Model type: xgboost
+2025-08-06 06:37:25 - __main__ - INFO - Task: regression
+2025-08-06 06:37:25 - __main__ - INFO - Tests to run: all
+2025-08-06 06:37:25 - __main__ - INFO - 🚀 Initializing Scientific Validator...
+2025-08-06 06:37:25 - __main__ - INFO - 🔍 Running Temporal Validation Tests...
+2025-08-06 06:37:25 - __main__ - INFO -    → Loaded data: 10950 samples for validation
+2025-08-06 06:37:25 - __main__ - INFO -    → Average time gap between samples: 0 days 16:47:10.285870855
+2025-08-06 06:37:25 - __main__ - INFO - ✅ Temporal validation completed. Results saved to tools/testing/results/validation/temporal_validation_results.json
+2025-08-06 06:37:25 - __main__ - INFO - 📊 Running Performance Validation Tests...
+2025-08-06 06:37:25 - __main__ - INFO -    → ForecastEngine initialized successfully
+2025-08-06 06:37:25 - __main__ - INFO -    → Training data available: 10950 samples
+2025-08-06 06:37:25 - __main__ - INFO - ✅ Performance validation completed. Results saved to tools/testing/results/validation/performance_validation_results.json
+2025-08-06 06:37:25 - __main__ - INFO - 📈 Running Statistical Validation Tests...
+2025-08-06 06:37:25 - __main__ - INFO -    → Loaded data for analysis: 10950 samples
+2025-08-06 06:37:25 - __main__ - INFO -    → DA concentration stats: mean=9.380, std=21.122
+2025-08-06 06:37:25 - __main__ - INFO -    → Running autocorrelation analysis
+2025-08-06 06:37:25 - scientific_validation - INFO - 
+[SCIENTIFIC VALIDATION] Autocorrelation Analysis for 10 sites
+2025-08-06 06:37:25 - scientific_validation - INFO - ======================================================================
+2025-08-06 06:37:25 - forecasting.core.exception_handling - ERROR - Autocorrelation analysis failed: setting an array element with a sequence. The requested array has an inhomogeneous shape after 2 dimensions. The detected shape was (2, 21) + inhomogeneous part.
+2025-08-06 06:37:25 - __main__ - INFO - ✅ Statistical validation completed. Results saved to tools/testing/results/validation/statistical_validation_results.json
+2025-08-06 06:37:25 - __main__ - INFO - 🔧 Running Feature Validation Tests...
+2025-08-06 06:37:25 - __main__ - INFO -    → Loaded data for feature analysis: 10950 samples
+2025-08-06 06:37:25 - __main__ - INFO -    → Found 15 numeric features
+2025-08-06 06:37:25 - __main__ - INFO -    → Features with missing values: 4
+2025-08-06 06:37:25 - __main__ - INFO -    → Running imputation method comparison
+2025-08-06 06:37:25 - scientific_validation - INFO - 
+[SCIENTIFIC VALIDATION] Imputation Method Comparison
+2025-08-06 06:37:25 - scientific_validation - INFO - ======================================================================
+2025-08-06 06:37:25 - scientific_validation - INFO - 
+Analyzing column: da
+2025-08-06 06:37:25 - scientific_validation - INFO -   Missing rate: 10.0%
+2025-08-06 06:37:26 - scientific_validation - INFO -   Missing rate: 20.0%
+2025-08-06 06:37:28 - scientific_validation - INFO -   Missing rate: 30.0%
+2025-08-06 06:37:34 - scientific_validation - INFO - 
+IMPUTATION METHOD COMPARISON SUMMARY:
+2025-08-06 06:37:34 - scientific_validation - INFO - ==================================================
+2025-08-06 06:37:34 - scientific_validation - INFO - 
+Column: da
+2025-08-06 06:37:34 - scientific_validation - INFO - --------------------
+2025-08-06 06:37:34 - scientific_validation - INFO - 
+Missing Rate: 10.0%
+2025-08-06 06:37:34 - scientific_validation - INFO -   Median (Current):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 503.0142 ± 74.2228
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 8.7326 ± 0.5272 (BEST MAE)
+2025-08-06 06:37:34 - scientific_validation - INFO -   Mean:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 414.1177 ± 55.2804 (BEST MSE)
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 10.9365 ± 0.2347
+2025-08-06 06:37:34 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 455.9729 ± 38.4782
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.1644 ± 0.2051
+2025-08-06 06:37:34 - scientific_validation - INFO -   Iterative:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 449.9255 ± 96.1089
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.0240 ± 0.6321
+2025-08-06 06:37:34 - scientific_validation - INFO - 
+Missing Rate: 20.0%
+2025-08-06 06:37:34 - scientific_validation - INFO -   Median (Current):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 512.9344 ± 43.5532
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 8.6849 ± 0.1591 (BEST MAE)
+2025-08-06 06:37:34 - scientific_validation - INFO -   Mean:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 396.2543 ± 32.5698 (BEST MSE)
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 10.8675 ± 0.1595
+2025-08-06 06:37:34 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 401.5155 ± 32.4428
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 10.9306 ± 0.1786
+2025-08-06 06:37:34 - scientific_validation - INFO -   Iterative:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 455.2437 ± 14.4588
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.2308 ± 0.1513
+2025-08-06 06:37:34 - scientific_validation - INFO - 
+Missing Rate: 30.0%
+2025-08-06 06:37:34 - scientific_validation - INFO -   Median (Current):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 485.1059 ± 30.6110
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 8.3135 ± 0.2559 (BEST MAE)
+2025-08-06 06:37:34 - scientific_validation - INFO -   Mean:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 428.8376 ± 25.9628 (BEST MSE)
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.0604 ± 0.0955
+2025-08-06 06:37:34 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 480.9460 ± 20.0220
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.3235 ± 0.1343
+2025-08-06 06:37:34 - scientific_validation - INFO -   Iterative:
+2025-08-06 06:37:34 - scientific_validation - INFO -     MSE: 452.2139 ± 22.8149
+2025-08-06 06:37:34 - scientific_validation - INFO -     MAE: 11.1955 ± 0.1696
+2025-08-06 06:37:34 - __main__ - INFO - ✅ Feature validation completed. Results saved to tools/testing/results/validation/feature_validation_results.json
+2025-08-06 06:37:34 - __main__ - INFO - 📋 Generating Comprehensive Validation Report...
+2025-08-06 06:37:34 - __main__ - INFO - ✅ Validation report generated: tools/testing/results/validation/comprehensive_validation_report.json
+2025-08-06 06:37:34 - __main__ - INFO - ✅ Human-readable summary: tools/testing/results/validation/validation_summary.txt
+2025-08-06 06:37:34 - __main__ - INFO - ================================================================================
+2025-08-06 06:37:34 - __main__ - INFO - 🎉 Validation Suite Complete!
+2025-08-06 06:37:34 - __main__ - INFO - ================================================================================
+2025-08-06 06:37:34 - __main__ - INFO - Overall Status: PASSED
+2025-08-06 06:37:34 - __main__ - INFO - Tests Completed: 4
+2025-08-06 06:37:34 - __main__ - INFO - Results Directory: tools/testing/results/validation
+2025-08-06 06:37:34 - __main__ - INFO - ✅ All validation tests passed - System is scientifically sound!
