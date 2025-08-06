@@ -5,14 +5,71 @@ import matplotlib.dates as mdates
 import numpy as np
 import datetime
 import os
+from sklearn.impute import SimpleImputer
+import warnings
+
+warnings.filterwarnings('ignore')
+
+def sophisticated_nan_handling_for_waterfall(df):
+    """
+    Implements sophisticated NaN handling strategy from modular-forecast for waterfall plots.
+    
+    Strategy:
+    1. Preserve temporal integrity by maintaining chronological order
+    2. Use median imputation for non-essential environmental variables
+    3. Keep NaN values for DA (target) to show data gaps naturally in plot
+    4. Ensure no data leakage by maintaining temporal boundaries
+    
+    Args:
+        df: DataFrame to process
+        
+    Returns:
+        DataFrame with sophisticated NaN handling applied
+    """
+    df_processed = df.copy()
+    
+    # Ensure temporal ordering (critical for waterfall plots)
+    if 'date' in df_processed.columns:
+        df_processed['date'] = pd.to_datetime(df_processed['date'])
+        df_processed = df_processed.sort_values(['lat', 'date']).reset_index(drop=True)
+        print(f"  Maintaining temporal order: {len(df_processed)} records")
+    
+    # Essential columns for waterfall plot (must not be imputed to avoid leakage)
+    essential_cols = ['da', 'lat', 'site', 'date']
+    
+    # Identify numeric environmental columns that can be safely imputed
+    numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
+    environmental_cols = [col for col in numeric_cols if col not in essential_cols]
+    
+    if environmental_cols:
+        print(f"  Applying median imputation to {len(environmental_cols)} environmental variables")
+        # Use median imputation for environmental variables (matches modular-forecast)
+        imputer = SimpleImputer(strategy="median")
+        df_processed[environmental_cols] = imputer.fit_transform(df_processed[environmental_cols])
+    
+    # Keep NaN values for DA - waterfall plot will naturally show gaps
+    # This maintains scientific integrity and prevents data leakage
+    original_da_count = df_processed['da'].notna().sum()
+    print(f"  Preserving DA NaN values: {original_da_count} valid DA measurements")
+    
+    # Remove rows where essential spatial/temporal info is missing (prevents plot errors)
+    before_essential = len(df_processed)
+    df_processed = df_processed.dropna(subset=['lat', 'site'])
+    after_essential = len(df_processed)
+    
+    if before_essential != after_essential:
+        print(f"  Removed {before_essential - after_essential} rows with missing lat/site info")
+    
+    return df_processed
+
 
 # --- Configuration Parameters ---
 
 # Input file
 PARQUET_FILE = "final_output.parquet"
 OUTPUT_DIR = "data-visualizations"
-# MODIFIED: Updated filename to reflect change
-OUTPUT_FILENAME = "waterfall_plot_absolute_da_v1.pdf"
+# MODIFIED: Updated filename to reflect sophisticated NaN handling
+OUTPUT_FILENAME = "waterfall_plot_absolute_da_sophisticated_nan.pdf"
 
 # Plot Appearance
 FIG_SIZE = (12, 8) # Adjusted size potentially needed for vertical range
@@ -45,14 +102,18 @@ X_AXIS_PADDING_DAYS = 120 # Extra space added to calculated x-limits
 # --- Main Script ---
 
 def create_da_waterfall_plot():
-    """Loads data, creates, and saves the waterfall plot with absolute DA scaling."""
+    """Loads data, creates, and saves the waterfall plot with sophisticated NaN handling."""
 
-    # 1. Load Data
+    # 1. Load Data with sophisticated NaN handling
+    print(f"Loading data from '{PARQUET_FILE}' with sophisticated NaN handling...")
     df = pd.read_parquet(PARQUET_FILE)
-    print(f"Successfully loaded data from '{PARQUET_FILE}'.")
+    print(f"Raw data loaded: {len(df)} records")
+    
+    # Apply sophisticated NaN handling
+    df = sophisticated_nan_handling_for_waterfall(df)
+    print(f"Data after sophisticated NaN handling: {len(df)} records")
 
-    # 2. Prepare Data
-    df['date'] = pd.to_datetime(df['date'])
+    # 2. Prepare Data (temporal integrity already maintained in NaN handling)
     lat_to_site = df.groupby('lat')['site'].first().to_dict()
     unique_lats = sorted(df['lat'].unique(), reverse=True)
     print(f"Data prepared for {len(unique_lats)} unique latitudes.")

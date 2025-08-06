@@ -19,6 +19,10 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import our forecasting system
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from forecasting.core.forecast_engine import ForecastEngine
 import config
 
@@ -39,12 +43,12 @@ def run_xgboost_retrospective():
     original_model = config.FORECAST_MODEL
     config.FORECAST_MODEL = "xgboost"
     
-    # Run evaluation with moderate anchors for spectral analysis
+    # Run evaluation with minimal anchors for spectral analysis
     engine = ForecastEngine()
     results_df = engine.run_retrospective_evaluation(
         task="regression",
         model_type="xgboost",
-        n_anchors=30  # Reduced for faster execution
+        n_anchors=25  # Minimal for faster execution
     )
     
     # Restore original model
@@ -471,7 +475,7 @@ def create_single_site_plot(results, site, filename):
     plt.tight_layout()
     plt.savefig(f'{filename}.png', dpi=300, bbox_inches='tight')
     print(f"Plot saved as '{filename}.png'")
-    plt.show()
+    plt.close()  # Close instead of show to prevent blocking
 
 
 def create_comparison_plot(results, sites, filename):
@@ -592,7 +596,7 @@ def create_comparison_plot(results, sites, filename):
     plt.tight_layout()
     plt.savefig(f'{filename}.png', dpi=300, bbox_inches='tight')
     print(f"Comparison plot saved as '{filename}.png'")
-    plt.show()
+    plt.close()  # Close instead of show to prevent blocking
 
 
 def main():

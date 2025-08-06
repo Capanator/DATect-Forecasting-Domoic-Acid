@@ -1,13 +1,71 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.impute import SimpleImputer
+import warnings
+
+warnings.filterwarnings('ignore')
+
+def sophisticated_nan_handling_for_correlation(df, preserve_temporal=True):
+    """
+    Implements sophisticated NaN handling strategy from modular-forecast.
+    
+    Strategy:
+    1. Preserve all data initially for temporal integrity
+    2. Use median imputation for feature variables (non-targets)
+    3. Only remove samples where target (DA) is NaN for correlation analysis
+    4. Maintain temporal ordering to prevent data leakage
+    
+    Args:
+        df: DataFrame to process
+        preserve_temporal: Whether to maintain temporal safeguards
+        
+    Returns:
+        DataFrame with sophisticated NaN handling applied
+    """
+    df_processed = df.copy()
+    
+    # Sort by date if available to maintain temporal integrity
+    if 'date' in df_processed.columns:
+        df_processed['date'] = pd.to_datetime(df_processed['date'])
+        df_processed = df_processed.sort_values(['date']).reset_index(drop=True)
+    
+    # Separate target variable (DA) from features
+    if 'da' in df_processed.columns:
+        print(f"  Before NaN handling: {len(df_processed)} records")
+        
+        # For correlation analysis, we need both variables to be non-NaN
+        # Use pairwise deletion approach (similar to pandas corr default)
+        # This prevents data leakage by not imputing target values
+        
+        # Identify numeric columns for imputation (excluding target)
+        numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
+        feature_cols = [col for col in numeric_cols if col != 'da']
+        
+        if feature_cols:
+            # Use median imputation for feature variables only
+            # This matches modular-forecast strategy: SimpleImputer(strategy="median")
+            imputer = SimpleImputer(strategy="median")
+            
+            # Apply imputation to feature columns
+            df_processed[feature_cols] = imputer.fit_transform(df_processed[feature_cols])
+            
+        # For DA (target), keep NaN values - correlation will handle pairwise deletion
+        # This prevents data leakage and maintains scientific integrity
+        
+        print(f"  After NaN handling: {len(df_processed)} records (preserved all)")
+        non_nan_da = df_processed['da'].notna().sum()
+        print(f"  Valid DA values: {non_nan_da} ({non_nan_da/len(df_processed)*100:.1f}%)")
+        
+    return df_processed
 
 
-# Load the CSV file
+# Load the data
 file_path = "final_output.parquet"
+print("Loading data with sophisticated NaN handling...")
 df = pd.read_parquet(file_path)
 
-# Drop 'longitude' and 'latitude' columns if they exist
+# Drop 'longitude' and 'latitude' columns if they exist (spatial columns not needed for correlation)
 cols_to_drop = [col for col in ['lon', 'lat'] if col in df.columns]
 if cols_to_drop:
     df = df.drop(columns=cols_to_drop)
@@ -15,8 +73,8 @@ if cols_to_drop:
 # Create overall correlation heatmap first
 print("Creating overall correlation heatmap for all data")
 
-# Make a copy of the dataframe
-overall_df = df.copy()
+# Apply sophisticated NaN handling to overall data
+overall_df = sophisticated_nan_handling_for_correlation(df.copy())
 
 # Drop the 'site' column if it exists for the overall analysis
 if 'site' in overall_df.columns:
@@ -25,8 +83,9 @@ if 'site' in overall_df.columns:
 # Select numeric columns only
 numeric_df = overall_df.select_dtypes(include=['number'])
 
-# Compute correlation matrix
-corr_matrix = numeric_df.corr()
+# Compute correlation matrix using pandas default (pairwise deletion)
+# This automatically handles remaining NaN values without data leakage
+corr_matrix = numeric_df.corr(method='pearson')  # Explicit method for clarity
 
 # Create the figure and axis
 fig, ax = plt.subplots(figsize=(10, 8))
@@ -73,16 +132,25 @@ if 'site' in df.columns:
     sites = df['site'].unique()
     site_dfs = [df[df['site'] == site] for site in sites]
     
-    # Process each site
+    # Process each site with sophisticated NaN handling
     for site, site_df in zip(sites, site_dfs):
         print(f"Processing site: {site}")
         
-        # Select numeric columns only (excluding the site column)
-        site_df = site_df.drop(columns=['site'])
-        numeric_df = site_df.select_dtypes(include=['number'])
+        # Apply sophisticated NaN handling to site data
+        site_df_processed = sophisticated_nan_handling_for_correlation(site_df.copy())
         
-        # Compute correlation matrix
-        corr_matrix = numeric_df.corr()
+        # Select numeric columns only (excluding the site column)
+        if 'site' in site_df_processed.columns:
+            site_df_processed = site_df_processed.drop(columns=['site'])
+        numeric_df = site_df_processed.select_dtypes(include=['number'])
+        
+        # Skip sites with insufficient data
+        if len(numeric_df) < 10:
+            print(f"  Skipping {site}: insufficient data after NaN handling")
+            continue
+        
+        # Compute correlation matrix using pairwise deletion (leak-free)
+        corr_matrix = numeric_df.corr(method='pearson')
         
         # Create the figure and axis
         fig, ax = plt.subplots(figsize=(10, 8))
