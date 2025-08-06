@@ -31,11 +31,23 @@ import warnings
 import shutil
 import config
 
+# Import secure utilities
+from forecasting.core.secure_download import SecureDownloader, secure_download_file, cleanup_downloaded_files
+from forecasting.core.validation import validate_url, sanitize_filename
+from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.core.exception_handling import handle_data_errors, safe_execute
+
+# Setup logging
+setup_logging(log_level=config.LOG_LEVEL, enable_file_logging=True, log_dir=config.LOG_OUTPUT_DIR)
+logger = get_logger(__name__)
+
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
 warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`")
 warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision")
+
+logger.info("Starting DATect dataset creation pipeline")
 
 # =============================================================================
 # CONFIGURATION AND GLOBAL VARIABLES
@@ -78,47 +90,90 @@ print(f"Satellite configuration loaded with {len(satellite_metadata)} data types
 # UTILITY FUNCTIONS
 # =============================================================================
 
+@handle_data_errors
 def download_file(url, filename):
     """
-    Download file from URL with error handling and progress tracking.
+    Secure download file from URL with validation and error handling.
     
     Args:
         url (str): URL to download from
         filename (str): Local filename to save to
         
     Returns:
-        str: Path to downloaded file
+        str: Path to downloaded file or None on failure
         
     Raises:
-        requests.RequestException: If download fails
+        requests.RequestException: If download fails after all retries
     """
-    response = requests.get(url, timeout=5000, stream=True)
-    response.raise_for_status()
+    logger.info(f"Starting download: {url}")
     
-    with open(filename, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-            
-    downloaded_files.append(filename)
-    return filename
+    # Validate URL before attempting download
+    is_valid, error_msg = validate_url(url)
+    if not is_valid:
+        logger.error(f"URL validation failed for {url}: {error_msg}")
+        raise ValueError(f"Invalid URL: {error_msg}")
+    
+    # Sanitize filename
+    safe_filename = sanitize_filename(filename)
+    
+    # Use secure downloader
+    result = secure_download_file(url, safe_filename)
+    
+    if result is None:
+        logger.error(f"Download failed for {url}")
+        raise requests.RequestException(f"Secure download failed for {url}")
+    
+    downloaded_files.append(result)
+    logger.info(f"Download completed: {url} -> {result}")
+    return result
 
+@handle_data_errors  
 def local_filename(url, ext, temp_dir=None):
     """
-    Generate sanitized local filename from URL.
+    Generate secure, sanitized local filename from URL.
     
     Args:
         url (str): Source URL
-        ext (str): File extension to use
+        ext (str): File extension to use (e.g., '.nc', '.csv')
         temp_dir (str, optional): Temporary directory path
         
     Returns:
-        str: Sanitized local filename
+        str: Generated secure filename with directory path
     """
-    base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2]
-    sanitized_base = "".join(c for c in base if c.isalnum() or c in ('-', '_', '.'))
-    root, existing_ext = os.path.splitext(sanitized_base or "downloaded_file")
-    base_name = root + (ext if not existing_ext or existing_ext == '.' else existing_ext)
-    return os.path.join(temp_dir, base_name) if temp_dir else base_name
+    try:
+        # Validate URL first
+        is_valid, error_msg = validate_url(url)
+        if not is_valid:
+            logger.warning(f"URL validation warning for filename generation: {error_msg}")
+            # Continue with filename generation but log the warning
+        
+        # Use secure filename generation from validation module
+        from forecasting.core.secure_download import generate_secure_filename
+        
+        # Set default temp directory if not provided
+        if temp_dir is None:
+            temp_dir = config.TEMP_DIR
+            
+        # Generate secure filename
+        secure_filename = generate_secure_filename(url, ext, temp_dir)
+        
+        logger.debug(f"Generated secure filename: {url} -> {secure_filename}")
+        return secure_filename
+        
+    except Exception as e:
+        logger.error(f"Error generating filename for {url}: {e}")
+        # Fallback to improved sanitization based on original logic
+        base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2] or "download"
+        safe_base = sanitize_filename(base)
+        root, existing_ext = os.path.splitext(safe_base)
+        base_name = root + (ext if not existing_ext or existing_ext == '.' else existing_ext)
+        
+        # Use default temp directory if not provided
+        if temp_dir is None:
+            temp_dir = config.TEMP_DIR
+            os.makedirs(temp_dir, exist_ok=True)
+            
+        return os.path.join(temp_dir, base_name) if temp_dir else base_name
 
 def csv_to_parquet(csv_path):
     """
@@ -546,29 +601,47 @@ def add_satellite_data(target_df, satellite_parquet_path):
     return result_df
 
 # --- Environmental Data Processing ---
+@handle_data_errors
 def fetch_climate_index(url, var_name, temp_dir):
-    """Process climate index data (PDO, ONI)"""
+    """Process climate index data (PDO, ONI) with comprehensive error handling"""
     print(f"Fetching climate index: {var_name}...")
+    logger.info(f"Starting climate index processing: {var_name}")
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
+    logger.debug(f"Generated filename for {var_name}: {fname}")
+    
     download_file(url, fname)
+    logger.info(f"Successfully downloaded {var_name} data to {fname}")
             
     # Open and process dataset
+    logger.debug(f"Opening dataset: {fname}")
     ds = xr.open_dataset(fname)
     df = ds.to_dataframe().reset_index()
+    logger.debug(f"Dataset shape for {var_name}: {df.shape}")
     
     # Find time column
     time_cols = ['time', 'datetime', 'Date', 'T']
     time_col = next((c for c in time_cols if c in df.columns), None)
     
+    if time_col is None:
+        logger.error(f"No time column found in {var_name} dataset. Available columns: {list(df.columns)}")
+        raise ValueError(f"No time column found for {var_name}")
         
+    logger.debug(f"Using time column '{time_col}' for {var_name}")
+    
     # Find variable column (case-insensitive)
     actual_var_name = var_name
     if actual_var_name not in df.columns:
         var_name_lower = var_name.lower()
         found_var = next((c for c in df.columns if c.lower() == var_name_lower), None)
         actual_var_name = found_var or var_name
+        
+    if actual_var_name not in df.columns:
+        logger.error(f"Variable '{var_name}' not found in dataset. Available columns: {list(df.columns)}")
+        raise ValueError(f"Variable '{var_name}' not found in dataset")
+        
+    logger.debug(f"Using variable column '{actual_var_name}' for {var_name}")
             
     # Process data
     df['datetime'] = pd.to_datetime(df[time_col])
@@ -578,9 +651,12 @@ def fetch_climate_index(url, var_name, temp_dir):
     df['Month'] = df['datetime'].dt.to_period('M')
     result = df.groupby('Month')['index'].mean().reset_index()
     
+    logger.info(f"Successfully processed {var_name}: {len(result)} monthly records")
+    
     ds.close()
     return result[['Month', 'index']].sort_values('Month')
 
+@handle_data_errors
 def process_streamflow(url, temp_dir):
     """Process USGS streamflow data (daily)"""
     print("Fetching streamflow data...")
@@ -616,6 +692,7 @@ def process_streamflow(url, temp_dir):
     return df[['Date', 'Flow']].sort_values('Date')
 
 
+@handle_data_errors
 def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     """Process BEUTI data with minimal error handling"""
     print("Fetching BEUTI data...")
@@ -1130,22 +1207,53 @@ def main():
 
     # Clean up
     print("\n--- Cleaning Up ---")
-    for f in set(downloaded_files + generated_parquet_files):
-        if os.path.exists(f):
-            try:
-                os.remove(f)
-            except OSError as e:
-                print(f"  Warning: Could not remove temporary file {f}: {e}")
-
+    logger.info("Starting cleanup of temporary files")
+    
+    # Use secure cleanup function
     try:
-        shutil.rmtree(download_temp_dir)
-    except OSError as e:
-        print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
+        cleanup_downloaded_files()
+        
+        # Clean up additional temporary files
+        all_temp_files = set(downloaded_files + generated_parquet_files)
+        for f in all_temp_files:
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                    logger.debug(f"Removed temporary file: {f}")
+                except OSError as e:
+                    logger.warning(f"Could not remove temporary file {f}: {e}")
+                    print(f"  Warning: Could not remove temporary file {f}: {e}")
 
+        # Clean up temporary directory
+        try:
+            if 'download_temp_dir' in locals() and os.path.exists(download_temp_dir):
+                shutil.rmtree(download_temp_dir)
+                logger.debug(f"Removed temporary directory: {download_temp_dir}")
+        except OSError as e:
+            logger.warning(f"Could not remove temp directory {download_temp_dir}: {e}")
+            print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
+            
+        logger.info("Cleanup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+        print(f"  Error during cleanup: {e}")
 
     end_time = datetime.now()
-    print(f"\n======= Script Finished in {end_time - start_time} =======")
+    total_time = end_time - start_time
+    logger.info(f"Pipeline completed in {total_time}")
+    print(f"\n======= Script Finished in {total_time} =======")
 
-# Run script
+# Run script with proper error handling
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.info("Pipeline interrupted by user")
+        print("\n--- Pipeline interrupted by user ---")
+        cleanup_downloaded_files()
+    except Exception as e:
+        logger.error(f"Pipeline failed with error: {e}")
+        print(f"\n--- Pipeline failed: {e} ---")
+        cleanup_downloaded_files()
+        raise

@@ -273,3 +273,99 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]  # Numeric labels for compatibility with ML mo
 # - 1: Moderate (5-20 μg/g) - caution advised  
 # - 2: High (20-40 μg/g) - avoid consumption
 # - 3: Extreme (>40 μg/g) - health hazard
+
+# =============================================================================
+# SECURITY AND VALIDATION CONFIGURATION
+# =============================================================================
+
+import os
+import logging
+
+# Environment detection
+ENVIRONMENT = os.getenv('DATECT_ENV', 'development').lower()
+
+# Security settings
+ALLOWED_DOMAINS = {
+    'oceanview.pfeg.noaa.gov',  # NOAA ERDDAP servers
+    'coastwatch.pfeg.noaa.gov', # NOAA CoastWatch  
+    'waterservices.usgs.gov',   # USGS water data
+    'oceandata.sci.gsfc.nasa.gov', # NASA ocean color data
+}
+
+# Data validation settings
+MAX_DOWNLOAD_SIZE_MB = 500  # Maximum download size per file
+REQUEST_TIMEOUT_SECONDS = 300  # 5 minutes timeout for requests
+MAX_RETRY_ATTEMPTS = 3  # Number of retry attempts for failed requests
+RETRY_DELAY_SECONDS = 5  # Initial delay between retries (exponential backoff)
+
+# Temporary file settings  
+TEMP_DIR = os.getenv('DATECT_TEMP_DIR', './tmp/')
+MAX_TEMP_FILES = 50  # Maximum number of temporary files
+TEMP_FILE_CLEANUP = True  # Whether to clean up temporary files
+
+# Logging configuration
+LOG_LEVEL = os.getenv('DATECT_LOG_LEVEL', 'INFO')
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+# Environment-specific overrides
+if ENVIRONMENT == 'production':
+    LOG_LEVEL = 'WARNING'
+    MAX_RETRY_ATTEMPTS = 5
+    REQUEST_TIMEOUT_SECONDS = 600
+elif ENVIRONMENT == 'testing':
+    LOG_LEVEL = 'DEBUG'
+    MAX_RETRY_ATTEMPTS = 1
+    TEMP_FILE_CLEANUP = False
+
+# =============================================================================
+# CONFIGURATION VALIDATION
+# =============================================================================
+
+def validate_configuration():
+    """
+    Validate configuration settings on module import.
+    Raises ValueError if configuration is invalid.
+    """
+    try:
+        # Import validation utilities
+        from forecasting.core.validation import validate_config_structure, validate_url
+        
+        # Create config dictionary for validation
+        config_dict = {
+            'ORIGINAL_DA_FILES': ORIGINAL_DA_FILES,
+            'ORIGINAL_PN_FILES': ORIGINAL_PN_FILES, 
+            'SITES': SITES,
+            'PDO_URL': PDO_URL,
+            'ONI_URL': ONI_URL,
+            'BEUTI_URL': BEUTI_URL,
+            'STREAMFLOW_URL': STREAMFLOW_URL,
+        }
+        
+        # Validate configuration structure
+        is_valid, error_msg = validate_config_structure(config_dict)
+        if not is_valid:
+            raise ValueError(f"Configuration validation failed: {error_msg}")
+        
+        # Create necessary directories
+        os.makedirs('./data/raw/da-input', exist_ok=True)
+        os.makedirs('./data/raw/pn-input', exist_ok=True)
+        os.makedirs('./data/intermediate', exist_ok=True)
+        os.makedirs('./data/processed', exist_ok=True)
+        os.makedirs('./outputs/logs', exist_ok=True)
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        
+        logging.info("Configuration validation passed successfully")
+        return True
+        
+    except ImportError:
+        # Validation module not available yet (during development)
+        logging.warning("Validation module not available - skipping configuration validation")
+        return False
+    except Exception as e:
+        logging.error(f"Configuration validation error: {e}")
+        raise ValueError(f"Invalid configuration: {e}")
+
+# Validate configuration on import (only in production/testing environments)
+if ENVIRONMENT in ['production', 'testing']:
+    validate_configuration()
