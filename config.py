@@ -10,30 +10,30 @@
 
 # Original DA measurement files - CSV files containing historical DA toxin measurements
 ORIGINAL_DA_FILES = {
-    "twin-harbors": "./da-input/twin-harbors-da.csv",
-    "long-beach": "./da-input/long-beach-da.csv",
-    "quinault": "./da-input/quinault-da.csv",
-    "kalaloch": "./da-input/kalaloch-da.csv",
-    "copalis": "./da-input/copalis-da.csv",
-    "newport": "./da-input/newport-da.csv",
-    "gold-beach": "./da-input/gold-beach-da.csv",
-    "coos-bay": "./da-input/coos-bay-da.csv",
-    "clatsop-beach": "./da-input/clatsop-beach-da.csv",
-    "cannon-beach": "./da-input/cannon-beach-da.csv"
+    "twin-harbors": "./data/raw/da-input/twin-harbors-da.csv",
+    "long-beach": "./data/raw/da-input/long-beach-da.csv",
+    "quinault": "./data/raw/da-input/quinault-da.csv",
+    "kalaloch": "./data/raw/da-input/kalaloch-da.csv",
+    "copalis": "./data/raw/da-input/copalis-da.csv",
+    "newport": "./data/raw/da-input/newport-da.csv",
+    "gold-beach": "./data/raw/da-input/gold-beach-da.csv",
+    "coos-bay": "./data/raw/da-input/coos-bay-da.csv",
+    "clatsop-beach": "./data/raw/da-input/clatsop-beach-da.csv",
+    "cannon-beach": "./data/raw/da-input/cannon-beach-da.csv"
 }
 
 # Original PN measurement files - CSV files containing Pseudo-nitzschia cell count data
 ORIGINAL_PN_FILES = {
-    "gold-beach-pn": "./pn-input/gold-beach-pn.csv",
-    "coos-bay-pn": "./pn-input/coos-bay-pn.csv",
-    "newport-pn": "./pn-input/newport-pn.csv",
-    "clatsop-beach-pn": "./pn-input/clatsop-beach-pn.csv",
-    "cannon-beach-pn": "./pn-input/cannon-beach-pn.csv",
-    "kalaloch-pn": "./pn-input/kalaloch-pn.csv",
-    "copalis-pn": "./pn-input/copalis-pn.csv",
-    "long-beach-pn": "./pn-input/long-beach-pn.csv",
-    "twin-harbors-pn": "./pn-input/twin-harbors-pn.csv",
-    "quinault-pn": "./pn-input/quinault-pn.csv"
+    "gold-beach-pn": "./data/raw/pn-input/gold-beach-pn.csv",
+    "coos-bay-pn": "./data/raw/pn-input/coos-bay-pn.csv",
+    "newport-pn": "./data/raw/pn-input/newport-pn.csv",
+    "clatsop-beach-pn": "./data/raw/pn-input/clatsop-beach-pn.csv",
+    "cannon-beach-pn": "./data/raw/pn-input/cannon-beach-pn.csv",
+    "kalaloch-pn": "./data/raw/pn-input/kalaloch-pn.csv",
+    "copalis-pn": "./data/raw/pn-input/copalis-pn.csv",
+    "long-beach-pn": "./data/raw/pn-input/long-beach-pn.csv",
+    "twin-harbors-pn": "./data/raw/pn-input/twin-harbors-pn.csv",
+    "quinault-pn": "./data/raw/pn-input/quinault-pn.csv"
 }
 
 # =============================================================================
@@ -77,7 +77,11 @@ START_DATE = "2003-01-01"
 END_DATE = "2023-12-31"
 
 # Output file path for processed dataset
-FINAL_OUTPUT_PATH = "final_output.parquet"
+FINAL_OUTPUT_PATH = "./data/processed/final_output.parquet"
+
+# Intermediate data paths
+SATELLITE_CACHE_PATH = "./data/intermediate/satellite_data_intermediate.parquet"
+LOG_OUTPUT_DIR = "./outputs/logs/"
 
 # =============================================================================
 # SATELLITE DATA CONFIGURATION
@@ -198,7 +202,7 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 
@@ -217,10 +221,11 @@ FORECAST_MODEL = "xgboost"  # Options: "xgboost", "ridge"
 
 
 # Dashboard Configuration  
-# Network port for web dashboard when running in realtime mode
-DASHBOARD_PORT = 8065  # Options: Any available port (typically 8000-9000)
+# Network ports for web dashboards
+DASHBOARD_PORT = 8066         # Real-time forecasting dashboard port
+RETROSPECTIVE_PORT = 8071     # Retrospective analysis dashboard port
 # - Must be available and not blocked by firewall
-# - Used only in realtime mode
+# - Different ports allow running both dashboards simultaneously
 
 # Temporal Validation Settings
 # These settings control data leakage prevention - CRITICAL for research validity

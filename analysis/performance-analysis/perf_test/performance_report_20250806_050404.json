@@ -1,0 +1,67 @@
+{
+  "benchmark_timestamp": "2025-08-06T05:04:04.289686",
+  "system_info": {
+    "python_version": "3.13.1 (v3.13.1:06714517797, Dec  3 2024, 14:00:22) [Clang 15.0.0 (clang-1500.3.9.4)]",
+    "cpu_count": 12,
+    "total_memory_gb": 24.0,
+    "platform": "darwin"
+  },
+  "component_performance": {
+    "data_loading": {
+      "execution_time_seconds": 0.07167550001759082,
+      "memory_before_mb": 203.375,
+      "memory_after_mb": 223.453125,
+      "memory_delta_mb": 20.078125,
+      "success": true,
+      "error": null,
+      "timestamp": "2025-08-06T05:04:03.284386",
+      "rows_loaded": 10950,
+      "columns_loaded": 19,
+      "memory_per_row_kb": 1.8776255707762557,
+      "loading_rate_rows_per_second": 152771.86761602803
+    }
+  },
+  "system_performance": {
+    "total_execution_time": 1.0735182500211522,
+    "average_cpu_percent": 43.55,
+    "memory_percent_delta": 0.5,
+    "peak_memory_mb": 223.453125,
+    "start_stats": {
+      "cpu_percent": 47.9,
+      "memory_percent": 82.0,
+      "disk_usage": 81.0,
+      "network_io": {
+        "bytes_sent": 2536239104,
+        "bytes_recv": 1305179136,
+        "packets_sent": 8631142,
+        "packets_recv": 42555353,
+        "errin": 0,
+        "errout": 0,
+        "dropin": 0,
+        "dropout": 0
+      }
+    },
+    "end_stats": {
+      "cpu_percent": 39.2,
+      "memory_percent": 82.5,
+      "disk_usage": 81.0,
+      "network_io": {
+        "bytes_sent": 2536255488,
+        "bytes_recv": 1305195520,
+        "packets_sent": 8631189,
+        "packets_recv": 42555399,
+        "errin": 0,
+        "errout": 0,
+        "dropin": 0,
+        "dropout": 0
+      }
+    }
+  },
+  "summary": {
+    "total_components_tested": 1,
+    "successful_components": 1,
+    "total_execution_time": 0.07167550001759082,
+    "peak_memory_usage_mb": 223.453125,
+    "performance_classification": "Excellent (<10s)"
+  }
+}

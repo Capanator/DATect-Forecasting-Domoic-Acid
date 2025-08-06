@@ -64,7 +64,7 @@ streamflow_url = config.STREAMFLOW_URL
 start_date = pd.to_datetime(config.START_DATE)
 end_date = pd.to_datetime(config.END_DATE)
 final_output_path = config.FINAL_OUTPUT_PATH
-SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
+SATELLITE_OUTPUT_PARQUET = './data/intermediate/satellite_data_intermediate.parquet'
 
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
 print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")

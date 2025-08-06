@@ -1,0 +1,57 @@
+2025-08-06 05:03:57 - root - INFO - File logging enabled: logs/datect_20250806_050357.log
+2025-08-06 05:03:57 - root - INFO - File logging enabled: logs/datect_20250806_050357.log
+2025-08-06 05:03:57 - __main__ - INFO - ================================================================================
+2025-08-06 05:03:57 - __main__ - INFO - DATect Scientific Validation Suite
+2025-08-06 05:03:57 - __main__ - INFO - ================================================================================
+2025-08-06 05:03:57 - __main__ - INFO - Output directory: validation_test
+2025-08-06 05:03:57 - __main__ - INFO - Model type: xgboost
+2025-08-06 05:03:57 - __main__ - INFO - Task: regression
+2025-08-06 05:03:57 - __main__ - INFO - Tests to run: all
+2025-08-06 05:03:57 - __main__ - INFO - 🚀 Initializing Scientific Validator...
+2025-08-06 05:03:57 - __main__ - INFO - 🔍 Running Temporal Validation Tests...
+2025-08-06 05:03:57 - __main__ - INFO -    → Loaded data: 10950 samples for validation
+2025-08-06 05:03:57 - __main__ - INFO -    → Average time gap between samples: 0 days 16:47:10.285870855
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Temporal validation completed. Results saved to validation_test/temporal_validation_results.json
+2025-08-06 05:03:57 - __main__ - INFO - 📊 Running Performance Validation Tests...
+2025-08-06 05:03:57 - __main__ - INFO -    → ForecastEngine initialized successfully
+2025-08-06 05:03:57 - __main__ - INFO -    → Training data available: 10950 samples
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Performance validation completed. Results saved to validation_test/performance_validation_results.json
+2025-08-06 05:03:57 - __main__ - INFO - 📈 Running Statistical Validation Tests...
+2025-08-06 05:03:57 - __main__ - INFO -    → Loaded data for analysis: 10950 samples
+2025-08-06 05:03:57 - __main__ - INFO -    → DA concentration stats: mean=9.380, std=21.122
+2025-08-06 05:03:57 - __main__ - INFO -    → Running autocorrelation analysis
+2025-08-06 05:03:57 - forecasting.core.exception_handling - ERROR - Autocorrelation analysis failed: ScientificValidator.analyze_autocorrelation() got an unexpected keyword argument 'save_plots'
+2025-08-06 05:03:57 - forecasting.core.exception_handling - DEBUG - Traceback: Traceback (most recent call last):
+  File "/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/forecasting/core/exception_handling.py", line 31, in safe_execute
+    result = func()
+  File "/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/run_scientific_validation.py", line 236, in <lambda>
+    lambda: validator.analyze_autocorrelation(data, save_plots=args.save_plots),
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: ScientificValidator.analyze_autocorrelation() got an unexpected keyword argument 'save_plots'
+
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Statistical validation completed. Results saved to validation_test/statistical_validation_results.json
+2025-08-06 05:03:57 - __main__ - INFO - 🔧 Running Feature Validation Tests...
+2025-08-06 05:03:57 - __main__ - INFO -    → Loaded data for feature analysis: 10950 samples
+2025-08-06 05:03:57 - __main__ - INFO -    → Found 15 numeric features
+2025-08-06 05:03:57 - __main__ - INFO -    → Features with missing values: 4
+2025-08-06 05:03:57 - __main__ - INFO -    → Running imputation method comparison
+2025-08-06 05:03:57 - forecasting.core.exception_handling - ERROR - Imputation comparison failed: ScientificValidator.compare_imputation_methods() got an unexpected keyword argument 'save_plots'
+2025-08-06 05:03:57 - forecasting.core.exception_handling - DEBUG - Traceback: Traceback (most recent call last):
+  File "/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/forecasting/core/exception_handling.py", line 31, in safe_execute
+    result = func()
+  File "/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/run_scientific_validation.py", line 287, in <lambda>
+    lambda: validator.compare_imputation_methods(data, save_plots=args.save_plots),
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: ScientificValidator.compare_imputation_methods() got an unexpected keyword argument 'save_plots'
+
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Feature validation completed. Results saved to validation_test/feature_validation_results.json
+2025-08-06 05:03:57 - __main__ - INFO - 📋 Generating Comprehensive Validation Report...
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Validation report generated: validation_test/comprehensive_validation_report.json
+2025-08-06 05:03:57 - __main__ - INFO - ✅ Human-readable summary: validation_test/validation_summary.txt
+2025-08-06 05:03:57 - __main__ - INFO - ================================================================================
+2025-08-06 05:03:57 - __main__ - INFO - 🎉 Validation Suite Complete!
+2025-08-06 05:03:57 - __main__ - INFO - ================================================================================
+2025-08-06 05:03:57 - __main__ - INFO - Overall Status: PASSED
+2025-08-06 05:03:57 - __main__ - INFO - Tests Completed: 4
+2025-08-06 05:03:57 - __main__ - INFO - Results Directory: validation_test
+2025-08-06 05:03:57 - __main__ - INFO - ✅ All validation tests passed - System is scientifically sound!

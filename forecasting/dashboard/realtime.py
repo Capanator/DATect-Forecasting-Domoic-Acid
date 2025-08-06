@@ -53,7 +53,7 @@ class RealtimeDashboard:
             debug: Whether to run in debug mode
         """
         print(f"Starting realtime dashboard on port {port}")
-        self.app.run_server(debug=debug, port=port)
+        self.app.run(debug=debug, port=port, host='0.0.0.0')
         
     def _setup_layout(self):
         """Setup the dashboard layout."""

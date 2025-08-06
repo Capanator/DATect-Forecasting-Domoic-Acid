@@ -31,8 +31,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create directories for data and outputs
-RUN mkdir -p /app/data /app/outputs /app/logs /app/scientific_evidence
+# Create directories for organized data structure
+RUN mkdir -p /app/data/raw /app/data/intermediate /app/data/processed \
+             /app/outputs/logs /app/outputs/reports /app/outputs/plots \
+             /app/analysis /app/tools
 
 # Expose ports for dashboards
 EXPOSE 8065 8071
@@ -42,9 +44,9 @@ RUN groupadd -r datect && useradd -r -g datect datect
 RUN chown -R datect:datect /app
 USER datect
 
-# Health check
+# Health check - test core forecasting components
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD python -c "import forecasting.core.forecast_engine; print('OK')" || exit 1
+  CMD python -c "import forecasting.core.forecast_engine; import forecasting.core.model_factory; print('OK')" || exit 1
 
-# Default command - run scientific validation
-CMD ["python", "run_scientific_validation.py", "--tests", "all", "--verbose"]
+# Default command - run main forecasting pipeline
+CMD ["python", "modular-forecast.py"]

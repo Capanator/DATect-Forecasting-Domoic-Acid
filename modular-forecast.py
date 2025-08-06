@@ -98,7 +98,7 @@ class LeakFreeForecastApp:
             # Launch dashboard
             print(f"\n[INFO] Launching retrospective dashboard...")
             dashboard = RetrospectiveDashboard(results_df)
-            dashboard.run(port=8071, debug=False)
+            dashboard.run(port=config.RETROSPECTIVE_PORT, debug=False)
             
         else:
             print("[ERROR] No forecasts generated. Check data and configuration.")
@@ -112,7 +112,7 @@ class LeakFreeForecastApp:
         print(f"[INFO] Tasks: Both regression (primary) & classification displayed")
         
         dashboard = RealtimeDashboard(self.data_path)
-        dashboard.run(port=8065, debug=False)
+        dashboard.run(port=config.DASHBOARD_PORT, debug=False)
         
     def _display_evaluation_metrics(self, results_df):
         """Display evaluation metrics summary."""

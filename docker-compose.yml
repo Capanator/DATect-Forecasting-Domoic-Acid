@@ -1,39 +1,21 @@
 # DATect Docker Compose Configuration
 # ===================================
 # 
-# Orchestrates the complete DATect forecasting system with
-# separate services for different operational modes.
-
-version: '3.8'
+# Orchestrates the streamlined DATect forecasting system
 
 services:
-  # Data Processing Service
+  # Main Data Processing Service
   datect-processor:
     build: .
     container_name: datect-data-processor
     volumes:
       - ./data:/app/data
       - ./outputs:/app/outputs
-      - ./logs:/app/logs
     environment:
       - DATECT_ENV=production
       - PYTHONPATH=/app
     command: python dataset-creation.py
     
-  # Scientific Validation Service  
-  datect-validation:
-    build: .
-    container_name: datect-scientific-validation
-    volumes:
-      - ./scientific_evidence:/app/scientific_evidence
-      - ./logs:/app/logs
-    environment:
-      - DATECT_ENV=production
-      - PYTHONPATH=/app
-    command: python run_scientific_validation.py --tests all --verbose --output-dir ./scientific_evidence/
-    depends_on:
-      - datect-processor
-
   # Real-time Forecasting Dashboard
   datect-realtime:
     build: .
@@ -42,7 +24,7 @@ services:
       - "8065:8065"
     volumes:
       - ./data:/app/data
-      - ./logs:/app/logs
+      - ./outputs:/app/outputs
     environment:
       - DATECT_ENV=production
       - PYTHONPATH=/app
@@ -59,7 +41,7 @@ services:
       - "8071:8071"
     volumes:
       - ./data:/app/data
-      - ./logs:/app/logs
+      - ./outputs:/app/outputs
     environment:
       - DATECT_ENV=production
       - PYTHONPATH=/app
@@ -68,21 +50,21 @@ services:
     depends_on:
       - datect-processor
 
-  # Performance Monitoring
-  datect-monitor:
+  # Optional: Scientific Analysis Service
+  datect-analysis:
     build: .
-    container_name: datect-performance-monitor
+    container_name: datect-analysis
     volumes:
-      - ./performance_analysis:/app/performance_analysis
       - ./data:/app/data
+      - ./analysis:/app/analysis
+      - ./outputs:/app/outputs
     environment:
       - DATECT_ENV=production
       - PYTHONPATH=/app
-    command: python performance_profiler.py --full-benchmark --data-path /app/data/final_output.parquet
+    command: python -c "print('Analysis tools available in /app/analysis/')"
     depends_on:
       - datect-processor
 
 volumes:
   datect-data:
-  datect-logs:
   datect-outputs:

@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "message": "Statistical validation completed",
+  "da_statistics": {
+    "count": 10888.0,
+    "mean": 9.380172218869179,
+    "std": 21.12217865024435,
+    "min": 0.0,
+    "25%": 1.0,
+    "50%": 2.0,
+    "75%": 7.698639896373057,
+    "max": 287.0
+  },
+  "autocorrelation": null
+}

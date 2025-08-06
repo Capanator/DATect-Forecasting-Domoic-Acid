@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "message": "Feature validation completed",
+  "numeric_features": [
+    "lat",
+    "lon",
+    "oni",
+    "pdo",
+    "discharge",
+    "da",
+    "pn",
+    "beuti",
+    "chla-anom",
+    "modis-chla",
+    "modis-flr",
+    "modis-k490",
+    "modis-par",
+    "modis-sst",
+    "sst-anom"
+  ],
+  "missing_values": {
+    "da": 62,
+    "pn": 870,
+    "chla-anom": 60,
+    "sst-anom": 60
+  },
+  "imputation_comparison": null
+}
