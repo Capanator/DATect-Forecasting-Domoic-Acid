@@ -2,7 +2,7 @@
 
 A machine learning system for predicting harmful algal bloom concentrations along the Pacific Coast using satellite oceanographic data, climate indices, and historical measurements.
 
-## Quick Start
+## Quick Start after navigating to install location
 
 ```bash
 # 1. Install dependencies
@@ -35,8 +35,7 @@ data/
 ```
 analysis/
 ├── scientific-validation/  # Temporal integrity testing
-├── data-visualization/     # Charts and analysis
-└── performance-analysis/   # Benchmarking tools
+└── data-visualization/     # Charts and analysis
 ```
 
 ## Configuration
@@ -68,8 +67,8 @@ Using XGBoost machine learning with comprehensive temporal safeguards to predict
 
 - **Processing Speed**: 89,708 samples/second
 - **Memory Usage**: <250MB
-- **Model Accuracy**: R² > 0.85 for regression tasks
-- **Temporal Coverage**: 2003-2023 (21 years)
+- **Model Accuracy**: R² > 0.5 for regression tasks
+- **Temporal Coverage**: 2002-2023 (21 years)
 
 ## File Structure
 
@@ -79,7 +78,6 @@ DATect-Forecasting-Domoic-Acid/
 ├── modular-forecast.py           # Main forecasting application
 ├── config.py                     # System configuration
 ├── requirements.txt              # Dependencies
-├── CLAUDE.md                     # Development guide
 ├── README.md                     # This file
 │
 ├── forecasting/                  # Core forecasting modules
@@ -87,6 +85,7 @@ DATect-Forecasting-Domoic-Acid/
 │   │   ├── forecast_engine.py    # Main forecasting logic
 │   │   ├── data_processor.py     # Data processing
 │   │   ├── model_factory.py      # ML model creation
+│   │   ├── env_config.py         # Environment configuration
 │   │   ├── logging_config.py     # Logging system
 │   │   └── exception_handling.py # Error handling
 │   └── dashboard/
@@ -100,22 +99,29 @@ DATect-Forecasting-Domoic-Acid/
 │
 ├── analysis/                     # Analysis tools (optional)
 │   ├── scientific-validation/   # Temporal integrity tests
-│   ├── data-visualization/      # Charts and plots
-│   └── performance-analysis/    # Benchmarking
+│   │   ├── scientific_evidence/ # Validation results
+│   │   ├── advanced_acf_pacf.py # Advanced autocorrelation analysis
+│   │   ├── performance_profiler.py # Performance profiling
+│   │   ├── run_scientific_validation.py # Validation runner
+│   │   ├── scientific_validation.py # Main validation logic
+│   │   └── test_temporal_integrity.py # Temporal integrity tests
+│   └── data-visualization/      # Charts and plots
+│       └── data-visualizations/ # Visualization scripts
+│           ├── correlation heatmap.py # Correlation analysis
+│           ├── sensitivity test.py # Sensitivity analysis
+│           ├── time series comparison.py # Time series plots
+│           ├── waterfall plot.py # Waterfall charts
+│           └── xgboost_spectral_analysis.py # Spectral analysis
 │
-├── tools/                        # Development tools
-│   ├── testing/                 # Test scripts
-│   └── documentation/           # Technical docs
-│
-└── outputs/                      # System outputs
-    ├── logs/                    # Application logs
-    ├── reports/                 # Analysis reports
-    └── plots/                   # Generated visualizations
+└── tools/                        # Development tools
+    ├── testing/                 # Test scripts
+    │   └── test_complete_pipeline.py
+    └── documentation/           # Technical docs
 ```
 
 ## Documentation
 
-- `CLAUDE.md` - Development guide for AI assistants
+- `tools/documentation/TESTING_DOCUMENTATION.md` - Testing explanations
 - `tools/documentation/` - Technical documentation
 - `analysis/scientific-validation/` - Validation reports
 
