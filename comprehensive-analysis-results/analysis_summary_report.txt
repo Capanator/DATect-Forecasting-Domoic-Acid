@@ -1,0 +1,35 @@
+COMPREHENSIVE DATASET ANALYSIS SUMMARY REPORT
+============================================================
+
+Analysis Date: 2025-08-06 00:02:45
+Data File: final_output.parquet
+Total Records: 10888
+Sites Analyzed: 10
+Date Range: 2003-01-13 00:00:00 to 2023-12-25 00:00:00
+
+SITES:
+   1. Cannon Beach         (1,094 records)
+   2. Clatsop Beach        (1,094 records)
+   3. Coos Bay             (1,075 records)
+   4. Copalis              (1,094 records)
+   5. Gold Beach           (1,094 records)
+   6. Kalaloch             (1,094 records)
+   7. Long Beach           (1,094 records)
+   8. Newport              (1,074 records)
+   9. Quinault             (1,081 records)
+  10. Twin Harbors         (1,094 records)
+
+ANALYSES CREATED:
+  • Correlation Heatmaps: 11 files (1 overall + 10 per site)
+  • Waterfall Plot: 1 file (all sites combined)
+  • Normalized Time Series: 11 files (1 overall + 10 per site)
+  • Sensitivity Analysis: 11 files (1 overall + 10 per site)
+  • Site Comparison: 3 files (data counts, missing data, DA statistics)
+
+TOTAL PNG FILES GENERATED: ~37
+OUTPUT DIRECTORY: comprehensive-analysis-results/png-exports/
+
+KEY FINDINGS:
+  • Site with most data: Cannon Beach (1,094 records)
+  • Site with highest mean DA: Coos Bay (27.683 μg/g)
+  • Site with best data quality: Quinault (0.0% missing)
