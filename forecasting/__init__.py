@@ -31,7 +31,7 @@ Usage:
 """
 
 __version__ = "2.0.0"
-__author__ = "Claude Code Analysis & Modularization"
+__author__ = "DATect Team"
 __date__ = "2025-01-08"
 
 # Import main classes for easy access
