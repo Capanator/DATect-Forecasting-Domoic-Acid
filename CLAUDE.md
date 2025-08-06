@@ -59,6 +59,12 @@ python modular-forecast.py  # with FORECAST_MODE = "realtime" in config.py
 ```
 Launches forecasting dashboard for specific date/site predictions on port 8065. Supports model selection between XGBoost and Ridge Regression.
 
+**Scientific Validation Suite**
+```bash
+python run_scientific_validation.py
+```
+Runs comprehensive scientific validation tests including temporal integrity, model performance, statistical analysis, and feature validation. Essential for research validation and peer review.
+
 **Custom Analysis**
 ```bash
 python xgboost_spectral_analysis.py  # from spectral analysis folder
@@ -127,3 +133,26 @@ The `ModelFactory` class creates configured models based on task type. It valida
 **Configuration changes**: Modify `config.py` for system-wide settings. The modular architecture loads configuration centrally, so changes propagate throughout the system.
 
 **Dashboard customization**: Both dashboards use Plotly/Dash. The retrospective dashboard analyzes historical results, while the realtime dashboard generates new predictions interactively.
+
+## Testing and Validation
+
+**Scientific Validation Framework**
+The system includes a comprehensive scientific validation suite (`forecasting/core/scientific_validation.py`) with:
+- `ScientificValidator` class for autocorrelation analysis, residual diagnostics, and imputation method comparison
+- Temporal data leakage prevention tests
+- Statistical significance testing and model diagnostics
+- Feature importance and selection validation
+
+**Running Validation Tests**
+```bash
+# Full validation suite
+python run_scientific_validation.py
+
+# Specific test types
+python run_scientific_validation.py --tests temporal,performance,statistical
+
+# With custom output directory
+python run_scientific_validation.py --output-dir ./validation_results/
+```
+
+**No Formal Unit Tests**: The codebase does not use pytest or unittest frameworks. Validation relies on the scientific validation suite and manual testing of components.
