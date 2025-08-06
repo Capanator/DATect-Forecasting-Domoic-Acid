@@ -11,7 +11,7 @@ This system is designed for scientific publication and maintains complete
 temporal integrity throughout all forecasting operations.
 
 Usage:
-    python leak_free_forecast_modular.py
+    python modular-forecast.py
 
 Configuration is managed through config.py - see that file for all options.
 """

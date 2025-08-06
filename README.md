@@ -70,14 +70,14 @@ Downloads and processes all external data sources (30-60 minutes runtime).
 #### 2. Real-time Forecasting Dashboard
 ```bash
 # Default mode in config.py (FORECAST_MODE = "realtime")
-python leak_free_forecast_modular.py
+python modular-forecast.py
 ```
 Launches interactive dashboard at `http://localhost:8065`
 
 #### 3. Retrospective Model Evaluation
 ```bash
 # Edit config.py: set FORECAST_MODE = "retrospective", then:
-python leak_free_forecast_modular.py
+python modular-forecast.py
 ```
 Runs retrospective evaluation with temporal validation and launches dashboard on port 8071.
 
@@ -154,7 +154,7 @@ CLIMATE_BUFFER_MONTHS = 2     # Climate index reporting delays
 ```
 DATect-Forecasting-Domoic-Acid/
 ├── dataset-creation.py           # Main data processing pipeline
-├── leak_free_forecast_modular.py # Unified forecasting application
+├── modular-forecast.py           # Unified forecasting application
 ├── config.py                     # System configuration
 ├── requirements.txt              # Python dependencies
 ├── CLAUDE.md                     # AI assistant instructions

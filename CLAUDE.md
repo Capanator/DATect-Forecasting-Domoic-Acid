@@ -25,7 +25,7 @@ The system follows a modular architecture with strict temporal integrity to prev
 - Outputs processed data to `final_output.parquet` and caches satellite data in `satellite_data_intermediate.parquet`
 
 **Entry Points**
-- `leak_free_forecast_modular.py`: Main application coordinating retrospective evaluation and real-time forecasting
+- `modular-forecast.py`: Main application coordinating retrospective evaluation and real-time forecasting
 - `dataset-creation.py`: Complete data processing pipeline (standalone)
 
 ## Critical Temporal Safeguards
@@ -49,13 +49,13 @@ Downloads all external data sources and processes local CSV files. Runtime: 30-6
 
 **Retrospective Model Evaluation**
 ```bash
-python leak_free_forecast_modular.py
+python modular-forecast.py
 ```
 Runs retrospective evaluation with random anchor points and launches interactive dashboard on port 8071. Configure evaluation parameters in `config.py`.
 
 **Real-time Forecasting Dashboard**
 ```bash
-python leak_free_forecast_modular.py  # with FORECAST_MODE = "realtime" in config.py
+python modular-forecast.py  # with FORECAST_MODE = "realtime" in config.py
 ```
 Launches forecasting dashboard for specific date/site predictions on port 8065. Supports model selection between XGBoost and Ridge Regression.
 
