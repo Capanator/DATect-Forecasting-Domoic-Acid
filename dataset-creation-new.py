@@ -300,11 +300,16 @@ class ToxinDataProcessor:
             # Clean up column names
             weekly_data['Site'] = site_name
             weekly_data['Date'] = weekly_data[date_column]
+            
+            # Convert value column to numeric, handling string values like '0'
             weekly_data[data_type] = pd.to_numeric(weekly_data[value_column], errors='coerce')
             
             # Keep only necessary columns
             result = weekly_data[['Site', 'Date', data_type]].copy()
-            result = result.dropna()
+            result = result.dropna(subset=['Date'])  # Only drop rows with invalid dates
+            
+            # Fill NaN values with 0 for toxin levels (as per original script behavior)
+            result[data_type] = result[data_type].fillna(0)
             
             return result
             
@@ -593,11 +598,40 @@ class DataIntegrator:
         
         print("Applying satellite matching function...")
         
-        # Ensure satellite data has proper date format
-        satellite_df['Date'] = pd.to_datetime(satellite_df['Date'])
+        # Check satellite data column structure (uses 'site' and 'timestamp', not 'Site' and 'Date')
+        if 'timestamp' in satellite_df.columns:
+            satellite_df['Date'] = pd.to_datetime(satellite_df['timestamp'])
+        elif 'Date' in satellite_df.columns:
+            satellite_df['Date'] = pd.to_datetime(satellite_df['Date'])
+        else:
+            logger.error("No timestamp or Date column found in satellite data")
+            return compiled_df
+        
+        # Normalize site column name
+        if 'site' in satellite_df.columns:
+            satellite_df['Site'] = satellite_df['site']
+        elif 'Site' not in satellite_df.columns:
+            logger.error("No site column found in satellite data")
+            return compiled_df
         
         # Initialize satellite columns with NaN
-        satellite_columns = [col for col in satellite_df.columns if col not in ['Date', 'Site']]
+        satellite_columns = [col for col in satellite_df.columns if col not in ['Date', 'Site', 'site', 'timestamp']]
+        
+        # Rename satellite columns to match original script format
+        if len(satellite_columns) >= 7:
+            sat_col_mapping = {}
+            if len(satellite_columns) > 0: sat_col_mapping[satellite_columns[0]] = "sat_chla-anom"
+            if len(satellite_columns) > 1: sat_col_mapping[satellite_columns[1]] = "sat_modis-chla"
+            if len(satellite_columns) > 2: sat_col_mapping[satellite_columns[2]] = "sat_modis-flr"
+            if len(satellite_columns) > 3: sat_col_mapping[satellite_columns[3]] = "sat_modis-k490"
+            if len(satellite_columns) > 4: sat_col_mapping[satellite_columns[4]] = "sat_modis-par"
+            if len(satellite_columns) > 5: sat_col_mapping[satellite_columns[5]] = "sat_modis-sst"
+            if len(satellite_columns) > 6: sat_col_mapping[satellite_columns[6]] = "sat_sst-anom"
+            
+            satellite_df = satellite_df.rename(columns=sat_col_mapping)
+            satellite_columns = list(sat_col_mapping.values())
+        
+        # Initialize satellite columns with NaN in compiled_df
         for col in satellite_columns:
             compiled_df[col] = np.nan
         
@@ -681,7 +715,7 @@ def main():
         numeric_columns = lt_data.select_dtypes(include=[np.number]).columns
         for col in numeric_columns:
             if col not in ['Year', 'Week']:
-                lt_data[col] = lt_data.groupby('Site')[col].fillna(method='ffill')
+                lt_data[col] = lt_data.groupby('Site')[col].ffill()  # Updated pandas method
         
         # Apply satellite matching if data available
         if satellite_df is not None:
@@ -689,10 +723,62 @@ def main():
         
         # Merge BEUTI data
         if beuti_df is not None and len(beuti_df) > 0:
+            # Convert BEUTI date and site formats to match
+            beuti_df["Date"] = pd.to_datetime(beuti_df["Date"])
+            beuti_df["Site"] = beuti_df["Site"].astype(str).str.replace("_", " ").str.title()
+            
             lt_data = pd.merge(lt_data, beuti_df[['Site', 'Date', 'beuti']], on=['Site', 'Date'], how='left')
+            lt_data["beuti"] = lt_data["beuti"].fillna(0)
         
         # Final processing and saving
         print("\\n--- Final Checks and Saving Output ---")
+        
+        # Sort columns to match original script order
+        final_core_cols = [
+            "Date",
+            "Site", 
+            "lat",
+            "lon",
+            "oni",
+            "pdo",
+            "discharge",
+            "DA", 
+            "PN",
+            "beuti"
+        ]
+        
+        # Get satellite columns (if any)
+        sat_cols = sorted([col for col in lt_data.columns if col not in final_core_cols and col not in ['Year', 'Week']])
+        
+        # Final column order
+        final_cols = [col for col in final_core_cols if col in lt_data.columns] + sat_cols
+        lt_data = lt_data[final_cols]
+        
+        # Convert Date to string format (matching original)
+        lt_data["Date"] = pd.to_datetime(lt_data["Date"]).dt.strftime("%m/%d/%Y")
+        
+        # Rename columns to lowercase (matching original output)
+        col_mapping = {
+            "Date": "date",
+            "Site": "site",
+            "DA": "da",
+            "PN": "pn"
+        }
+        
+        # Map satellite columns if they exist
+        if len(sat_cols) >= 7:
+            sat_mapping = {}
+            if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
+            if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla" 
+            if len(sat_cols) > 2: sat_mapping[sat_cols[2]] = "modis-flr"
+            if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-k490"
+            if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-par"
+            if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "modis-sst"
+            if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "sst-anom"
+            col_mapping.update(sat_mapping)
+        
+        lt_data = lt_data.rename(columns=col_mapping)
+        
         print(f"Saving final data to {final_output_path}...")
         
         # Ensure output directory exists

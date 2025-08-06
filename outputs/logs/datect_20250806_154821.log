@@ -1,0 +1,45 @@
+2025-08-06 15:48:21 - root - INFO - File logging enabled: outputs/logs/datect_20250806_154821.log
+2025-08-06 15:48:21 - __main__ - INFO - Starting DATect dataset creation pipeline - modular version
+2025-08-06 15:48:22 - __main__ - ERROR - No value column found in PN file for gold-beach-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for gold-beach-pn
+2025-08-06 15:48:22 - __main__ - ERROR - No value column found in PN file for coos-bay-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for coos-bay-pn
+2025-08-06 15:48:22 - __main__ - ERROR - No value column found in PN file for newport-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for newport-pn
+2025-08-06 15:48:22 - __main__ - ERROR - No value column found in PN file for clatsop-beach-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for clatsop-beach-pn
+2025-08-06 15:48:22 - __main__ - ERROR - No value column found in PN file for cannon-beach-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for cannon-beach-pn
+2025-08-06 15:48:22 - __main__ - ERROR - Error processing PN file for kalaloch-pn: agg function failed [how->mean,dtype->object]
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for kalaloch-pn
+2025-08-06 15:48:22 - __main__ - ERROR - Error processing PN file for copalis-pn: agg function failed [how->mean,dtype->object]
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for copalis-pn
+2025-08-06 15:48:22 - __main__ - ERROR - Error processing PN file for long-beach-pn: agg function failed [how->mean,dtype->object]
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for long-beach-pn
+2025-08-06 15:48:22 - __main__ - ERROR - Error processing PN file for twin-harbors-pn: agg function failed [how->mean,dtype->object]
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for twin-harbors-pn
+2025-08-06 15:48:22 - __main__ - ERROR - Error processing PN file for quinault-pn: agg function failed [how->mean,dtype->object]
+2025-08-06 15:48:22 - __main__ - WARNING - No valid PN data found for quinault-pn
+2025-08-06 15:48:22 - __main__ - WARNING - No PN data was successfully processed
+2025-08-06 15:48:22 - __main__ - INFO - Starting download: https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22
+2025-08-06 15:48:23 - forecasting.core.secure_download - INFO - Successfully downloaded: https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22 -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_g6gldx_vjson
+2025-08-06 15:48:23 - __main__ - INFO - Download completed: https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22 -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_g6gldx_vjson
+2025-08-06 15:48:24 - __main__ - INFO - Starting climate index processing: pdo
+2025-08-06 15:48:24 - __main__ - INFO - Starting download: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-05-01&time%3C=2025-01-01T00%3A00%3A00Z
+2025-08-06 15:48:24 - forecasting.core.secure_download - INFO - Successfully downloaded: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-05-01&time%3C=2025-01-01T00%3A00%3A00Z -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_qpsvekd1nc
+2025-08-06 15:48:24 - __main__ - INFO - Download completed: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-05-01&time%3C=2025-01-01T00%3A00%3A00Z -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_qpsvekd1nc
+2025-08-06 15:48:24 - __main__ - INFO - Successfully downloaded pdo data to /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_qpsvekd1nc
+2025-08-06 15:48:24 - __main__ - INFO - Successfully processed pdo: 273 monthly records
+2025-08-06 15:48:24 - __main__ - INFO - Starting climate index processing: oni
+2025-08-06 15:48:24 - __main__ - INFO - Starting download: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-05-01&time%3C=2024-12-01T00%3A00%3A00Z
+2025-08-06 15:48:25 - forecasting.core.secure_download - INFO - Successfully downloaded: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-05-01&time%3C=2024-12-01T00%3A00%3A00Z -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_vwgz1sx3nc
+2025-08-06 15:48:25 - __main__ - INFO - Download completed: https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-05-01&time%3C=2024-12-01T00%3A00%3A00Z -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_vwgz1sx3nc
+2025-08-06 15:48:25 - __main__ - INFO - Successfully downloaded oni data to /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_vwgz1sx3nc
+2025-08-06 15:48:25 - __main__ - INFO - Successfully processed oni: 272 monthly records
+2025-08-06 15:48:25 - __main__ - INFO - Starting download: https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-05-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D
+2025-08-06 15:48:26 - forecasting.core.secure_download - INFO - Successfully downloaded: https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-05-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_n631exyhnc
+2025-08-06 15:48:26 - __main__ - INFO - Download completed: https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-05-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D -> /Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/tmp/download_n631exyhnc
+2025-08-06 15:48:26 - forecasting.core.exception_handling - ERROR - Unexpected error in fetch_beuti_data: list indices must be integers or slices, not str
+2025-08-06 15:48:48 - __main__ - INFO - Pipeline completed in 0:00:26.618092
+2025-08-06 15:48:48 - __main__ - INFO - Starting cleanup of temporary files
+2025-08-06 15:48:48 - __main__ - INFO - Cleanup completed successfully
