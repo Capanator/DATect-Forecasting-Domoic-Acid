@@ -210,17 +210,11 @@ FORECAST_TASK = "regression"  # Options: "regression", "classification"
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "rf"  # Options: "rf", "gb", "ridge", "logistic"
+FORECAST_MODEL = "rf"  # Options: "rf", "ridge", "logistic"
 # - "rf": Random Forest (best performance for both regression/classification)
-# - "gb": Gradient Boosting (alternative ensemble method)
 # - "ridge": Ridge Regression (linear method for regression only)
 # - "logistic": Logistic Regression (linear method for classification only)
 
-# Evaluation Configuration
-# Number of random time points to test for retrospective evaluation
-NUM_ANCHORS = 50  # Options: Any positive integer (recommended: 20-100)
-# - Higher values: More thorough evaluation, longer runtime
-# - Lower values: Faster evaluation, less comprehensive testing
 
 # Dashboard Configuration  
 # Network port for web dashboard when running in realtime mode
@@ -237,7 +231,11 @@ CLIMATE_BUFFER_MONTHS = 2  # Minimum months for climate index reporting delays
 # Model Performance Settings
 MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
-N_RANDOM_ANCHORS = 50  # Number of random anchor points for retrospective evaluation
+
+# Retrospective Evaluation Configuration
+N_RANDOM_ANCHORS = 500  # Number of random anchor points for retrospective evaluation
+# - Higher values: More thorough evaluation, longer runtime (recommended: 20-100)
+# - Lower values: Faster evaluation, less comprehensive testing
 
 # DA Category Thresholds (μg/g)
 # Used for classification tasks and risk level assignment
