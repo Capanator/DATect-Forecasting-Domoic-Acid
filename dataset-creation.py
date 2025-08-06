@@ -611,12 +611,12 @@ def fetch_climate_index(url, var_name, temp_dir):
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
     logger.debug(f"Generated filename for {var_name}: {fname}")
     
-    download_file(url, fname)
-    logger.info(f"Successfully downloaded {var_name} data to {fname}")
+    actual_file_path = download_file(url, fname)
+    logger.info(f"Successfully downloaded {var_name} data to {actual_file_path}")
             
-    # Open and process dataset
-    logger.debug(f"Opening dataset: {fname}")
-    ds = xr.open_dataset(fname)
+    # Open and process dataset using actual downloaded file path
+    logger.debug(f"Opening dataset: {actual_file_path}")
+    ds = xr.open_dataset(actual_file_path)
     df = ds.to_dataframe().reset_index()
     logger.debug(f"Dataset shape for {var_name}: {df.shape}")
     
@@ -662,8 +662,8 @@ def process_streamflow(url, temp_dir):
     print("Fetching streamflow data...")
     # Download file
     fname = local_filename(url, '.json', temp_dir=temp_dir)
-    download_file(url, fname)
-    with open(fname) as f:
+    actual_file_path = download_file(url, fname)
+    with open(actual_file_path) as f:
         data = json.load(f)
         
     # Extract values
@@ -699,10 +699,10 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
-    download_file(url, fname)
+    actual_file_path = download_file(url, fname)
             
     # Process data
-    ds = xr.open_dataset(fname)
+    ds = xr.open_dataset(actual_file_path)
     df = ds.to_dataframe().reset_index()
     
     # Find required columns

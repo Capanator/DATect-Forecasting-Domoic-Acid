@@ -1,0 +1,278 @@
+2025-08-06 14:41:12 - root - INFO - File logging enabled: logs/datect_20250806_144112.log
+2025-08-06 14:41:12 - __main__ - INFO - ================================================================================
+2025-08-06 14:41:12 - __main__ - INFO - DATect Scientific Validation Suite
+2025-08-06 14:41:12 - __main__ - INFO - ================================================================================
+2025-08-06 14:41:12 - __main__ - INFO - Output directory: tools/testing/results/validation
+2025-08-06 14:41:12 - __main__ - INFO - Model type: xgboost
+2025-08-06 14:41:12 - __main__ - INFO - Task: regression
+2025-08-06 14:41:12 - __main__ - INFO - Tests to run: all
+2025-08-06 14:41:12 - __main__ - INFO - 🚀 Initializing Scientific Validator...
+2025-08-06 14:41:12 - __main__ - INFO - 🔍 Running Temporal Validation Tests...
+2025-08-06 14:41:12 - __main__ - INFO -    → Loaded data: 10950 samples for validation
+2025-08-06 14:41:12 - __main__ - INFO -    → Average time gap between samples: 0 days 16:47:10.285870855
+2025-08-06 14:41:12 - __main__ - INFO - ✅ Temporal validation completed. Results saved to tools/testing/results/validation/temporal_validation_results.json
+2025-08-06 14:41:12 - __main__ - INFO - 📊 Running Performance Validation Tests...
+2025-08-06 14:41:12 - __main__ - INFO -    → ForecastEngine initialized successfully
+2025-08-06 14:41:12 - __main__ - INFO -    → Training data available: 10950 samples
+2025-08-06 14:41:12 - __main__ - INFO - ✅ Performance validation completed. Results saved to tools/testing/results/validation/performance_validation_results.json
+2025-08-06 14:41:12 - __main__ - INFO - 📈 Running Statistical Validation Tests...
+2025-08-06 14:41:12 - __main__ - INFO -    → Loaded data for analysis: 10950 samples
+2025-08-06 14:41:12 - __main__ - INFO -    → DA concentration stats: mean=9.380, std=21.122
+2025-08-06 14:41:12 - __main__ - INFO -    → Running autocorrelation analysis
+2025-08-06 14:41:12 - scientific_validation - INFO - 
+[SCIENTIFIC VALIDATION] Simplified Lag Correlation Analysis
+2025-08-06 14:41:12 - scientific_validation - INFO - ======================================================================
+2025-08-06 14:41:12 - scientific_validation - INFO - NOTE: Full ACF/PACF analysis disabled - using correlation approach
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Cannon Beach: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [10, 11]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: []
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Clatsop Beach: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [3, 5, 8, 10, 11, 13, 16, 18]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [3]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Coos Bay: 1075 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [2, 4, 7, 14, 19, 20]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [2]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Copalis: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [3, 8, 13, 18]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [3]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Gold Beach: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [2]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [2]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Kalaloch: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [2, 3, 18, 19]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [2, 3]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Long Beach: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [3, 10, 11, 18]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [3]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Newport: 1074 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [10, 11]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: []
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Quinault: 1081 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [2, 3, 7, 18, 19]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [2, 3]
+2025-08-06 14:41:12 - scientific_validation - INFO - Site Twin Harbors: 1094 observations
+2025-08-06 14:41:12 - scientific_validation - INFO -   Correlated lags: [3, 7, 14, 18]
+2025-08-06 14:41:12 - scientific_validation - INFO -   Justified model lags [1,2,3]: [3]
+2025-08-06 14:41:12 - __main__ - INFO - ✅ Statistical validation completed. Results saved to tools/testing/results/validation/statistical_validation_results.json
+2025-08-06 14:41:12 - __main__ - INFO - 🔧 Running Feature Validation Tests...
+2025-08-06 14:41:12 - __main__ - INFO -    → Loaded data for feature analysis: 10950 samples
+2025-08-06 14:41:12 - __main__ - INFO -    → Found 15 numeric features
+2025-08-06 14:41:12 - __main__ - INFO -    → Features with missing values: 4
+2025-08-06 14:41:12 - __main__ - INFO -    → Running imputation method comparison
+2025-08-06 14:41:12 - scientific_validation - INFO - 
+[SCIENTIFIC VALIDATION] Imputation Method Comparison
+2025-08-06 14:41:12 - scientific_validation - INFO - ======================================================================
+2025-08-06 14:41:12 - scientific_validation - INFO - 
+Analyzing column: da
+2025-08-06 14:41:12 - scientific_validation - INFO -   Missing rate: 10.0%
+2025-08-06 14:41:13 - scientific_validation - INFO -   Missing rate: 20.0%
+2025-08-06 14:41:14 - scientific_validation - INFO -   Missing rate: 30.0%
+2025-08-06 14:41:16 - scientific_validation - INFO - 
+Analyzing column: pn
+2025-08-06 14:41:16 - scientific_validation - INFO -   Missing rate: 10.0%
+2025-08-06 14:41:17 - scientific_validation - INFO -   Missing rate: 20.0%
+2025-08-06 14:41:18 - scientific_validation - INFO -   Missing rate: 30.0%
+2025-08-06 14:41:20 - scientific_validation - INFO - 
+Analyzing column: chla-anom
+2025-08-06 14:41:20 - scientific_validation - INFO -   Missing rate: 10.0%
+2025-08-06 14:41:20 - scientific_validation - INFO -   Missing rate: 20.0%
+2025-08-06 14:41:22 - scientific_validation - INFO -   Missing rate: 30.0%
+2025-08-06 14:41:24 - scientific_validation - INFO - 
+Analyzing column: sst-anom
+2025-08-06 14:41:24 - scientific_validation - INFO -   Missing rate: 10.0%
+2025-08-06 14:41:24 - scientific_validation - INFO -   Missing rate: 20.0%
+2025-08-06 14:41:26 - scientific_validation - INFO -   Missing rate: 30.0%
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+IMPUTATION METHOD COMPARISON SUMMARY:
+2025-08-06 14:41:28 - scientific_validation - INFO - ==================================================
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Column: da
+2025-08-06 14:41:28 - scientific_validation - INFO - --------------------
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 10.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 500.2701 ± 72.3678
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 8.6876 ± 0.2661 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 443.4435 ± 68.9870 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1816 ± 0.2498
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 443.4435 ± 68.9870
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1816 ± 0.2498
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 443.4435 ± 68.9870
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1816 ± 0.2498
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 20.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 515.5779 ± 27.7830
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 8.7009 ± 0.1274 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 458.6444 ± 26.5889 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.2235 ± 0.1087
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 458.6444 ± 26.5889
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.2235 ± 0.1087
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 458.6444 ± 26.5889
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.2235 ± 0.1087
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 30.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 512.6784 ± 30.0808
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 8.6793 ± 0.2555 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 456.1263 ± 26.8273 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1988 ± 0.1265
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 456.1263 ± 26.8273
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1988 ± 0.1265
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 456.1263 ± 26.8273
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 11.1988 ± 0.1265
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Column: pn
+2025-08-06 14:41:28 - scientific_validation - INFO - --------------------
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 10.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 23292514561.4635 ± 12179940140.6555
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 45226.5175 ± 6651.7536 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 21344579066.7952 ± 11581795386.9398 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 63962.1677 ± 6045.0495
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 21344579066.7952 ± 11581795386.9398
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 63962.1677 ± 6045.0495
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 21344579066.7952 ± 11581795386.9398
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 63962.1677 ± 6045.0495
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 20.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 27914174756.2409 ± 6796030390.3193
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 47649.1419 ± 3861.0292 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 25739699796.1459 ± 6465949724.5698 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65827.0314 ± 3022.3454
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 25739699796.1459 ± 6465949724.5698
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65827.0314 ± 3022.3454
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 25739699796.1459 ± 6465949724.5698
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65827.0314 ± 3022.3454
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 30.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 26185860672.5691 ± 3765856371.7402
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 47283.6191 ± 2395.4863 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 24043477149.5268 ± 3551681849.5237 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65665.3887 ± 1430.0520
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 24043477149.5268 ± 3551681849.5237
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65665.3887 ± 1430.0520
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 24043477149.5268 ± 3551681849.5237
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 65665.3887 ± 1430.0520
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Column: chla-anom
+2025-08-06 14:41:28 - scientific_validation - INFO - --------------------
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 10.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.5985 ± 0.6503
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9247 ± 0.0384 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.5360 ± 0.5450 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9319 ± 0.0335
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.5360 ± 0.5450
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9319 ± 0.0335
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.5360 ± 0.5450
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9319 ± 0.0335
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 20.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 19.1265 ± 1.0271
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9216 ± 0.0628 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 19.0426 ± 0.9826 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9279 ± 0.0612
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 19.0426 ± 0.9826
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9279 ± 0.0612
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 19.0426 ± 0.9826
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9279 ± 0.0612
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 30.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.9761 ± 0.8394
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9145 ± 0.0321 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.8940 ± 0.8195 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9214 ± 0.0304
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.8940 ± 0.8195
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9214 ± 0.0304
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 18.8940 ± 0.8195
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 2.9214 ± 0.0304
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Column: sst-anom
+2025-08-06 14:41:28 - scientific_validation - INFO - --------------------
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 10.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1164 ± 0.0089
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8293 ± 0.0053 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1086 ± 0.0073 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8347 ± 0.0057
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1086 ± 0.0073
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8347 ± 0.0057
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1086 ± 0.0073
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8347 ± 0.0057
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 20.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1370 ± 0.0210
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8370 ± 0.0073 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1268 ± 0.0185 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8409 ± 0.0065
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1268 ± 0.0185
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8409 ± 0.0065
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1268 ± 0.0185
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8409 ± 0.0065
+2025-08-06 14:41:28 - scientific_validation - INFO - 
+Missing Rate: 30.0%
+2025-08-06 14:41:28 - scientific_validation - INFO -   Median (Current):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1322 ± 0.0217
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8343 ± 0.0073 (BEST MAE)
+2025-08-06 14:41:28 - scientific_validation - INFO -   Mean:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1221 ± 0.0207 (BEST MSE)
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8382 ± 0.0071
+2025-08-06 14:41:28 - scientific_validation - INFO -   KNN (k=5):
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1221 ± 0.0207
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8382 ± 0.0071
+2025-08-06 14:41:28 - scientific_validation - INFO -   Iterative:
+2025-08-06 14:41:28 - scientific_validation - INFO -     MSE: 1.1221 ± 0.0207
+2025-08-06 14:41:28 - scientific_validation - INFO -     MAE: 0.8382 ± 0.0071
+2025-08-06 14:41:28 - __main__ - INFO - ✅ Feature validation completed. Results saved to tools/testing/results/validation/feature_validation_results.json
+2025-08-06 14:41:28 - __main__ - INFO - 📋 Generating Comprehensive Validation Report...
+2025-08-06 14:41:28 - __main__ - INFO - ✅ Validation report generated: tools/testing/results/validation/comprehensive_validation_report.json
+2025-08-06 14:41:28 - __main__ - INFO - ✅ Human-readable summary: tools/testing/results/validation/validation_summary.txt
+2025-08-06 14:41:28 - __main__ - INFO - ================================================================================
+2025-08-06 14:41:28 - __main__ - INFO - 🎉 Validation Suite Complete!
+2025-08-06 14:41:28 - __main__ - INFO - ================================================================================
+2025-08-06 14:41:28 - __main__ - INFO - Overall Status: PASSED
+2025-08-06 14:41:28 - __main__ - INFO - Tests Completed: 4
+2025-08-06 14:41:28 - __main__ - INFO - Results Directory: tools/testing/results/validation
+2025-08-06 14:41:28 - __main__ - INFO - ✅ All validation tests passed - System is scientifically sound!
