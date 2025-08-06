@@ -152,7 +152,7 @@ class ForecastEngine:
             
             # NOW create lag features with strict temporal cutoff (original method)
             site_data_with_lags = self.data_processor.create_lag_features_safe(
-                site_data, "site", "da", [1, 2, 3], anchor_date
+                site_data, "site", "da", config.LAG_FEATURES, anchor_date
             )
             
             # Re-extract training and test data with lag features
@@ -267,7 +267,7 @@ class ForecastEngine:
             
             # Create lag features with strict cutoff (original method)
             df_site_with_lags = self.data_processor.create_lag_features_safe(
-                df_site, "site", "da", [1, 2, 3], anchor_date
+                df_site, "site", "da", config.LAG_FEATURES, anchor_date
             )
             
             # Get training data (everything up to and including anchor date)

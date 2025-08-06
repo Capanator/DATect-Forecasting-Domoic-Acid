@@ -15,9 +15,15 @@ import unittest
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import sys
+import os
+
+# Add project root to path
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 # Import system components
 from forecasting.core.data_processor import DataProcessor
+import config
 from forecasting.core.forecast_engine import ForecastEngine
 
 
@@ -46,7 +52,7 @@ class TestTemporalIntegrity(unittest.TestCase):
         
         # Create lag features with temporal cutoff
         data_with_lags = self.data_processor.create_lag_features_safe(
-            self.test_data, 'site', 'da', [1, 2, 3], cutoff_date
+            self.test_data, 'site', 'da', config.LAG_FEATURES, cutoff_date
         )
         
         # Check that lag features after cutoff are NaN or properly restricted
@@ -56,9 +62,10 @@ class TestTemporalIntegrity(unittest.TestCase):
         buffer_zone = future_data[future_data['date'] <= cutoff_date + pd.Timedelta(days=7)]
         
         # At least some lag features should be NaN near the cutoff to prevent leakage
+        lag_columns = [f'da_lag_{lag}' for lag in config.LAG_FEATURES]
         self.assertTrue(
-            buffer_zone[['da_lag_1', 'da_lag_2', 'da_lag_3']].isnull().any().any(),
-            "Lag features should have NaN values near temporal cutoff"
+            buffer_zone[lag_columns].isnull().any().any(),
+            f"Lag features {lag_columns} should have NaN values near temporal cutoff"
         )
         
     def test_temporal_split_ordering(self):

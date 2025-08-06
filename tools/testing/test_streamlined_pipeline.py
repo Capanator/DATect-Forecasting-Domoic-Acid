@@ -65,6 +65,7 @@ def test_data_processor():
     
     try:
         from forecasting.core.data_processor import DataProcessor
+        import config
         
         processor = DataProcessor()
         
@@ -78,7 +79,7 @@ def test_data_processor():
         # Test lag feature creation
         cutoff_date = pd.Timestamp('2020-06-01')
         lag_data = processor.create_lag_features_safe(
-            test_data, 'site', 'da', [1, 2, 3], cutoff_date
+            test_data, 'site', 'da', config.LAG_FEATURES, cutoff_date
         )
         print("✅ Lag features created")
         
