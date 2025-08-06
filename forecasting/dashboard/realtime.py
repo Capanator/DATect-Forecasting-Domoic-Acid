@@ -65,6 +65,13 @@ class RealtimeDashboard:
         min_date = data['date'].min().date()
         max_date = data['date'].max().date()
         
+        # Get available models from model factory
+        available_models = self.model_factory.get_supported_models('regression')['regression']
+        model_options = []
+        for model in available_models:
+            desc = self.model_factory.get_model_description(model)
+            model_options.append({"label": desc, "value": model})
+        
         self.app.layout = html.Div([
             html.H1("Real-time DA Forecast Dashboard",
                    style={'textAlign': 'center', 'marginBottom': '30px'}),
@@ -80,7 +87,7 @@ class RealtimeDashboard:
                         max_date_allowed=max_date,
                         display_format='YYYY-MM-DD'
                     ),
-                ], style={'width': '200px', 'display': 'inline-block', 'margin': '0 20px'}),
+                ], style={'width': '180px', 'display': 'inline-block', 'margin': '0 15px'}),
                 
                 html.Div([
                     html.Label("Site:", style={'fontWeight': 'bold'}),
@@ -89,12 +96,17 @@ class RealtimeDashboard:
                         options=[{"label": site, "value": site} for site in sites_list],
                         value=sites_list[0]
                     ),
-                ], style={'width': '200px', 'display': 'inline-block', 'margin': '0 20px'}),
+                ], style={'width': '180px', 'display': 'inline-block', 'margin': '0 15px'}),
                 
                 html.Div([
-                    html.Label("Model: Random Forest", style={'fontWeight': 'bold', 'fontSize': '16px', 'color': '#2E86C1'}),
-                    html.P("(Fixed model for realtime forecasting)", style={'fontSize': '12px', 'color': '#666', 'margin': '0'})
-                ], style={'width': '200px', 'display': 'inline-block', 'margin': '0 20px', 'textAlign': 'center'}),
+                    html.Label("Model:", style={'fontWeight': 'bold'}),
+                    dcc.Dropdown(
+                        id="model-selector",
+                        options=model_options,
+                        value="xgboost",  # Default to XGBoost
+                        clearable=False
+                    ),
+                ], style={'width': '220px', 'display': 'inline-block', 'margin': '0 15px'}),
                 
                 html.Div([
                     html.Button("Generate Forecast", id="forecast-button", 
@@ -103,7 +115,7 @@ class RealtimeDashboard:
                                    'border': 'none', 'padding': '10px 20px',
                                    'borderRadius': '5px', 'cursor': 'pointer',
                                    'marginTop': '25px'})
-                ], style={'display': 'inline-block', 'margin': '0 20px'}),
+                ], style={'display': 'inline-block', 'margin': '0 15px'}),
                 
             ], style={'textAlign': 'center', 'marginBottom': '30px',
                      'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '10px'}),
@@ -137,42 +149,48 @@ class RealtimeDashboard:
              Output("importance-plot", "figure")],
             [Input("forecast-button", "n_clicks")],
             [State("forecast-date", "date"),
-             State("forecast-site", "value")]
+             State("forecast-site", "value"),
+             State("model-selector", "value")]
         )
-        def generate_forecast(n_clicks, forecast_date, site):
+        def generate_forecast(n_clicks, forecast_date, site, selected_model):
             if n_clicks == 0:
                 return (html.Div("Click 'Generate Forecast' to start", 
                                style={'textAlign': 'center', 'color': '#666'}), 
                        go.Figure(), go.Figure(), go.Figure())
                 
-            if not all([forecast_date, site]):
-                return (html.Div("Please select both date and site", 
+            if not all([forecast_date, site, selected_model]):
+                return (html.Div("Please select date, site, and model", 
                                style={'textAlign': 'center', 'color': 'red'}), 
                        go.Figure(), go.Figure(), go.Figure())
                 
             try:
-                # Generate both regression and classification forecasts with RF
+                # Generate both regression and classification forecasts with selected model
                 regression_result = self.forecast_engine.generate_single_forecast(
                     self.data_path, 
                     pd.to_datetime(forecast_date), 
                     site, 
                     "regression", 
-                    "rf"
+                    selected_model
                 )
+                
+                # For classification, use RF if selected model doesn't support classification
+                classification_models = self.model_factory.get_supported_models('classification')['classification']
+                classification_model = selected_model if selected_model in classification_models else "rf"
                 
                 classification_result = self.forecast_engine.generate_single_forecast(
                     self.data_path, 
                     pd.to_datetime(forecast_date), 
                     site, 
                     "classification", 
-                    "rf"
+                    classification_model
                 )
                 
                 # Combine results
                 combined_result = {
                     'forecast_date': pd.to_datetime(forecast_date),
                     'site': site,
-                    'model_type': 'rf',
+                    'model_type': selected_model,
+                    'classification_model': classification_model,
                     'regression': regression_result,
                     'classification': classification_result
                 }
@@ -206,10 +224,12 @@ class RealtimeDashboard:
         site = combined_result['site']
         
         # Base information
+        model_desc = self.model_factory.get_model_description(combined_result['model_type'])
+        classification_desc = self.model_factory.get_model_description(combined_result['classification_model'])
         info_section = html.Div([
             html.H3(f"Forecast for {site} on {forecast_date}", 
                    style={'color': '#2E86C1', 'textAlign': 'center'}),
-            html.P("Model: Random Forest (both regression & classification)", 
+            html.P(f"Regression Model: {model_desc} | Classification Model: {classification_desc}", 
                   style={'textAlign': 'center', 'fontSize': '16px'}),
         ])
         
