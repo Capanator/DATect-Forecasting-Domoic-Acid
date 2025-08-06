@@ -1,0 +1,29 @@
+DATect Performance Analysis Report
+==================================================
+
+System Information:
+--------------------
+Python Version: 3.13.1
+CPU Cores: 12
+Total Memory: 24.0 GB
+Platform: darwin
+
+Performance Summary:
+--------------------
+Overall Classification: Excellent (<10s)
+Total Execution Time: 0.07 seconds
+Peak Memory Usage: 224.5 MB
+Components Tested: 1
+Successful Components: 1
+
+Component Performance:
+--------------------
+
+Data Loading:
+  Execution Time: 0.071 seconds
+  Memory Usage: 20.5 MB
+  Status: ✅ Success
+  Rows Loaded: 10950
+  Columns Loaded: 19
+  Memory Per Row Kb: 1.9126940639269407
+  Loading Rate Rows Per Second: 154865.1699276081
