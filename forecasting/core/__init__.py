@@ -2,7 +2,7 @@
 Core Forecasting Components
 ===========================
 
-This module contains the core logic for leak-free domoic acid forecasting:
+This module contains the core logic for domoic acid forecasting:
 
 - ForecastEngine: Main forecasting logic with temporal safeguards
 - DataProcessor: Data cleaning and feature engineering

@@ -10,7 +10,7 @@ Comprehensive spectral analysis of XGBoost predictions including:
 - Site-by-site and aggregate analysis
 """
 
-import pandas as pd
+# import pandas as pd  # Not used directly in this script
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 # Import our forecasting system
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 from forecasting.core.forecast_engine import ForecastEngine
 import config
@@ -107,6 +107,271 @@ def compute_coherence_phase(actual, predicted, fs=1.0):
     return freqs, coherence, phase
 
 
+def perform_wavelet_decomposition(signal_data, wavelet='db8', levels=6):
+    """
+    Perform discrete wavelet decomposition of a signal.
+    
+    Args:
+        signal_data: Time series data
+        wavelet: Wavelet type (db8, haar, coif5, etc.)
+        levels: Number of decomposition levels
+    
+    Returns:
+        coeffs: List of wavelet coefficients [cA_n, cD_n, cD_n-1, ..., cD_1]
+        reconstruction: Reconstructed signal for validation
+    """
+    if not HAS_PYWT:
+        return None, None
+        
+    if len(signal_data) < 16:  # Minimum reasonable signal length
+        return None, None
+        
+    if len(signal_data) < 2**levels:
+        levels = int(np.log2(len(signal_data))) - 1
+        if levels < 1:
+            return None, None
+    
+    # Pad signal to power of 2 if needed
+    n_samples = len(signal_data)
+    next_pow2 = 2**int(np.ceil(np.log2(n_samples)))
+    if next_pow2 > n_samples:
+        padded_signal = np.pad(signal_data, (0, next_pow2 - n_samples), mode='symmetric')
+    else:
+        padded_signal = signal_data
+    
+    # Perform wavelet decomposition
+    coeffs = pywt.wavedec(padded_signal, wavelet, level=levels)
+    
+    # Reconstruct signal for validation
+    reconstruction = pywt.waverec(coeffs, wavelet)
+    reconstruction = reconstruction[:n_samples]  # Remove padding
+    
+    return coeffs, reconstruction
+
+
+def perform_continuous_wavelet_transform(signal_data, scales=None, wavelet='morl'):
+    """
+    Perform Continuous Wavelet Transform (CWT) analysis.
+    
+    Args:
+        signal_data: Time series data
+        scales: Array of scales to analyze (default: automatic)
+        wavelet: Wavelet type for CWT ('morl', 'cmor', 'gaus1', etc.)
+    
+    Returns:
+        coefficients: CWT coefficient matrix
+        scales: Array of scales used
+        frequencies: Corresponding frequencies
+    """
+    if not HAS_PYWT:
+        return None, None, None
+    
+    if len(signal_data) < 32:
+        return None, None, None
+    
+    # Generate scales if not provided
+    if scales is None:
+        # Create logarithmically spaced scales
+        # Corresponds to periods from 2 weeks to half the signal length
+        min_scale = 2
+        max_scale = len(signal_data) // 4
+        scales = np.logspace(np.log10(min_scale), np.log10(max_scale), num=64)
+    
+    # Perform CWT
+    coefficients, frequencies = pywt.cwt(signal_data, scales, wavelet)
+    
+    # Convert scales to pseudo-frequencies (approximate)
+    # For Morlet wavelet, central frequency is approximately 1.0
+    central_freq = pywt.central_frequency(wavelet)
+    frequencies = central_freq / scales
+    
+    return coefficients, scales, frequencies
+
+
+def analyze_wavelet_energy_distribution(coeffs, levels=None):
+    """
+    Analyze energy distribution across wavelet decomposition levels.
+    
+    Args:
+        coeffs: Wavelet coefficients from wavedec
+        levels: Number of levels (inferred if None)
+    
+    Returns:
+        energies: Energy at each decomposition level
+        relative_energies: Normalized energy percentages
+        frequency_bands: Approximate frequency bands for each level
+    """
+    if coeffs is None:
+        return None, None, None
+    
+    if levels is None:
+        levels = len(coeffs) - 1
+    
+    # Calculate energy at each level
+    energies = []
+    
+    # Approximation coefficients (lowest frequency)
+    energies.append(np.sum(coeffs[0]**2))
+    
+    # Detail coefficients (higher frequencies)
+    for i in range(1, len(coeffs)):
+        energies.append(np.sum(coeffs[i]**2))
+    
+    energies = np.array(energies)
+    total_energy = np.sum(energies)
+    relative_energies = energies / total_energy * 100
+    
+    # Approximate frequency bands (assuming weekly sampling)
+    # Each level represents half the frequency range of the previous
+    frequency_bands = []
+    nyquist = 0.5  # Nyquist frequency for weekly data
+    
+    for i in range(levels + 1):
+        if i == 0:  # Approximation
+            freq_max = nyquist / (2**levels)
+            frequency_bands.append(f"0 - 1/{2**(levels+1):.0f} weeks⁻¹")
+        else:  # Details
+            level = levels - i + 1
+            freq_min = nyquist / (2**level)
+            freq_max = nyquist / (2**(level-1))
+            period_min = 1/freq_max if freq_max > 0 else float('inf')
+            period_max = 1/freq_min if freq_min > 0 else float('inf')
+            frequency_bands.append(f"{period_min:.1f} - {period_max:.1f} weeks")
+    
+    return energies, relative_energies, frequency_bands
+
+
+def compare_wavelet_features(actual, predicted, wavelet='db8', levels=6):
+    """
+    Compare wavelet-based features between actual and predicted signals.
+    
+    Returns:
+        comparison: Dictionary with wavelet-based comparison metrics
+    """
+    if not HAS_PYWT:
+        return {}
+    
+    # Ensure signals have the same length
+    min_len = min(len(actual), len(predicted))
+    actual = actual[:min_len]
+    predicted = predicted[:min_len]
+    
+    if min_len < 32:
+        return {}
+    
+    # Perform wavelet decomposition for both signals
+    coeffs_actual, recon_actual = perform_wavelet_decomposition(actual, wavelet, levels)
+    coeffs_predicted, recon_predicted = perform_wavelet_decomposition(predicted, wavelet, levels)
+    
+    if coeffs_actual is None or coeffs_predicted is None:
+        return {}
+    
+    # Analyze energy distribution
+    energies_actual, rel_energies_actual, freq_bands = analyze_wavelet_energy_distribution(coeffs_actual, levels)
+    energies_predicted, rel_energies_predicted, _ = analyze_wavelet_energy_distribution(coeffs_predicted, levels)
+    
+    # Calculate correlation at each decomposition level
+    level_correlations = []
+    for i in range(len(coeffs_actual)):
+        if len(coeffs_actual[i]) > 1 and len(coeffs_predicted[i]) > 1:
+            corr = np.corrcoef(coeffs_actual[i], coeffs_predicted[i])[0, 1]
+            level_correlations.append(corr if not np.isnan(corr) else 0)
+        else:
+            level_correlations.append(0)
+    
+    # Calculate reconstruction error
+    recon_error_actual = np.mean((actual - recon_actual)**2)
+    recon_error_predicted = np.mean((predicted - recon_predicted)**2)
+    
+    # Energy distribution similarity
+    energy_correlation = np.corrcoef(rel_energies_actual, rel_energies_predicted)[0, 1]
+    
+    comparison = {
+        'wavelet': wavelet,
+        'levels': levels,
+        'energies_actual': energies_actual,
+        'energies_predicted': energies_predicted,
+        'relative_energies_actual': rel_energies_actual,
+        'relative_energies_predicted': rel_energies_predicted,
+        'frequency_bands': freq_bands,
+        'level_correlations': level_correlations,
+        'reconstruction_error_actual': recon_error_actual,
+        'reconstruction_error_predicted': recon_error_predicted,
+        'energy_correlation': energy_correlation if not np.isnan(energy_correlation) else 0
+    }
+    
+    return comparison
+
+
+def analyze_cwt_patterns(actual, predicted, scales=None, wavelet='morl'):
+    """
+    Analyze continuous wavelet transform patterns between actual and predicted.
+    
+    Returns:
+        cwt_analysis: Dictionary with CWT analysis results
+    """
+    if not HAS_PYWT:
+        return {}
+    
+    # Ensure signals have the same length
+    min_len = min(len(actual), len(predicted))
+    actual = actual[:min_len]
+    predicted = predicted[:min_len]
+    
+    if min_len < 32:
+        return {}
+    
+    # Perform CWT for both signals
+    cwt_actual, scales_used, frequencies = perform_continuous_wavelet_transform(actual, scales, wavelet)
+    cwt_predicted, _, _ = perform_continuous_wavelet_transform(predicted, scales, wavelet)
+    
+    if cwt_actual is None or cwt_predicted is None:
+        return {}
+    
+    # Calculate power (squared magnitude) of coefficients
+    power_actual = np.abs(cwt_actual)**2
+    power_predicted = np.abs(cwt_predicted)**2
+    
+    # Average power across time for each scale
+    avg_power_actual = np.mean(power_actual, axis=1)
+    avg_power_predicted = np.mean(power_predicted, axis=1)
+    
+    # Correlation between power spectra
+    power_correlation = np.corrcoef(avg_power_actual, avg_power_predicted)[0, 1]
+    if np.isnan(power_correlation):
+        power_correlation = 0
+    
+    # Find dominant scales/frequencies
+    dominant_scale_idx_actual = np.argmax(avg_power_actual)
+    dominant_scale_idx_predicted = np.argmax(avg_power_predicted)
+    
+    dominant_period_actual = 1/frequencies[dominant_scale_idx_actual] if frequencies[dominant_scale_idx_actual] > 0 else float('inf')
+    dominant_period_predicted = 1/frequencies[dominant_scale_idx_predicted] if frequencies[dominant_scale_idx_predicted] > 0 else float('inf')
+    
+    # Calculate time-averaged coherence (similar to traditional coherence)
+    coherence_cwt = np.abs(np.mean(cwt_actual * np.conj(cwt_predicted), axis=1))**2 / (
+        np.mean(np.abs(cwt_actual)**2, axis=1) * np.mean(np.abs(cwt_predicted)**2, axis=1)
+    )
+    
+    # Avoid division by zero
+    coherence_cwt = np.nan_to_num(coherence_cwt)
+    
+    cwt_analysis = {
+        'wavelet': wavelet,
+        'scales': scales_used,
+        'frequencies': frequencies,
+        'power_actual': avg_power_actual,
+        'power_predicted': avg_power_predicted,
+        'power_correlation': power_correlation,
+        'dominant_period_actual': dominant_period_actual,
+        'dominant_period_predicted': dominant_period_predicted,
+        'coherence': coherence_cwt,
+        'avg_coherence': np.mean(coherence_cwt)
+    }
+    
+    return cwt_analysis
+
+
 def analyze_xgboost_spectral_patterns(results_df):
     """
     Analyze spectral patterns in XGBoost predictions vs actual for all sites.
@@ -170,7 +435,7 @@ def analyze_single_site_spectral(site_name, actual, predicted):
     site_results = {}
     
     # 1. POWER SPECTRAL DENSITY
-    print("\n1. Power Spectral Density Analysis")
+    print(f"\n1. Power Spectral Density Analysis for {site_name}")
     print("-" * 40)
     
     # Compute PSD for actual and predicted
@@ -298,8 +563,63 @@ def analyze_single_site_spectral(site_name, actual, predicted):
                 'avg_spectral_corr': avg_spectral_corr
             }
     
-    # 4. Overall Performance Metrics
-    print("\n4. Overall XGBoost Performance")
+    # 4. WAVELET ANALYSIS
+    print("\n4. Wavelet Analysis")
+    print("-" * 40)
+    
+    if HAS_PYWT:
+        # Discrete Wavelet Transform analysis
+        wavelet_comparison = compare_wavelet_features(actual, predicted, wavelet='db8', levels=5)
+        
+        if wavelet_comparison:
+            print("Discrete Wavelet Decomposition (Daubechies-8):")
+            print(f"  Energy correlation: {wavelet_comparison['energy_correlation']:.3f}")
+            
+            # Show energy distribution for top 3 frequency bands
+            top_energies_actual = np.argsort(wavelet_comparison['relative_energies_actual'])[-3:][::-1]
+            print("  Top 3 energy bands (actual):")
+            for i, idx in enumerate(top_energies_actual):
+                band = wavelet_comparison['frequency_bands'][idx]
+                energy = wavelet_comparison['relative_energies_actual'][idx]
+                print(f"    {i+1}. {band}: {energy:.1f}%")
+            
+            # Level correlations
+            avg_level_corr = np.mean(wavelet_comparison['level_correlations'])
+            print(f"  Average level correlation: {avg_level_corr:.3f}")
+            
+            best_level = np.argmax(wavelet_comparison['level_correlations'])
+            best_corr = wavelet_comparison['level_correlations'][best_level]
+            print(f"  Best correlation at level {best_level}: {best_corr:.3f}")
+            
+            site_results['wavelet'] = wavelet_comparison
+        
+        # Continuous Wavelet Transform analysis
+        cwt_analysis = analyze_cwt_patterns(actual, predicted, wavelet='morl')
+        
+        if cwt_analysis:
+            print(f"\nContinuous Wavelet Transform (Morlet):")
+            print(f"  Power correlation: {cwt_analysis['power_correlation']:.3f}")
+            print(f"  Average coherence: {cwt_analysis['avg_coherence']:.3f}")
+            print(f"  Dominant period (actual): {cwt_analysis['dominant_period_actual']:.1f} weeks")
+            print(f"  Dominant period (predicted): {cwt_analysis['dominant_period_predicted']:.1f} weeks")
+            
+            # Check if dominant periods match
+            period_diff = abs(cwt_analysis['dominant_period_actual'] - cwt_analysis['dominant_period_predicted'])
+            if period_diff < 2:
+                print("  → Excellent period matching")
+            elif period_diff < 5:
+                print("  → Good period matching")
+            else:
+                print("  → Poor period matching")
+            
+            site_results['cwt'] = cwt_analysis
+        
+    else:
+        print("PyWavelets not available - skipping wavelet analysis")
+        print("Install with: pip install PyWavelets")
+    
+    # 5. Overall Performance Metrics
+    print("\n5. Overall XGBoost Performance")
     print("-" * 40)
     
     # R-squared
@@ -349,8 +669,14 @@ def create_single_site_plot(results, site, filename):
     
     site_results = results[site]
     
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-    fig.suptitle(f'XGBoost Spectral Analysis - {site}', fontsize=16, fontweight='bold')
+    # Determine if we have wavelet data to show more plots
+    has_wavelet = 'wavelet' in site_results or 'cwt' in site_results
+    if has_wavelet:
+        fig, axes = plt.subplots(3, 3, figsize=(20, 16))
+    else:
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    
+    fig.suptitle(f'XGBoost Spectral & Wavelet Analysis - {site}', fontsize=16, fontweight='bold')
     
     # 1. Power Spectral Density
     ax = axes[0, 0]
@@ -471,6 +797,78 @@ def create_single_site_plot(results, site, filename):
     
     ax.text(0.1, 0.9, summary_text, transform=ax.transAxes, 
             fontsize=10, verticalalignment='top', fontfamily='monospace')
+    
+    # Add wavelet analysis plots if available
+    if has_wavelet:
+        # 7. Discrete Wavelet Energy Distribution
+        if 'wavelet' in site_results:
+            ax = axes[2, 0]
+            wavelet_data = site_results['wavelet']
+            
+            x = np.arange(len(wavelet_data['frequency_bands']))
+            width = 0.35
+            
+            ax.bar(x - width/2, wavelet_data['relative_energies_actual'], width, 
+                   label='Actual', alpha=0.7, color='blue')
+            ax.bar(x + width/2, wavelet_data['relative_energies_predicted'], width, 
+                   label='XGBoost', alpha=0.7, color='red')
+            
+            ax.set_xlabel('Frequency Band')
+            ax.set_ylabel('Relative Energy (%)')
+            ax.set_title('Wavelet Energy Distribution')
+            ax.set_xticks(x)
+            ax.set_xticklabels(wavelet_data['frequency_bands'], rotation=45, ha='right')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+        
+        # 8. CWT Power Spectrum
+        if 'cwt' in site_results:
+            ax = axes[2, 1]
+            cwt_data = site_results['cwt']
+            
+            periods = 1/cwt_data['frequencies']
+            ax.loglog(periods, cwt_data['power_actual'], 'b-', 
+                     label='Actual', alpha=0.8, linewidth=2)
+            ax.loglog(periods, cwt_data['power_predicted'], 'r-', 
+                     label='XGBoost', alpha=0.8, linewidth=2)
+            
+            ax.set_xlabel('Period (weeks)')
+            ax.set_ylabel('CWT Power')
+            ax.set_title('Continuous Wavelet Transform Power')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+        
+        # 9. Wavelet Summary
+        ax = axes[2, 2]
+        ax.axis('off')
+        
+        wavelet_summary = "WAVELET ANALYSIS SUMMARY\n\n"
+        
+        if 'wavelet' in site_results:
+            wavelet_data = site_results['wavelet']
+            wavelet_summary += f"Discrete Wavelet (Daubechies-8):\n"
+            wavelet_summary += f"  • Energy correlation: {wavelet_data['energy_correlation']:.3f}\n"
+            wavelet_summary += f"  • Avg level correlation: {np.mean(wavelet_data['level_correlations']):.3f}\n"
+            wavelet_summary += f"  • Best level: {np.argmax(wavelet_data['level_correlations'])}\n"
+        
+        if 'cwt' in site_results:
+            cwt_data = site_results['cwt']
+            wavelet_summary += f"\nContinuous Wavelet (Morlet):\n"
+            wavelet_summary += f"  • Power correlation: {cwt_data['power_correlation']:.3f}\n"
+            wavelet_summary += f"  • Average coherence: {cwt_data['avg_coherence']:.3f}\n"
+            wavelet_summary += f"  • Dominant period (actual): {cwt_data['dominant_period_actual']:.1f}w\n"
+            wavelet_summary += f"  • Dominant period (predicted): {cwt_data['dominant_period_predicted']:.1f}w\n"
+            
+            period_diff = abs(cwt_data['dominant_period_actual'] - cwt_data['dominant_period_predicted'])
+            if period_diff < 2:
+                wavelet_summary += "  • Period matching: Excellent\n"
+            elif period_diff < 5:
+                wavelet_summary += "  • Period matching: Good\n"
+            else:
+                wavelet_summary += "  • Period matching: Poor\n"
+        
+        ax.text(0.1, 0.9, wavelet_summary, transform=ax.transAxes, 
+                fontsize=10, verticalalignment='top', fontfamily='monospace')
     
     plt.tight_layout()
     plt.savefig(f'{filename}.png', dpi=300, bbox_inches='tight')
