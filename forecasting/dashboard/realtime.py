@@ -173,9 +173,9 @@ class RealtimeDashboard:
                     selected_model
                 )
                 
-                # For classification, use RF if selected model doesn't support classification
+                # For classification, use logistic if selected model doesn't support classification
                 classification_models = self.model_factory.get_supported_models('classification')['classification']
-                classification_model = selected_model if selected_model in classification_models else "rf"
+                classification_model = selected_model if selected_model in classification_models else "logistic"
                 
                 classification_result = self.forecast_engine.generate_single_forecast(
                     self.data_path, 

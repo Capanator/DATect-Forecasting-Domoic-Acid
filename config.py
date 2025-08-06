@@ -210,12 +210,10 @@ FORECAST_TASK = "regression"  # Options: "regression", "classification"
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "xgboost"  # Options: "rf", "xgboost", "stacking", "ridge", "logistic"
-# - "rf": Random Forest (baseline model with good performance)
-# - "xgboost": XGBoost (7.4% better than RF for regression)
-# - "stacking": Stacking Ensemble (8.1% better than RF - BEST PERFORMER)
+FORECAST_MODEL = "xgboost"  # Options: "xgboost", "ridge"
+# - "xgboost": XGBoost (primary model with superior performance)
 # - "ridge": Ridge Regression (linear method for regression only)
-# - "logistic": Logistic Regression (linear method for classification only)
+# Note: Logistic Regression is automatically used for classification tasks
 
 
 # Dashboard Configuration  
@@ -235,7 +233,7 @@ MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
 
 # Retrospective Evaluation Configuration
-N_RANDOM_ANCHORS = 100  # Number of random anchor points for retrospective evaluation
+N_RANDOM_ANCHORS = 200  # Number of random anchor points for retrospective evaluation
 # - Higher values: More thorough evaluation, longer runtime (recommended: 20-100)
 # - Lower values: Faster evaluation, less comprehensive testing
 
