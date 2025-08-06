@@ -1,0 +1,50 @@
+{
+  "model_name": "api_demo_logistic",
+  "version": "v1.0",
+  "created_at": "2025-08-06T09:07:52.693129+00:00",
+  "model_type": "LogisticRegression",
+  "preprocessor_type": null,
+  "has_preprocessor": false,
+  "python_version": "3.13.1",
+  "dependencies": {
+    "pandas": "2.2.3",
+    "numpy": "2.2.3",
+    "scikit-learn": "not_installed",
+    "xgboost": "2.1.4",
+    "joblib": "1.4.2"
+  },
+  "model_params": {
+    "C": 1.0,
+    "class_weight": null,
+    "dual": false,
+    "fit_intercept": true,
+    "intercept_scaling": 1,
+    "l1_ratio": null,
+    "max_iter": 1000,
+    "multi_class": "deprecated",
+    "n_jobs": 1,
+    "penalty": "l2",
+    "random_state": 42,
+    "solver": "lbfgs",
+    "tol": 0.0001,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "performance_metrics": {
+    "accuracy": 0.82,
+    "f1_score": 0.79
+  },
+  "task_type": "regression",
+  "forecast_model": "xgboost",
+  "temporal_buffer_days": 1,
+  "training_data_path": "final_output.parquet",
+  "training_samples": null,
+  "sites_trained": null,
+  "date_range": {
+    "start": null,
+    "end": null
+  },
+  "checksums": {
+    "model": "781262089495af57976f7c3c363c3f4eb9854f9e896eed67f0276a15ce913edc"
+  }
+}

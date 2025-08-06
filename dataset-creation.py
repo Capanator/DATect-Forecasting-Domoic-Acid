@@ -31,6 +31,10 @@ import warnings
 import shutil
 import config
 
+# Import logging system
+from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.core.exception_handling import safe_execute
+
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
@@ -50,8 +54,12 @@ generated_parquet_files = []
 temporary_nc_files_for_stitching = []  # Track yearly files per dataset
 
 
+# Setup logging
+setup_logging(log_level="INFO", log_dir="./logs/", enable_file_logging=True)
+logger = get_logger(__name__)
+
 # Load main configuration
-print(f"--- Loading Configuration from config.py ---")
+logger.info("Loading Configuration from config.py")
 
 # Extract config values
 da_files = config.ORIGINAL_DA_FILES
@@ -66,13 +74,13 @@ end_date = pd.to_datetime(config.END_DATE)
 final_output_path = config.FINAL_OUTPUT_PATH
 SATELLITE_OUTPUT_PARQUET = 'satellite_data_intermediate.parquet'
 
-print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
-print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
+logger.info(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
+logger.info(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
 # Load satellite configuration from main config
 satellite_metadata = config.SATELLITE_DATA
-print(f"\n--- Satellite Configuration loaded from main config ---")
-print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
+logger.info("Satellite Configuration loaded from main config")
+logger.info(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -217,7 +225,7 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
         final_cols = ['timestamp', 'site', 'data_type', data_var]
         df_final = df[[col for col in final_cols if col in df.columns]]
     except Exception as df_err:
-        print(f"      ERROR: Failed during DataFrame conversion/formatting for {site} - {data_type}: {df_err}")
+        logger.info(f"      ERROR: Failed during DataFrame conversion/formatting for {site} - {data_type}: {df_err}")
         df_final = None
     finally:
         if ds:
@@ -266,7 +274,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                      })
                      processed_site_datatype_pairs.add((relevant_main_site, data_type))
 
-    print(f"Prepared {len(tasks)} satellite processing tasks.")
+    logger.info(f"Prepared {len(tasks)} satellite processing tasks.")
 
     # --- Main Loop over Tasks (Outer progress bar) ---
     try:
@@ -281,7 +289,7 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
             current_overall_end_dt = global_end_dt
 
             if not current_overall_start_dt or not current_overall_end_dt or current_overall_start_dt > current_overall_end_dt:
-                print(f"\n          Skipping {site}-{data_type} due to invalid overall date range.")
+                logger.info(f"\n          Skipping {site}-{data_type} due to invalid overall date range.")
                 continue
 
             # --- Monthly Download Loop (With Inner progress bar) ---
@@ -339,13 +347,13 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                     if os.path.getsize(tmp_nc_path) > 100: # Basic content check
                         monthly_files_for_dataset.append(tmp_nc_path)
                     else:
-                        print(f"\n          Warning: Downloaded file for month {year_month_str} ({site}-{data_type}) seems empty. Skipping.")
+                        logger.info(f"\n          Warning: Downloaded file for month {year_month_str} ({site}-{data_type}) seems empty. Skipping.")
                         if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path) # Ensure removal if empty
                 except requests.exceptions.RequestException as req_err:
-                    print(f"\n          ERROR downloading month {year_month_str} ({site}-{data_type}): {req_err}. Skipping month.")
+                    logger.info(f"\n          ERROR downloading month {year_month_str} ({site}-{data_type}): {req_err}. Skipping month.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
                 except Exception as e:
-                    print(f"\n          ERROR processing download for month {year_month_str} ({site}-{data_type}): {e}. Skipping.")
+                    logger.info(f"\n          ERROR processing download for month {year_month_str} ({site}-{data_type}): {e}. Skipping.")
                     if os.path.exists(tmp_nc_path): os.unlink(tmp_nc_path)
             # --- End of Monthly Download Loop (Inner progress bar finishes here) ---
 
@@ -392,10 +400,10 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
                 if 'timestamp' in processed_satellite_pivot.columns:
                     processed_satellite_pivot['timestamp'] = pd.to_datetime(processed_satellite_pivot['timestamp'])
                 else:
-                    print("WARNING: 'timestamp' column missing after pivot. Adding empty NaT column.")
+                    logger.warning("WARNING: 'timestamp' column missing after pivot. Adding empty NaT column.")
                     processed_satellite_pivot['timestamp'] = pd.NaT
             except Exception as pivot_err:
-                    print(f"ERROR during satellite pivot: {pivot_err}") # Added error log
+                    logger.info(f"ERROR during satellite pivot: {pivot_err}") # Added error log
                     processed_satellite_pivot = pd.DataFrame(columns=['site', 'timestamp'])
                     processed_satellite_pivot['timestamp'] = pd.to_datetime([])
 
@@ -405,26 +413,26 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
              processed_satellite_pivot['timestamp'] = pd.to_datetime([])
 
         processed_satellite_pivot.to_parquet(output_path, index=False)
-        print(f"Satellite Parquet file write operation completed for path: {output_path}")
+        logger.info(f"Satellite Parquet file write operation completed for path: {output_path}")
         path_to_return = output_path
 
     except Exception as main_err:
-         print(f"\nFATAL ERROR during satellite data generation: {main_err}")
+         logger.info(f"\nFATAL ERROR during satellite data generation: {main_err}")
          path_to_return = None
 
     finally:
         # --- Final Cleanup ---
-        print(f"\nCleaning up main temporary directory: {sat_temp_dir}")
+        logger.info(f"\nCleaning up main temporary directory: {sat_temp_dir}")
         if os.path.exists(sat_temp_dir):
              try:
                  shutil.rmtree(sat_temp_dir)
              except OSError as e:
-                 print(f"  Warning: Could not remove temp directory {sat_temp_dir}: {e}")
+                 logger.info(f"  Warning: Could not remove temp directory {sat_temp_dir}: {e}")
 
     if path_to_return:
-        print(f"generate_satellite_parquet is returning path: {path_to_return}")
+        logger.info(f"generate_satellite_parquet is returning path: {path_to_return}")
     else:
-        print(f"generate_satellite_parquet is returning None (error or no file generated).")
+        logger.info(f"generate_satellite_parquet is returning None (error or no file generated).")
     return path_to_return
 
 def find_best_satellite_match(target_row, sat_pivot_indexed):
@@ -530,7 +538,7 @@ def add_satellite_data(target_df, satellite_parquet_path):
     satellite_pivot_indexed = satellite_df.set_index(['site', 'timestamp']).sort_index()
 
     # Apply matching function
-    print(f"Applying satellite matching function...")
+    logger.info(f"Applying satellite matching function...")
     tqdm.pandas(desc="Satellite Matching")
     matched_data = target_df_proc.progress_apply(
         find_best_satellite_match, axis=1, sat_pivot_indexed=satellite_pivot_indexed
@@ -548,7 +556,7 @@ def add_satellite_data(target_df, satellite_parquet_path):
 # --- Environmental Data Processing ---
 def fetch_climate_index(url, var_name, temp_dir):
     """Process climate index data (PDO, ONI)"""
-    print(f"Fetching climate index: {var_name}...")
+    logger.info(f"Fetching climate index: {var_name}...")
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
@@ -583,7 +591,7 @@ def fetch_climate_index(url, var_name, temp_dir):
 
 def process_streamflow(url, temp_dir):
     """Process USGS streamflow data (daily)"""
-    print("Fetching streamflow data...")
+    logger.info("Fetching streamflow data...")
     # Download file
     fname = local_filename(url, '.json', temp_dir=temp_dir)
     download_file(url, fname)
@@ -618,7 +626,7 @@ def process_streamflow(url, temp_dir):
 
 def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
     """Process BEUTI data with minimal error handling"""
-    print("Fetching BEUTI data...")
+    logger.info("Fetching BEUTI data...")
         
     # Download file
     fname = local_filename(url, '.nc', temp_dir=temp_dir)
@@ -691,7 +699,7 @@ def fetch_beuti_data(url, sites_dict, temp_dir, power=2):
 # =============================================================================\n# CORE DATA PROCESSING FUNCTIONS\n# =============================================================================
 def process_da(da_files_dict):
     """Processes DA data from Parquet files, returns weekly aggregated DataFrame."""
-    print("\n--- Processing DA Data ---")
+    logger.info("\n--- Processing DA Data ---")
     data_frames = []
 
     for name, path in da_files_dict.items():
@@ -723,17 +731,17 @@ def process_da(da_files_dict):
             weekly_da = df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
 
             data_frames.append(weekly_da[['Year-Week', 'DA_Levels', 'Site']])
-            print(f"    Successfully processed {len(weekly_da)} weekly DA records for {name}.")
+            logger.info(f"    Successfully processed {len(weekly_da)} weekly DA records for {name}.")
 
         except Exception as e:
-            print(f"  Error processing DA file {name} ({os.path.basename(path)}): {e}")
+            logger.info(f"  Error processing DA file {name} ({os.path.basename(path)}): {e}")
 
-    print("Combining all processed DA data...")
+    logger.info("Combining all processed DA data...")
     final_da_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat to handle cases where different files might represent the same site-week
     if not final_da_df.empty:
         final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
-    print(f"Combined DA data shape: {final_da_df.shape}")
+    logger.info(f"Combined DA data shape: {final_da_df.shape}")
     return final_da_df
 
 def process_pn(pn_files_dict):
@@ -753,7 +761,7 @@ def process_pn(pn_files_dict):
         Uses ISO week format for temporal consistency with other data sources.
         Handles various PN column name formats and date column variations.
     """
-    print("\n--- Processing PN Data ---")
+    logger.info("\n--- Processing PN Data ---")
     data_frames = []
 
     for name, path in pn_files_dict.items():
@@ -782,18 +790,18 @@ def process_pn(pn_files_dict):
         weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
 
         data_frames.append(weekly_pn[['Year-Week', 'PN_Levels', 'Site']])
-        print(f"  Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
+        logger.info(f"  Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
 
     final_pn_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat
     if not final_pn_df.empty:
         final_pn_df = final_pn_df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
-    print(f"Combined PN data shape: {final_pn_df.shape}")
+    logger.info(f"Combined PN data shape: {final_pn_df.shape}")
     return final_pn_df
 
 def generate_compiled_data(sites_dict, start_dt, end_dt):
     """Generate base DataFrame with all Site-Week combinations"""
-    print(f"  Generating weekly entries from {start_dt.date()} to {end_dt.date()}")
+    logger.info(f"  Generating weekly entries from {start_dt.date()} to {end_dt.date()}")
     weeks = pd.date_range(start_dt, end_dt, freq='W-MON', name='Date')
     
     df_list = []
@@ -804,7 +812,7 @@ def generate_compiled_data(sites_dict, start_dt, end_dt):
         df_list.append(site_df)
         
     compiled_df = pd.concat(df_list, ignore_index=True)
-    print(f"  Generated base DataFrame with {len(compiled_df)} site-week rows.")
+    logger.info(f"  Generated base DataFrame with {len(compiled_df)} site-week rows.")
     return compiled_df.sort_values(['Site', 'Date'])
 
 def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
@@ -812,7 +820,7 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
     ONI and PDO are merged based on the previous month's value with temporal buffer.
     Streamflow is merged using backward fill within a 7-day tolerance.
     """
-    print("\n--- Merging Environmental Data ---")
+    logger.info("\n--- Merging Environmental Data ---")
 
     # Ensure Date is datetime type
     compiled_df['Date'] = pd.to_datetime(compiled_df['Date'])
@@ -890,11 +898,11 @@ def compile_data(compiled_df, oni_df, pdo_df, streamflow_df):
 
 def compile_da_pn(lt_df, da_df, pn_df):
     """Merge DA and PN data with interpolation"""
-    print("\n--- Merging DA and PN Data ---")
+    logger.info("\n--- Merging DA and PN Data ---")
     lt_df_merged = lt_df.copy()
     
     # Merge DA Data
-    print(f"  Merging DA data ({len(da_df)} records)...")
+    logger.info(f"  Merging DA data ({len(da_df)} records)...")
     da_df_copy = da_df.copy()
     da_df_copy['Date'] = pd.to_datetime(da_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
     da_df_copy = da_df_copy.dropna(subset=['Date', 'Site', 'DA_Levels'])
@@ -905,7 +913,7 @@ def compile_da_pn(lt_df, da_df, pn_df):
     lt_df_merged.rename(columns={'DA_Levels': 'DA_Levels_orig'}, inplace=True)
         
     # Merge PN Data
-    print(f"  Merging PN data ({len(pn_df)} records)...")
+    logger.info(f"  Merging PN data ({len(pn_df)} records)...")
     pn_df_copy = pn_df.copy()
     pn_df_copy['Date'] = pd.to_datetime(pn_df_copy['Year-Week'] + '-1', format='%G-%V-%w')
     pn_df_copy = pn_df_copy.dropna(subset=['Date', 'Site', 'PN_Levels'])
@@ -914,7 +922,7 @@ def compile_da_pn(lt_df, da_df, pn_df):
                             on=['Date', 'Site'], how='left')
         
     # FIXED: Interpolate missing values using only forward direction to prevent future data leakage
-    print("  Interpolating missing values (forward-only to prevent leakage)...")
+    logger.info("  Interpolating missing values (forward-only to prevent leakage)...")
     lt_df_merged = lt_df_merged.sort_values(by=['Site', 'Date'])
     
     # Interpolate DA - ONLY forward direction
@@ -964,12 +972,12 @@ def main():
     Raises:
         Exception: If critical data sources cannot be accessed or processed
     """
-    print("\n======= Starting Data Processing Pipeline =======")
+    logger.info("\n======= Starting Data Processing Pipeline =======")
     start_time = datetime.now()
 
     # Create temp directory for downloads
     download_temp_dir = tempfile.mkdtemp(prefix="data_dl_")
-    print(f"Using temporary directory: {download_temp_dir}")
+    logger.info(f"Using temporary directory: {download_temp_dir}")
 
     # Convert input CSVs to Parquet
     da_files_parquet = convert_files_to_parquet(da_files)
@@ -981,20 +989,20 @@ def main():
     # Determine if we need to generate a new satellite file
     should_generate_new_satellite_file = False
     if FORCE_SATELLITE_REPROCESSING:
-        print(
+        logger.info(
             f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---"
         )
         should_generate_new_satellite_file = True
     elif not os.path.exists(SATELLITE_OUTPUT_PARQUET):
-        print(
+        logger.info(
             f"\n--- Intermediate satellite data file '{SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---"
         )
         should_generate_new_satellite_file = True
     else:
-        print(
+        logger.info(
             f"\n--- Found existing satellite data: {SATELLITE_OUTPUT_PARQUET}. Using this file. ---"
         )
-        print(
+        logger.info(
             f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---"
         )
         satellite_parquet_file_path = (
@@ -1002,17 +1010,17 @@ def main():
         )
 
     if should_generate_new_satellite_file:
-        print(
+        logger.info(
             f"--- Generating satellite data. This may take a while... ---"
         )
         if FORCE_SATELLITE_REPROCESSING and os.path.exists(SATELLITE_OUTPUT_PARQUET):
             try:
                 os.remove(SATELLITE_OUTPUT_PARQUET)
-                print(
+                logger.info(
                     f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
                 )
             except OSError as e:
-                print(
+                logger.info(
                     f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
                 )
 
@@ -1022,7 +1030,7 @@ def main():
             SATELLITE_OUTPUT_PARQUET,
         )
         if generated_path and os.path.exists(generated_path):
-            print(
+            logger.info(
                 f"--- Satellite data successfully generated and saved to: {generated_path} ---"
             )
             satellite_parquet_file_path = generated_path
@@ -1062,7 +1070,7 @@ def main():
     if satellite_parquet_file_path and os.path.exists(
         satellite_parquet_file_path
     ):
-        print(
+        logger.info(
             f"\n--- Adding satellite data from: {satellite_parquet_file_path} ---"
         )
         final_data = add_satellite_data(
@@ -1070,7 +1078,7 @@ def main():
         )
 
     # Final processing and save
-    print("\n--- Final Checks and Saving Output ---")
+    logger.info("\n--- Final Checks and Saving Output ---")
 
     # Sort columns
     final_core_cols = [
@@ -1119,7 +1127,7 @@ def main():
     final_data = final_data.rename(columns=col_mapping)
 
     # Save output
-    print(f"Saving final data to {final_output_path}...")
+    logger.info(f"Saving final data to {final_output_path}...")
 
     # Check if final_output_path has a directory component
     output_dir = os.path.dirname(final_output_path)
@@ -1129,22 +1137,22 @@ def main():
     final_data.to_parquet(final_output_path, index=False)
 
     # Clean up
-    print("\n--- Cleaning Up ---")
+    logger.info("\n--- Cleaning Up ---")
     for f in set(downloaded_files + generated_parquet_files):
         if os.path.exists(f):
             try:
                 os.remove(f)
             except OSError as e:
-                print(f"  Warning: Could not remove temporary file {f}: {e}")
+                logger.info(f"  Warning: Could not remove temporary file {f}: {e}")
 
     try:
         shutil.rmtree(download_temp_dir)
     except OSError as e:
-        print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
+        logger.info(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
 
 
     end_time = datetime.now()
-    print(f"\n======= Script Finished in {end_time - start_time} =======")
+    logger.info(f"\n======= Script Finished in {end_time - start_time} =======")
 
 # Run script
 if __name__ == "__main__":

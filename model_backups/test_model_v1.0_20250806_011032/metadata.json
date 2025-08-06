@@ -1,0 +1,47 @@
+{
+  "model_name": "test_model",
+  "version": "1.0",
+  "created_at": "2025-08-06T08:10:32.264835+00:00",
+  "model_type": "RandomForestRegressor",
+  "preprocessor_type": "StandardScaler",
+  "has_preprocessor": true,
+  "python_version": "3.13.1",
+  "dependencies": {
+    "pandas": "2.2.3",
+    "numpy": "2.2.3",
+    "scikit-learn": "not_installed",
+    "xgboost": "2.1.4",
+    "joblib": "1.4.2"
+  },
+  "model_params": {
+    "bootstrap": true,
+    "ccp_alpha": 0.0,
+    "criterion": "squared_error",
+    "max_depth": null,
+    "max_features": 1.0,
+    "max_leaf_nodes": null,
+    "max_samples": null,
+    "min_impurity_decrease": 0.0,
+    "min_samples_leaf": 1,
+    "min_samples_split": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "monotonic_cst": null,
+    "n_estimators": 10,
+    "n_jobs": null,
+    "oob_score": false,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "has_feature_importances": true,
+  "n_features": 5,
+  "performance_metrics": {
+    "r2": 0.85,
+    "mae": 2.3,
+    "rmse": 3.1
+  },
+  "checksums": {
+    "model": "4a39b908fe4fc060e8fac11b063bfa480b4a5635cb5d3f37a1408fb33ad4de75",
+    "preprocessor": "8f6e9e595ff2aac0aa1806a0950a5465783ac45dd23fe64be4f492a39416715b"
+  }
+}

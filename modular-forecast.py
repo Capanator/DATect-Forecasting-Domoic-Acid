@@ -24,6 +24,8 @@ from datetime import datetime
 import config
 from forecasting.core.forecast_engine import ForecastEngine
 from forecasting.core.model_factory import ModelFactory
+from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.core.exception_handling import safe_execute
 from forecasting.dashboard.retrospective import RetrospectiveDashboard
 from forecasting.dashboard.realtime import RealtimeDashboard
 
@@ -42,6 +44,10 @@ class LeakFreeForecastApp:
         Args:
             data_path: Path to processed data file
         """
+        # Setup logging
+        setup_logging(log_level="INFO", log_dir="./logs/", enable_file_logging=True)
+        self.logger = get_logger(__name__)
+        
         self.data_path = data_path
         self.forecast_engine = ForecastEngine(data_file=data_path)
         self.model_factory = ModelFactory()
@@ -54,22 +60,22 @@ class LeakFreeForecastApp:
         # Check file exists
         try:
             data = pd.read_parquet(self.data_path)
-            print(f"[INFO] Loaded data: {len(data)} records across {data['site'].nunique()} sites")
+            self.logger.info(f"Loaded data: {len(data)} records across {data['site'].nunique()} sites")
         except Exception as e:
-            print(f"[ERROR] Cannot load data file {self.data_path}: {e}")
+            self.logger.error(f"Cannot load data file {self.data_path}: {e}")
             sys.exit(1)
             
         # Validate model/task combination
         if not self.model_factory.validate_model_task_combination(config.FORECAST_TASK, config.FORECAST_MODEL):
             supported = self.model_factory.get_supported_models(config.FORECAST_TASK)
-            print(f"[ERROR] Model '{config.FORECAST_MODEL}' not supported for task '{config.FORECAST_TASK}'")
-            print(f"[ERROR] Supported models for {config.FORECAST_TASK}: {supported[config.FORECAST_TASK]}")
+            self.logger.error(f"Model '{config.FORECAST_MODEL}' not supported for task '{config.FORECAST_TASK}'")
+            self.logger.error(f"Supported models for {config.FORECAST_TASK}: {supported[config.FORECAST_TASK]}")
             sys.exit(1)
             
-        print(f"[INFO] Configuration validated successfully")
-        print(f"[INFO] Mode: {config.FORECAST_MODE}")
-        print(f"[INFO] Task: {config.FORECAST_TASK}")
-        print(f"[INFO] Model: {config.FORECAST_MODEL} ({self.model_factory.get_model_description(config.FORECAST_MODEL)})")
+        self.logger.info("Configuration validated successfully")
+        self.logger.info(f"Mode: {config.FORECAST_MODE}")
+        self.logger.info(f"Task: {config.FORECAST_TASK}")
+        self.logger.info(f"Model: {config.FORECAST_MODEL} ({self.model_factory.get_model_description(config.FORECAST_MODEL)})")
         
     def run_retrospective_evaluation(self):
         """
@@ -78,47 +84,50 @@ class LeakFreeForecastApp:
         Returns:
             DataFrame with evaluation results
         """
-        print(f"\n[INFO] Starting retrospective evaluation with {config.N_RANDOM_ANCHORS} random anchors")
-        print(f"[INFO] Temporal buffer: {config.TEMPORAL_BUFFER_DAYS} days")
-        print(f"[INFO] Minimum training samples: {config.MIN_TRAINING_SAMPLES}")
+        self.logger.info(f"Starting retrospective evaluation with {config.N_RANDOM_ANCHORS} random anchors")
+        self.logger.info(f"Temporal buffer: {config.TEMPORAL_BUFFER_DAYS} days")
+        self.logger.info(f"Minimum training samples: {config.MIN_TRAINING_SAMPLES}")
         
-        # Run evaluation
-        results_df = self.forecast_engine.run_retrospective_evaluation(
+        # Run evaluation with error handling
+        results_df = safe_execute(
+            self.forecast_engine.run_retrospective_evaluation,
             task=config.FORECAST_TASK,
             model_type=config.FORECAST_MODEL,
-            n_anchors=config.N_RANDOM_ANCHORS
+            n_anchors=config.N_RANDOM_ANCHORS,
+            fallback_value=None,
+            context="retrospective_evaluation"
         )
         
         if results_df is not None and not results_df.empty:
-            print(f"\n[SUCCESS] Generated {len(results_df)} forecasts")
+            self.logger.info(f"Generated {len(results_df)} forecasts successfully")
             
             # Calculate and display metrics
             self._display_evaluation_metrics(results_df)
             
             # Launch dashboard
-            print(f"\n[INFO] Launching retrospective dashboard...")
+            self.logger.info("Launching retrospective dashboard on port 8071...")
             dashboard = RetrospectiveDashboard(results_df)
             dashboard.run(port=8071, debug=False)
             
         else:
-            print("[ERROR] No forecasts generated. Check data and configuration.")
+            self.logger.error("No forecasts generated. Check data and configuration.")
             
         return results_df
         
     def run_realtime_forecasting(self):
         """Launch interactive real-time forecasting dashboard."""
-        print(f"\n[INFO] Launching real-time forecasting dashboard...")
-        print(f"[INFO] Model: Random Forest (fixed for realtime)")
-        print(f"[INFO] Tasks: Both regression (primary) & classification displayed")
+        self.logger.info("Launching real-time forecasting dashboard on port 8065...")
+        self.logger.info(f"Available models: {config.FORECAST_MODEL} and Ridge Regression")
+        self.logger.info("Tasks: Both regression and classification available")
         
         dashboard = RealtimeDashboard(self.data_path)
         dashboard.run(port=8065, debug=False)
         
     def _display_evaluation_metrics(self, results_df):
         """Display evaluation metrics summary."""
-        print("\n" + "="*60)
-        print("FORECASTING EVALUATION RESULTS")
-        print("="*60)
+        self.logger.info("="*60)
+        self.logger.info("FORECASTING EVALUATION RESULTS")
+        self.logger.info("="*60)
         
         # Regression metrics
         if 'predicted_da' in results_df.columns:
@@ -128,10 +137,10 @@ class LeakFreeForecastApp:
                 r2 = r2_score(valid_reg['actual_da'], valid_reg['predicted_da'])
                 mae = mean_absolute_error(valid_reg['actual_da'], valid_reg['predicted_da'])
                 
-                print(f"REGRESSION PERFORMANCE:")
-                print(f"  R² Score: {r2:.4f}")
-                print(f"  MAE: {mae:.2f} μg/g")
-                print(f"  Valid forecasts: {len(valid_reg)}")
+                self.logger.info("REGRESSION PERFORMANCE:")
+                self.logger.info(f"  R² Score: {r2:.4f}")
+                self.logger.info(f"  MAE: {mae:.2f} μg/g")
+                self.logger.info(f"  Valid forecasts: {len(valid_reg)}")
                 
         # Classification metrics
         if 'predicted_category' in results_df.columns:
@@ -140,40 +149,61 @@ class LeakFreeForecastApp:
                 from sklearn.metrics import accuracy_score
                 accuracy = accuracy_score(valid_cls['actual_category'], valid_cls['predicted_category'])
                 
-                print(f"CLASSIFICATION PERFORMANCE:")
-                print(f"  Accuracy: {accuracy:.4f}")
-                print(f"  Valid forecasts: {len(valid_cls)}")
+                self.logger.info("CLASSIFICATION PERFORMANCE:")
+                self.logger.info(f"  Accuracy: {accuracy:.4f}")
+                self.logger.info(f"  Valid forecasts: {len(valid_cls)}")
                 
         # Site breakdown
         site_counts = results_df['site'].value_counts()
-        print(f"\nFORECASTS BY SITE:")
+        self.logger.info("FORECASTS BY SITE:")
         for site, count in site_counts.items():
-            print(f"  {site}: {count}")
+            self.logger.info(f"  {site}: {count}")
             
-        print("="*60)
-        print("All forecasts generated with temporal safeguards")
-        print("="*60)
+        self.logger.info("="*60)
+        self.logger.info("All forecasts generated with temporal safeguards")
+        self.logger.info("="*60)
 
 
 def main():
     """Main entry point for the application."""
-    print("Domoic Acid Forecasting System (Modular)")
-    print("=" * 50)
-    print(f"Version: Modular Architecture")
-    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 50)
-    
-    # Initialize application
-    app = LeakFreeForecastApp(config.FINAL_OUTPUT_PATH)
-    
-    # Run based on configuration mode
-    if config.FORECAST_MODE == "retrospective":
-        app.run_retrospective_evaluation()
-    elif config.FORECAST_MODE == "realtime":
-        app.run_realtime_forecasting()
-    else:
-        print(f"[ERROR] Unknown forecast mode: {config.FORECAST_MODE}")
-        print(f"[ERROR] Supported modes: 'retrospective', 'realtime'")
+    try:
+        # Setup basic logging first
+        setup_logging(log_level="INFO", log_dir="./logs/", enable_file_logging=True)
+        logger = get_logger("main")
+        
+        logger.info("Domoic Acid Forecasting System (Modular)")
+        logger.info("=" * 50)
+        logger.info("Version: Modular Architecture with Production Logging")
+        logger.info(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 50)
+        
+        # Initialize application with error handling
+        app = safe_execute(
+            LeakFreeForecastApp,
+            config.FINAL_OUTPUT_PATH,
+            fallback_value=None,
+            context="application_initialization"
+        )
+        
+        if app is None:
+            logger.error("Failed to initialize forecasting application")
+            sys.exit(1)
+        
+        # Run based on configuration mode
+        if config.FORECAST_MODE == "retrospective":
+            app.run_retrospective_evaluation()
+        elif config.FORECAST_MODE == "realtime":
+            app.run_realtime_forecasting()
+        else:
+            logger.error(f"Unknown forecast mode: {config.FORECAST_MODE}")
+            logger.error("Supported modes: 'retrospective', 'realtime'")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        logger.info("Application interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         sys.exit(1)
 
 

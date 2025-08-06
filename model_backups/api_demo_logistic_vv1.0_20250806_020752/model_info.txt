@@ -1,0 +1,19 @@
+DATect Model Artifact Summary
+========================================
+Model Name: api_demo_logistic
+Version: v1.0
+Created: 2025-08-06T09:07:52.693129+00:00
+Model Type: LogisticRegression
+Has Preprocessor: False
+Python Version: 3.13.1
+
+Dependencies:
+  pandas: 2.2.3
+  numpy: 2.2.3
+  scikit-learn: not_installed
+  xgboost: 2.1.4
+  joblib: 1.4.2
+
+Performance Metrics:
+  accuracy: 0.8200
+  f1_score: 0.7900

@@ -1,0 +1,25 @@
+{
+  "api_demo_ridge": {
+    "v1.0": {
+      "created_at": "2025-08-06T09:07:52.681772+00:00",
+      "model_type": "Ridge",
+      "performance_metrics": {
+        "r2_score": 0.75,
+        "mae": 0.15,
+        "rmse": 0.22
+      },
+      "artifact_path": "api_demo_ridge_vv1.0"
+    }
+  },
+  "api_demo_logistic": {
+    "v1.0": {
+      "created_at": "2025-08-06T09:07:52.693129+00:00",
+      "model_type": "LogisticRegression",
+      "performance_metrics": {
+        "accuracy": 0.82,
+        "f1_score": 0.79
+      },
+      "artifact_path": "api_demo_logistic_vv1.0"
+    }
+  }
+}

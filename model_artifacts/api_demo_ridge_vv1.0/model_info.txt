@@ -1,0 +1,20 @@
+DATect Model Artifact Summary
+========================================
+Model Name: api_demo_ridge
+Version: v1.0
+Created: 2025-08-06T09:07:52.681772+00:00
+Model Type: Ridge
+Has Preprocessor: False
+Python Version: 3.13.1
+
+Dependencies:
+  pandas: 2.2.3
+  numpy: 2.2.3
+  scikit-learn: not_installed
+  xgboost: 2.1.4
+  joblib: 1.4.2
+
+Performance Metrics:
+  r2_score: 0.7500
+  mae: 0.1500
+  rmse: 0.2200

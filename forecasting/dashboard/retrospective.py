@@ -1,3 +1,5 @@
+from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.core.exception_handling import safe_execute
 """
 Retrospective Dashboard
 ======================
@@ -48,7 +50,7 @@ class RetrospectiveDashboard:
             port: Port to run server on
             debug: Whether to run in debug mode
         """
-        print(f"Starting retrospective dashboard on port {port}")
+        logger.info(f"Starting retrospective dashboard on port {port}")
         self.app.run_server(debug=debug, port=port)
         
     def _setup_layout(self):
@@ -441,3 +443,7 @@ class RetrospectiveDashboard:
             )
         
         return fig
+
+# Setup logging
+setup_logging(log_level='INFO', log_dir='./logs/', enable_file_logging=True)
+logger = get_logger(__name__)

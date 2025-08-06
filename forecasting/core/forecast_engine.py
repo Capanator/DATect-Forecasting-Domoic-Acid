@@ -11,14 +11,28 @@ import numpy as np
 from datetime import datetime
 import warnings
 import random
+import traceback
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from typing import Tuple, Dict, List, Any
 
-from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
+from sklearn.metrics import (
+    r2_score, mean_absolute_error, accuracy_score,
+    precision_recall_fscore_support, confusion_matrix, 
+    classification_report, roc_auc_score, roc_curve
+)
+import matplotlib.pyplot as plt
 
 import config
 from .data_processor import DataProcessor
 from .model_factory import ModelFactory
+from .scientific_validation import ScientificValidator
+from .logging_config import get_logger, log_performance, log_model_performance, log_data_pipeline_stage
+from .exception_handling import (
+    safe_execute, handle_data_error, handle_model_error, validate_data_integrity,
+    robust_decorator, DataProcessingError, ModelError, ValidationError
+)
+from .model_persistence import ModelArtifactManager
 
 warnings.filterwarnings('ignore')
 
@@ -40,9 +54,14 @@ class ForecastEngine:
         self.data = None
         self.results_df = None
         
+        # Initialize logging
+        self.logger = get_logger(__name__)
+        
         # Initialize sub-components
         self.data_processor = DataProcessor()
         self.model_factory = ModelFactory()
+        self.scientific_validator = ScientificValidator(save_plots=True, plot_dir="./evaluation_plots/")
+        self.model_manager = ModelArtifactManager()
         
         # Configuration matching original
         self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
@@ -53,10 +72,11 @@ class ForecastEngine:
         random.seed(self.random_seed)
         np.random.seed(self.random_seed)
         
+    @robust_decorator(fallback_value=None, max_retries=1, handle_errors=True)
     def run_retrospective_evaluation(self, task="regression", model_type="rf", 
                                    n_anchors=50, min_test_date="2008-01-01"):
         """
-        Run leak-free retrospective evaluation matching original behavior.
+        Run leak-free retrospective evaluation with comprehensive error handling.
         
         Args:
             task: "regression" or "classification"
@@ -66,62 +86,118 @@ class ForecastEngine:
             
         Returns:
             DataFrame with evaluation results matching original format
-        """
-        print(f"\n[INFO] Running LEAK-FREE {task} evaluation with {model_type}")
-        
-        # Load data using original method
-        self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
-        min_target_date = pd.Timestamp(min_test_date)
-        
-        # Generate anchor points using original algorithm
-        anchor_infos = []
-        for site in self.data["site"].unique():
-            site_dates = self.data[self.data["site"] == site]["date"].sort_values().unique()
-            if len(site_dates) > self.temporal_buffer_days:  # Need enough history
-                # Only use dates that have sufficient history and future data
-                valid_anchors = []
-                for i, date in enumerate(site_dates[:-1]):  # Exclude last date
-                    if date >= min_target_date:
-                        # Check if there's a future date with sufficient buffer
-                        future_dates = site_dates[i+1:]
-                        valid_future = [d for d in future_dates if (d - date).days >= self.temporal_buffer_days]
-                        if valid_future:
-                            valid_anchors.append(date)
-                
-                if valid_anchors:
-                    n_sample = min(len(valid_anchors), n_anchors)
-                    selected_anchors = random.sample(list(valid_anchors), n_sample)
-                    anchor_infos.extend([(site, pd.Timestamp(d)) for d in selected_anchors])
-        
-        if not anchor_infos:
-            print("[ERROR] No valid anchor points generated")
-            return None
-        
-        print(f"[INFO] Generated {len(anchor_infos)} leak-free anchor points")
-        
-        # Process anchors in parallel using original method
-        results = Parallel(n_jobs=-1, verbose=1)(
-            delayed(self._forecast_single_anchor_leak_free)(ai, self.data, min_target_date, task, model_type) 
-            for ai in tqdm(anchor_infos, desc="Processing Leak-Free Anchors")
-        )
-        
-        # Filter successful results and combine using original method
-        forecast_dfs = [df for df in results if df is not None]
-        if not forecast_dfs:
-            print("[ERROR] No successful forecasts")
-            return None
             
-        final_df = pd.concat(forecast_dfs, ignore_index=True)
-        final_df = final_df.sort_values(["date", "site"]).drop_duplicates(["date", "site"])
-        print(f"[INFO] Successfully processed {len(forecast_dfs)} leak-free forecasts")
+        Raises:
+            DataProcessingError: If data loading/processing fails
+            ValidationError: If data validation fails
+            ModelError: If model training/prediction fails
+        """
+        try:
+            self.logger.info(f"Starting LEAK-FREE {task} evaluation with {model_type} model")
+            
+            # Load and validate data
+            try:
+                self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
+                
+                # Validate loaded data
+                validate_data_integrity(
+                    self.data,
+                    required_columns=['date', 'site', 'da'],
+                    min_rows=10,
+                    max_missing_rate=0.8
+                )
+                
+            except Exception as e:
+                handle_data_error(e, context="loading retrospective evaluation data", 
+                                data_shape=getattr(self.data, 'shape', None))
+            
+            min_target_date = pd.Timestamp(min_test_date)
+            
+            # Generate anchor points using original algorithm with error handling
+            anchor_infos = []
+            
+            try:
+                for site in self.data["site"].unique():
+                    site_dates = self.data[self.data["site"] == site]["date"].sort_values().unique()
+                    if len(site_dates) > self.temporal_buffer_days:  # Need enough history
+                        # Only use dates that have sufficient history and future data
+                        valid_anchors = []
+                        for i, date in enumerate(site_dates[:-1]):  # Exclude last date
+                            if date >= min_target_date:
+                                # Check if there's a future date with sufficient buffer
+                                future_dates = site_dates[i+1:]
+                                valid_future = [d for d in future_dates if (d - date).days >= self.temporal_buffer_days]
+                                if valid_future:
+                                    valid_anchors.append(date)
+                        
+                        if valid_anchors:
+                            n_sample = min(len(valid_anchors), n_anchors)
+                            selected_anchors = random.sample(list(valid_anchors), n_sample)
+                            anchor_infos.extend([(site, pd.Timestamp(d)) for d in selected_anchors])
+                            
+            except Exception as e:
+                handle_data_error(e, context="generating temporal anchor points",
+                                data_shape=self.data.shape)
         
-        # Store results for dashboard
-        self.results_df = final_df
+            if not anchor_infos:
+                self.logger.error("No valid anchor points generated - insufficient data for evaluation")
+                return None
+            
+            log_data_pipeline_stage(
+                "Anchor Point Generation", 
+                data_shape=len(anchor_infos), 
+                success=True,
+                details=f"{len(anchor_infos)} temporal anchor points across {len(self.data['site'].unique())} sites"
+            )
+            
+            # Process anchors in parallel with error handling
+            try:
+                self.logger.info(f"Processing {len(anchor_infos)} anchor points in parallel")
+                results = Parallel(n_jobs=-1, verbose=1)(
+                    delayed(self._forecast_single_anchor_leak_free)(ai, self.data, min_target_date, task, model_type) 
+                    for ai in tqdm(anchor_infos, desc="Processing Leak-Free Anchors")
+                )
+            except Exception as e:
+                handle_model_error(e, model_name=model_type, 
+                                 data_points=len(anchor_infos),
+                                 features=list(self.data.columns))
         
-        # Display metrics using original format
-        self._display_evaluation_metrics(task)
-        
-        return final_df
+            # Filter successful results and combine using original method
+            try:
+                forecast_dfs = [df for df in results if df is not None]
+                if not forecast_dfs:
+                    self.logger.error("No successful forecasts generated - check data quality and anchor points")
+                    return None
+                    
+                final_df = pd.concat(forecast_dfs, ignore_index=True)
+                final_df = final_df.sort_values(["date", "site"]).drop_duplicates(["date", "site"])
+                
+                log_data_pipeline_stage(
+                    "Forecast Generation",
+                    data_shape=final_df.shape,
+                    success=True,
+                    details=f"Generated {len(forecast_dfs)} successful forecasts from {len(anchor_infos)} attempts"
+                )
+                
+                # Store results for dashboard
+                self.results_df = final_df
+                
+                # Display metrics using original format with error handling
+                try:
+                    self._display_evaluation_metrics(task)
+                except Exception as e:
+                    self.logger.warning(f"Error displaying evaluation metrics: {str(e)}")
+                
+                return final_df
+                
+            except Exception as e:
+                handle_data_error(e, context="combining forecast results",
+                                data_shape=(len(forecast_dfs) if 'forecast_dfs' in locals() else 0, 0))
+                
+        except Exception as e:
+            self.logger.error(f"Unexpected error in retrospective evaluation: {str(e)}")
+            self.logger.debug(f"Full traceback: {traceback.format_exc()}")
+            return None
         
     def _forecast_single_anchor_leak_free(self, anchor_info, full_data, min_target_date, task, model_type):
         """Process single anchor forecast with ZERO data leakage - original algorithm."""
@@ -335,28 +411,372 @@ class ForecastEngine:
             return None
             
     def _display_evaluation_metrics(self, task):
-        """Display evaluation metrics using original format."""
+        """Display evaluation metrics with proper logging."""
         if self.results_df is None or self.results_df.empty:
-            print("No results for evaluation")
+            self.logger.warning("No results available for evaluation")
             return
             
-        print(f"[INFO] Successfully processed {len(self.results_df)} leak-free forecasts")
+        self.logger.info(f"Evaluating performance on {len(self.results_df)} forecasts")
         
         if task == "regression" or task == "both":
-            # Calculate regression metrics
+            # Calculate comprehensive regression metrics with residual analysis
             valid_results = self.results_df.dropna(subset=['da', 'Predicted_da'])
             if not valid_results.empty:
-                r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
-                mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
-                print(f"[INFO] LEAK-FREE Regression R2: {r2:.4f}, MAE: {mae:.4f}")
+                y_true = valid_results['da'].values
+                y_pred = valid_results['Predicted_da'].values
+                
+                # Basic metrics
+                r2 = r2_score(y_true, y_pred)
+                mae = mean_absolute_error(y_true, y_pred)
+                rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+                
+                # Additional regression metrics
+                residuals = y_true - y_pred
+                mean_residual = np.mean(residuals)
+                std_residual = np.std(residuals)
+                
+                # Log regression performance
+                regression_metrics = {
+                    'R²': r2,
+                    'MAE': mae, 
+                    'RMSE': rmse,
+                    'Mean Residual': mean_residual,
+                    'Residual Std': std_residual
+                }
+                
+                log_model_performance(
+                    f"{config.FORECAST_MODEL} Regression",
+                    regression_metrics,
+                    data_points=len(valid_results)
+                )
+                
+                # Comprehensive residual analysis
+                self.logger.info("Performing comprehensive residual analysis for model validation")
+                residual_results = self.scientific_validator.analyze_residuals(
+                    y_true=y_true,
+                    y_pred=y_pred,
+                    title="DATect Regression Model"
+                )
+                
+                # Additional diagnostic information
+                self._print_regression_diagnostics(residual_results)
+                
             else:
-                print("[WARNING] No valid regression results for evaluation")
+                self.logger.warning("No valid regression results for evaluation - insufficient prediction data")
                 
         if task == "classification" or task == "both":
-            # Calculate classification metrics
+            # Calculate comprehensive classification metrics
             valid_results = self.results_df.dropna(subset=['da-category', 'Predicted_da-category'])
             if not valid_results.empty:
-                accuracy = accuracy_score(valid_results['da-category'], valid_results['Predicted_da-category'])
-                print(f"[INFO] LEAK-FREE Classification Accuracy: {accuracy:.4f}")
+                y_true = valid_results['da-category'].astype(int)
+                y_pred = valid_results['Predicted_da-category'].astype(int)
+                
+                # Basic metrics
+                accuracy = accuracy_score(y_true, y_pred)
+                
+                # Comprehensive metrics
+                precision, recall, f1, support = precision_recall_fscore_support(
+                    y_true, y_pred, average='weighted', zero_division=0
+                )
+                
+                # Per-class metrics
+                precision_per_class, recall_per_class, f1_per_class, support_per_class = precision_recall_fscore_support(
+                    y_true, y_pred, average=None, zero_division=0
+                )
+                
+                # Confusion matrix
+                cm = confusion_matrix(y_true, y_pred)
+                
+                # Log classification performance
+                classification_metrics = {
+                    'Accuracy': accuracy,
+                    'Precision (weighted)': precision,
+                    'Recall (weighted)': recall,
+                    'F1-Score (weighted)': f1
+                }
+                
+                log_model_performance(
+                    f"{config.FORECAST_MODEL} Classification",
+                    classification_metrics,
+                    data_points=len(valid_results)
+                )
+                
+                # Log per-class breakdown 
+                class_names = ['Low', 'Moderate', 'High', 'Extreme']
+                self.logger.info("Per-class classification performance:")
+                for i, (p, r, f, s) in enumerate(zip(precision_per_class, recall_per_class, f1_per_class, support_per_class)):
+                    if i < len(class_names) and s > 0:
+                        self.logger.info(f"  {class_names[i]}: Precision={p:.3f}, Recall={r:.3f}, F1={f:.3f}, Support={s}")
+                
+                # Log confusion matrix summary
+                self.logger.info("Confusion matrix generated and saved to evaluation plots")
+                
+                # ROC-AUC for multiclass (if possible)
+                try:
+                    unique_classes = np.unique(np.concatenate([y_true, y_pred]))
+                    if len(unique_classes) >= 2:
+                        # For multiclass, use macro average
+                        auc_score = roc_auc_score(y_true, y_pred, multi_class='ovr', average='macro')
+                        self.logger.info(f"ROC-AUC (macro average): {auc_score:.4f}")
+                except Exception as e:
+                    self.logger.info("ROC-AUC not computed (requires probability scores for multiclass)")
+                
+                # Save confusion matrix plot
+                self._plot_confusion_matrix(cm, class_names[:len(np.unique(y_true))])
+                
             else:
-                print("[WARNING] No valid classification results for evaluation")
+                self.logger.warning("No valid classification results for evaluation - insufficient prediction data")
+    
+    def _plot_confusion_matrix(self, cm, class_names):
+        """Create and save confusion matrix visualization."""
+        try:
+            import os
+            os.makedirs("./evaluation_plots", exist_ok=True)
+            
+            fig, ax = plt.subplots(figsize=(8, 6))
+            
+            # Create heatmap
+            im = ax.imshow(cm, interpolation='nearest', cmap='Blues')
+            ax.figure.colorbar(im, ax=ax)
+            
+            # Set ticks and labels
+            ax.set(xticks=np.arange(cm.shape[1]),
+                  yticks=np.arange(cm.shape[0]),
+                  xticklabels=class_names,
+                  yticklabels=class_names,
+                  title='Confusion Matrix - DA Risk Categories',
+                  ylabel='True Category',
+                  xlabel='Predicted Category')
+            
+            # Rotate the tick labels and set their alignment
+            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+            
+            # Add text annotations
+            fmt = 'd'
+            thresh = cm.max() / 2.
+            for i in range(cm.shape[0]):
+                for j in range(cm.shape[1]):
+                    ax.text(j, i, format(cm[i, j], fmt),
+                           ha="center", va="center",
+                           color="white" if cm[i, j] > thresh else "black",
+                           fontsize=12)
+            
+            fig.tight_layout()
+            plt.savefig("./evaluation_plots/confusion_matrix.png", dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            self.logger.info("Confusion matrix plot saved to: ./evaluation_plots/confusion_matrix.png")
+            
+        except Exception as e:
+            self.logger.warning(f"Could not save confusion matrix plot: {e}")
+    
+    def _print_regression_diagnostics(self, residual_results):
+        """Log interpretation of residual analysis results."""
+        self.logger.info("Regression Model Diagnostics Summary:")
+        
+        # Normality assessment
+        if 'shapiro_wilk' in residual_results:
+            sw_p = residual_results['shapiro_wilk']['p_value']
+            if sw_p > 0.05:
+                self.logger.info(f"✓ Residuals are normally distributed (Shapiro-Wilk p={sw_p:.4f})")
+            else:
+                self.logger.warning(f"⚠ Residuals deviate from normality (Shapiro-Wilk p={sw_p:.4f})")
+        
+        # Heteroscedasticity assessment  
+        if 'white_test' in residual_results and 'error' not in residual_results['white_test']:
+            white_p = residual_results['white_test']['lm_p_value']
+            if white_p > 0.05:
+                self.logger.info(f"✓ Homoscedasticity assumption satisfied (White's test p={white_p:.4f})")
+            else:
+                self.logger.warning(f"⚠ Heteroscedasticity detected (White's test p={white_p:.4f})")
+        
+        # Residual statistics interpretation
+        basic_stats = residual_results['basic_stats']
+        mean_res = abs(basic_stats['mean_residual'])
+        if mean_res < 0.1:
+            self.logger.info(f"✓ Model shows minimal bias (mean residual = {mean_res:.4f})")
+        else:
+            self.logger.warning(f"⚠ Model shows some bias (mean residual = {mean_res:.4f})")
+        
+        # Skewness and kurtosis assessment
+        skewness = abs(basic_stats['skewness'])
+        kurtosis = abs(basic_stats['kurtosis'])
+        
+        if skewness < 0.5:
+            self.logger.info(f"✓ Residuals are approximately symmetric (skewness = {basic_stats['skewness']:.3f})")
+        else:
+            self.logger.warning(f"⚠ Residuals show skewness (skewness = {basic_stats['skewness']:.3f})")
+            
+        if kurtosis < 3:
+            self.logger.info(f"✓ Normal residual distribution shape (kurtosis = {kurtosis:.3f})")
+        else:
+            self.logger.warning(f"⚠ Heavy-tailed residual distribution (kurtosis = {kurtosis:.3f})")
+        
+        self.logger.info("Detailed residual plots saved to: ./evaluation_plots/")
+        self.logger.info("Publication-ready model validation plots generated")
+    
+    def save_trained_model(self, model, preprocessor, performance_metrics: dict, 
+                          model_name: str = None, version: str = None) -> str:
+        """
+        Save trained model with preprocessing pipeline and performance metrics.
+        
+        Args:
+            model: Trained ML model
+            preprocessor: Data preprocessing pipeline
+            performance_metrics: Dictionary of model performance metrics
+            model_name: Name for the model (auto-generated if None)
+            version: Version string (auto-generated if None)
+            
+        Returns:
+            Path to saved model artifact
+        """
+        try:
+            # Generate model name if not provided
+            if model_name is None:
+                model_name = f"datect_{config.FORECAST_MODEL}_{config.FORECAST_TASK}"
+            
+            # Prepare metadata
+            metadata = {
+                'performance_metrics': performance_metrics,
+                'task_type': config.FORECAST_TASK,
+                'forecast_model': config.FORECAST_MODEL,
+                'temporal_buffer_days': config.TEMPORAL_BUFFER_DAYS,
+                'training_data_path': str(self.data_file),
+                'training_samples': len(self.data) if self.data is not None else None,
+                'sites_trained': list(self.data['site'].unique()) if self.data is not None else None,
+                'date_range': {
+                    'start': str(self.data['date'].min()) if self.data is not None else None,
+                    'end': str(self.data['date'].max()) if self.data is not None else None
+                }
+            }
+            
+            # Save model artifact
+            artifact_path = self.model_manager.save_model(
+                model=model,
+                preprocessor=preprocessor,
+                metadata=metadata,
+                model_name=model_name,
+                version=version
+            )
+            
+            self.logger.info(f"Model saved successfully: {model_name} -> {artifact_path}")
+            return artifact_path
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save trained model: {str(e)}")
+            raise ModelError(f"Model saving failed: {str(e)}", 
+                           error_code="MODEL_SAVE_FAILED")
+    
+    def load_trained_model(self, model_name: str, version: str = "latest") -> Tuple[Any, Any, Dict]:
+        """
+        Load trained model with preprocessing pipeline and metadata.
+        
+        Args:
+            model_name: Name of the model to load
+            version: Version string or "latest"
+            
+        Returns:
+            Tuple of (model, preprocessor, metadata)
+        """
+        try:
+            model, preprocessor, metadata = self.model_manager.load_model(model_name, version)
+            
+            self.logger.info(f"Model loaded successfully: {model_name} v{version}")
+            self.logger.info(f"Model trained on {metadata.get('training_samples', 'unknown')} samples")
+            
+            # Log performance metrics if available
+            if 'performance_metrics' in metadata:
+                for metric, value in metadata['performance_metrics'].items():
+                    if isinstance(value, (int, float)):
+                        self.logger.info(f"  {metric}: {value:.4f}")
+            
+            return model, preprocessor, metadata
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load trained model: {str(e)}")
+            raise ModelError(f"Model loading failed: {str(e)}", 
+                           error_code="MODEL_LOAD_FAILED")
+    
+    def list_available_models(self) -> Dict[str, List[str]]:
+        """
+        List all available trained models and their versions.
+        
+        Returns:
+            Dictionary mapping model names to list of versions
+        """
+        try:
+            models = self.model_manager.list_models()
+            
+            self.logger.info(f"Found {len(models)} model types:")
+            for model_name, versions in models.items():
+                self.logger.info(f"  {model_name}: {len(versions)} versions")
+            
+            return models
+            
+        except Exception as e:
+            self.logger.error(f"Error listing models: {str(e)}")
+            return {}
+    
+    def get_model_info(self, model_name: str, version: str = "latest") -> Dict[str, Any]:
+        """
+        Get detailed information about a saved model.
+        
+        Args:
+            model_name: Name of the model
+            version: Version string or "latest"
+            
+        Returns:
+            Dictionary containing model information
+        """
+        try:
+            info = self.model_manager.get_model_info(model_name, version)
+            
+            self.logger.info(f"Retrieved info for {model_name} v{version}")
+            return info
+            
+        except Exception as e:
+            self.logger.error(f"Error getting model info: {str(e)}")
+            return {}
+    
+    def predict_with_saved_model(self, model_name: str, data: pd.DataFrame, 
+                                version: str = "latest") -> np.ndarray:
+        """
+        Make predictions using a saved model.
+        
+        Args:
+            model_name: Name of the model to use
+            data: Input data for prediction
+            version: Version string or "latest"
+            
+        Returns:
+            Array of predictions
+        """
+        try:
+            # Load model
+            model, preprocessor, metadata = self.load_trained_model(model_name, version)
+            
+            # Validate input data
+            validate_data_integrity(
+                data,
+                required_columns=None,  # Will be validated by preprocessor
+                min_rows=1,
+                max_missing_rate=0.9
+            )
+            
+            # Preprocess data if preprocessor available
+            if preprocessor is not None:
+                processed_data = preprocessor.transform(data)
+            else:
+                processed_data = data
+            
+            # Make predictions
+            predictions = model.predict(processed_data)
+            
+            self.logger.info(f"Generated {len(predictions)} predictions using {model_name} v{version}")
+            
+            return predictions
+            
+        except Exception as e:
+            self.logger.error(f"Prediction failed with saved model: {str(e)}")
+            raise ModelError(f"Prediction failed: {str(e)}", 
+                           error_code="PREDICTION_FAILED")

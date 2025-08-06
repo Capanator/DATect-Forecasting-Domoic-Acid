@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # FastAPI Prediction Service
+  datect-api:
+    build: .
+    container_name: datect-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATECT_ENVIRONMENT=production
+      - DATECT_API_HOST=0.0.0.0
+      - DATECT_API_PORT=8000
+      - DATECT_LOG_LEVEL=INFO
+      - DATECT_ENABLE_FILE_LOGGING=true
+      - DATECT_MODEL_ARTIFACTS_DIR=/app/model_artifacts
+      - DATECT_LOGS_DIR=/app/logs
+    volumes:
+      - ./model_artifacts:/app/model_artifacts:ro
+      - ./final_output.parquet:/app/final_output.parquet:ro
+      - datect-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    command: ["python", "run_api_service.py"]
+
+  # Interactive Dashboard Service (Optional)
+  datect-dashboard:
+    build: .
+    container_name: datect-dashboard
+    ports:
+      - "8065:8065"
+    environment:
+      - DATECT_ENVIRONMENT=production
+      - DATECT_FORECAST_MODE=realtime
+      - DATECT_DASHBOARD_PORT=8065
+      - DATECT_LOG_LEVEL=INFO
+    volumes:
+      - ./final_output.parquet:/app/final_output.parquet:ro
+      - datect-logs:/app/logs
+    depends_on:
+      - datect-api
+    restart: unless-stopped
+    command: ["python", "modular-forecast.py"]
+    profiles: ["dashboard"]  # Optional service
+
+  # Data Processing Service (Run once or on schedule)
+  datect-processor:
+    build: .
+    container_name: datect-processor
+    environment:
+      - DATECT_ENVIRONMENT=production
+      - DATECT_LOG_LEVEL=INFO
+    volumes:
+      - ./da-input:/app/da-input:ro
+      - ./pn-input:/app/pn-input:ro
+      - ./final_output.parquet:/app/final_output.parquet
+      - ./satellite_data_intermediate.parquet:/app/satellite_data_intermediate.parquet
+      - datect-logs:/app/logs
+    command: ["python", "dataset-creation.py"]
+    profiles: ["data"]  # Run with: docker-compose --profile data up datect-processor
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: datect-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/ssl/certs:ro
+    depends_on:
+      - datect-api
+    restart: unless-stopped
+    profiles: ["production"]  # Optional for production
+
+  # Monitoring Service (Optional)
+  datect-monitor:
+    image: prom/prometheus:latest
+    container_name: datect-monitor
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    depends_on:
+      - datect-api
+    restart: unless-stopped
+    profiles: ["monitoring"]  # Optional monitoring stack
+
+volumes:
+  datect-logs:
+    driver: local
+  prometheus-data:
+    driver: local
+
+networks:
+  default:
+    name: datect-network

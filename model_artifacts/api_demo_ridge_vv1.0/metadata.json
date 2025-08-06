@@ -1,0 +1,44 @@
+{
+  "model_name": "api_demo_ridge",
+  "version": "v1.0",
+  "created_at": "2025-08-06T09:07:52.681772+00:00",
+  "model_type": "Ridge",
+  "preprocessor_type": null,
+  "has_preprocessor": false,
+  "python_version": "3.13.1",
+  "dependencies": {
+    "pandas": "2.2.3",
+    "numpy": "2.2.3",
+    "scikit-learn": "not_installed",
+    "xgboost": "2.1.4",
+    "joblib": "1.4.2"
+  },
+  "model_params": {
+    "alpha": 1.0,
+    "copy_X": true,
+    "fit_intercept": true,
+    "max_iter": null,
+    "positive": false,
+    "random_state": 42,
+    "solver": "auto",
+    "tol": 0.0001
+  },
+  "performance_metrics": {
+    "r2_score": 0.75,
+    "mae": 0.15,
+    "rmse": 0.22
+  },
+  "task_type": "regression",
+  "forecast_model": "xgboost",
+  "temporal_buffer_days": 1,
+  "training_data_path": "final_output.parquet",
+  "training_samples": null,
+  "sites_trained": null,
+  "date_range": {
+    "start": null,
+    "end": null
+  },
+  "checksums": {
+    "model": "ec91276ddf66109ea0a299763319f96b6ee04fa8e9695c952c464fe874d35684"
+  }
+}

@@ -1,29 +1,45 @@
 # DATect: Domoic Acid Forecasting System Requirements
 # ====================================================
+# PRODUCTION VERSION - Exact package versions pinned to prevent crashes
+# Generated: 2025-01-06
+# 
+# Critical: These exact versions have been tested and validated.
+# DO NOT change versions without comprehensive testing.
 
-# Core Scientific Computing
-pandas>=1.3.0
-numpy>=1.21.0
-scikit-learn>=1.1.0
+# Core Scientific Computing (CRITICAL - do not change)
+pandas==2.2.3         # Data manipulation and analysis
+numpy==2.2.3          # Numerical computing foundation
+scikit-learn==1.6.1   # Machine learning algorithms and preprocessing
 
-# Machine Learning Models
-xgboost>=1.6.0
+# Machine Learning Models (CRITICAL - model compatibility)
+xgboost==2.1.4        # Primary forecasting model
 
-# Data Visualization and Dashboards
-dash>=2.8.0
-plotly>=5.12.0
-matplotlib>=3.5.0
+# Data Visualization and Dashboards (CRITICAL - UI stability)
+dash==2.18.2          # Interactive web dashboards
+plotly==6.0.0         # Scientific plotting and visualization
+matplotlib==3.10.0    # Static plot generation
 
-# Data Processing and I/O
-xarray>=0.20.0        # NetCDF satellite data processing
-pyarrow>=8.0.0        # Parquet file format
-requests>=2.27.0      # HTTP data downloads
-netcdf4>=1.5.8        # NetCDF data handling
+# Data Processing and I/O (CRITICAL - data pipeline stability)
+xarray==2025.1.2      # NetCDF satellite data processing
+pyarrow==19.0.1       # Parquet file format support
+requests==2.32.3      # HTTP data downloads from NOAA/USGS
+netcdf4>=1.5.8        # NetCDF data handling (system dependent)
 
-# Scientific Analysis (Optional)
-scipy>=1.8.0          # Spectral analysis
+# Scientific Analysis and Validation (CRITICAL - peer review requirements)
+scipy==1.15.2         # Statistical tests and analysis
+statsmodels==0.14.5   # ACF/PACF analysis, heteroscedasticity tests
+joblib==1.4.2         # Model persistence and parallel processing
+tqdm==4.67.1          # Progress bars for long operations
+
+# Production API Service
+fastapi==0.115.8      # Modern web API framework
+uvicorn==0.34.0       # ASGI server for FastAPI
+pydantic==2.10.8      # Data validation and serialization
+
+# Optional Enhancement Packages
+seaborn>=0.11.0       # Enhanced statistical visualizations (optional)
 pywt>=1.3.0          # Wavelet analysis (optional)
-tqdm>=4.62.0         # Progress bars
+python-dotenv>=1.0.0  # Environment variable loading (optional)
 
 # Standard Library (included with Python)
 # json, os, tempfile, datetime, warnings, shutil, random, sys

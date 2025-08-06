@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'datect-api'
+    static_configs:
+      - targets: ['datect-api:8000']
+    metrics_path: '/metrics/prometheus'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    
+    # Basic auth for production
+    # basic_auth:
+    #   username: 'monitoring'
+    #   password: 'your-secure-password'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Alerting rules (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
