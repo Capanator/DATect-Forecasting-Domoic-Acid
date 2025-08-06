@@ -4,8 +4,8 @@ Complete Pipeline Test Script
 ============================
 
 Comprehensive test of the entire DATect forecasting pipeline.
-This simulates what would run in Docker containers and validates
-all system components end-to-end.
+This validates the complete end-to-end system and ensures
+all system components work together seamlessly.
 
 Usage:
     python test_complete_pipeline.py

@@ -23,7 +23,7 @@ netcdf4>=1.5.8        # NetCDF data handling
 # Scientific Analysis (Optional)
 scipy>=1.8.0          # Spectral analysis
 tqdm>=4.62.0         # Progress bars
-# pywt>=1.3.0          # Wavelet analysis (optional - commented out for Docker compatibility)
+# pywt>=1.3.0          # Wavelet analysis (optional)
 
 # Standard Library (included with Python)
 # json, os, tempfile, datetime, warnings, shutil, random, sys

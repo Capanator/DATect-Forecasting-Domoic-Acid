@@ -39,19 +39,6 @@ analysis/
 └── performance-analysis/   # Benchmarking tools
 ```
 
-## Docker Deployment
-
-```bash
-# Build container
-docker build -t datect-forecasting .
-
-# Run data processing
-docker run --rm -v "$(pwd):/workspace" -w /workspace datect-forecasting python dataset-creation.py
-
-# Run forecasting system
-docker run -p 8065:8065 datect-forecasting python modular-forecast.py
-```
-
 ## Configuration
 
 Edit `config.py` to customize:
@@ -64,7 +51,7 @@ Edit `config.py` to customize:
 - **Temporal Integrity**: Strict data leakage prevention
 - **Multi-Model Support**: XGBoost (primary), Ridge/Logistic (fallback)
 - **Interactive Dashboards**: Real-time and retrospective analysis
-- **Docker Ready**: Containerized deployment
+- **Production Ready**: Direct Python deployment
 - **Scientific Rigor**: Validated temporal safeguards
 
 ## Architecture
@@ -92,8 +79,6 @@ DATect-Forecasting-Domoic-Acid/
 ├── modular-forecast.py           # Main forecasting application
 ├── config.py                     # System configuration
 ├── requirements.txt              # Dependencies
-├── Dockerfile                    # Container definition
-├── docker-compose.yml            # Multi-service orchestration
 ├── CLAUDE.md                     # Development guide
 ├── README.md                     # This file
 │
