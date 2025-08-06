@@ -63,21 +63,23 @@ pip install -r requirements.txt
 
 #### 1. Data Processing
 ```bash
-python data-preprocessing.py
+python dataset-creation.py
 ```
 Downloads and processes all external data sources (30-60 minutes runtime).
 
 #### 2. Real-time Forecasting Dashboard
 ```bash
-python future-forecasts.py
+# Default mode in config.py (FORECAST_MODE = "realtime")
+python leak_free_forecast_modular.py
 ```
 Launches interactive dashboard at `http://localhost:8065`
 
-#### 3. Model Evaluation
+#### 3. Retrospective Model Evaluation
 ```bash
+# Edit config.py: set FORECAST_MODE = "retrospective", then:
 python leak_free_forecast_modular.py
 ```
-Runs retrospective evaluation with temporal validation.
+Runs retrospective evaluation with temporal validation and launches dashboard on port 8071.
 
 ## 📊 Data Sources
 
@@ -101,7 +103,7 @@ The system uses **XGBoost** as the primary forecasting model, selected after com
 
 ### Model Configuration
 ```python
-# Primary Model: XGBoost
+# Primary Model: XGBoost (selected after testing 30+ algorithms)
 XGBRegressor(
     n_estimators=200,
     max_depth=8,
@@ -110,8 +112,10 @@ XGBRegressor(
     colsample_bytree=0.8
 )
 
-# Backup Model: Ridge Regression (linear baseline)
-# Classification: Logistic Regression (fallback)
+# Streamlined Model Set:
+# - XGBoost: Primary for regression & classification
+# - Ridge Regression: Linear fallback for regression
+# - Logistic Regression: Fallback for classification
 ```
 
 ## 🔒 Temporal Safeguards (Zero Data Leakage)
@@ -149,28 +153,31 @@ CLIMATE_BUFFER_MONTHS = 2     # Climate index reporting delays
 
 ```
 DATect-Forecasting-Domoic-Acid/
-├── data-preprocessing.py          # Main data processing pipeline
-├── leak_free_forecast_modular.py  # Modular forecasting system
-├── future-forecasts.py           # Real-time dashboard launcher
+├── dataset-creation.py           # Main data processing pipeline
+├── leak_free_forecast_modular.py # Unified forecasting application
 ├── config.py                     # System configuration
+├── requirements.txt              # Python dependencies
 ├── CLAUDE.md                     # AI assistant instructions
+├── README.md                     # Project documentation
 │
-├── forecasting/                  # Core forecasting modules
+├── forecasting/                  # Modular forecasting framework
+│   ├── __init__.py              # Package initialization
 │   ├── core/
-│   │   ├── forecast_engine.py    # Main forecasting logic
-│   │   ├── data_processor.py     # Data processing utilities
-│   │   └── model_factory.py      # ML model creation
+│   │   ├── forecast_engine.py    # Leak-free forecasting logic
+│   │   ├── data_processor.py     # Temporal-safe data processing
+│   │   └── model_factory.py      # XGBoost/Ridge model creation
 │   └── dashboard/
-│       ├── realtime.py          # Real-time forecasting UI
-│       └── retrospective.py     # Historical analysis UI
+│       ├── realtime.py          # Interactive forecasting UI
+│       └── retrospective.py     # Historical validation UI
 │
-├── da-input/                     # Domoic acid measurement data
-├── pn-input/                     # Pseudo-nitzschia count data
-├── analysis/                     # Analysis and research scripts
+├── da-input/                     # Domoic acid measurement CSVs
+├── pn-input/                     # Pseudo-nitzschia count CSVs
+├── spectral analysis/            # XGBoost performance analysis
 │   ├── xgboost_spectral_analysis.py
-│   └── model_comparison_results/
+│   └── *.png                    # Generated analysis plots
 │
-└── docs/                        # Documentation and research
+├── data-visualizations/          # Exploratory analysis scripts
+└── final_output.parquet         # Processed dataset (generated)
 ```
 
 ## 🔬 Research Applications
@@ -214,19 +221,21 @@ Comprehensive evaluation of 30+ machine learning models:
 
 ### Main Configuration (config.py)
 ```python
-# Forecasting Configuration
-FORECAST_MODEL = "xgboost"        # Primary model
-FORECAST_TASK = "regression"      # Task type
-DASHBOARD_PORT = 8065            # Web interface port
+# Operating Mode
+FORECAST_MODE = "retrospective"   # "retrospective" or "realtime"
+FORECAST_MODEL = "xgboost"        # "xgboost" or "ridge"
+FORECAST_TASK = "regression"      # "regression" or "classification"
 
-# Data Sources
+# Data Processing
 START_DATE = "2003-01-01"        # Data processing start
 END_DATE = "2023-12-31"          # Data processing end
-N_RANDOM_ANCHORS = 100           # Retrospective evaluation points
+FINAL_OUTPUT_PATH = "final_output.parquet"
 
-# Temporal Safeguards
-TEMPORAL_BUFFER_DAYS = 1         # Minimum separation
+# Temporal Safeguards (Critical for zero data leakage)
+TEMPORAL_BUFFER_DAYS = 1         # Minimum train/test separation
+SATELLITE_BUFFER_DAYS = 7        # Satellite data temporal cutoff
 MIN_TRAINING_SAMPLES = 3         # Minimum training data
+N_RANDOM_ANCHORS = 100           # Retrospective evaluation points
 ```
 
 ### Site Configuration
@@ -241,18 +250,21 @@ SITES = {
 
 ## 📱 Interactive Dashboards
 
-### Real-time Forecasting Dashboard
+### Unified Application Interface
+Both dashboards are accessed through the same entry point with configuration control:
+
+**Real-time Forecasting** (port 8065)
 - **Model Selection**: Choose between XGBoost and Ridge Regression
 - **Site Selection**: Forecast for any of 10 monitoring locations
 - **Date Selection**: Predict DA levels for specific future dates
-- **Visualization**: Interactive plots with confidence intervals
-- **Feature Importance**: Understand model decision factors
+- **Combined Display**: Both regression and classification results
+- **Feature Importance**: Understand XGBoost decision factors
 
-### Retrospective Analysis Dashboard
-- **Historical Performance**: Model accuracy across time periods
+**Retrospective Analysis** (port 8071)
+- **Historical Validation**: Leak-free performance evaluation
 - **Site Comparison**: Performance variation across locations
-- **Temporal Patterns**: Seasonal and annual trends
-- **Error Analysis**: Detailed examination of prediction accuracy
+- **Temporal Patterns**: Time series analysis and trends
+- **Random Anchor Points**: Unbiased model evaluation approach
 
 ## ⚡ Performance Optimization
 
@@ -284,16 +296,16 @@ SITES = {
 ## 📚 Documentation
 
 ### For Developers
-- **Code Documentation**: Comprehensive docstrings and comments
-- **Architecture Guide**: System design and component interactions
-- **API Reference**: Function and class documentation
-- **Testing Guide**: Unit test setup and validation procedures
+- **CLAUDE.md**: Comprehensive development guide for AI assistants
+- **CODE_QUALITY_IMPROVEMENTS.md**: Recent code quality enhancements
+- **Modular Architecture**: Clean separation of concerns with `forecasting/` package
+- **Temporal Safeguards**: Built-in data leakage prevention
 
 ### For Researchers
-- **Methodology**: Detailed explanation of forecasting approach
-- **Validation Results**: Comprehensive model evaluation metrics
-- **Spectral Analysis**: Frequency domain performance analysis
-- **Comparison Studies**: Benchmarking against alternative approaches
+- **Zero Data Leakage**: Scientifically rigorous temporal validation
+- **Comprehensive README**: Full methodology and model comparison
+- **Spectral Analysis**: XGBoost frequency domain performance study
+- **Model Evaluation**: 30+ algorithm comparison with detailed results
 
 ## 🤝 Contributing
 

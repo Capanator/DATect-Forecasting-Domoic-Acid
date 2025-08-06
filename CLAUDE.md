@@ -4,77 +4,126 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Domoic Acid (DA) forecasting system that predicts harmful algal bloom concentrations along the Pacific Coast. The system processes multiple data sources (satellite oceanographic data, climate indices, streamflow, and shellfish toxin measurements) to generate predictive models using machine learning techniques.
+This is a Domoic Acid (DA) forecasting system that predicts harmful algal bloom concentrations along the Pacific Coast. The system processes multiple data sources (satellite oceanographic data, climate indices, streamflow, and shellfish toxin measurements) to generate predictive models using XGBoost machine learning with comprehensive temporal safeguards.
 
 ## Core Architecture
 
+The system follows a modular architecture with strict temporal integrity to prevent data leakage:
+
+**Modular Forecasting Framework (`forecasting/` package)**
+- `forecasting/core/forecast_engine.py`: Main forecasting logic with leak-free temporal safeguards
+- `forecasting/core/data_processor.py`: Data cleaning and feature engineering with forward-only processing
+- `forecasting/core/model_factory.py`: ML model creation (XGBoost primary, Ridge/Logistic fallbacks)
+- `forecasting/dashboard/realtime.py`: Interactive forecasting dashboard for specific dates/sites
+- `forecasting/dashboard/retrospective.py`: Historical validation and performance analysis
+
 **Data Processing Pipeline (`dataset-creation.py`)**
-- Fetches and processes satellite oceanographic data (MODIS chlorophyll, SST, PAR, fluorescence, K490)
-- Downloads climate indices (PDO, ONI, BEUTI) and streamflow data from NOAA/USGS APIs  
-- Processes shellfish DA/PN measurements from CSV files
-- Combines all data sources into a unified weekly time series
-- Outputs processed data to `final_output.parquet`
+- Downloads satellite oceanographic data from NOAA ERDDAP servers (MODIS chlorophyll, SST, PAR, etc.)
+- Fetches climate indices (PDO, ONI, BEUTI) and USGS streamflow data
+- Processes shellfish DA/PN measurements from CSV files in `da-input/` and `pn-input/`
+- Combines all sources into unified weekly time series with temporal buffers
+- Outputs processed data to `final_output.parquet` and caches satellite data in `satellite_data_intermediate.parquet`
 
-**Forecasting Systems**
-- `past-forecasts-final.py`: Retrospective model evaluation using random anchor points
-- `future-forecasts.py`: Real-time forecasting dashboard for specific dates/sites
+**Entry Points**
+- `leak_free_forecast_modular.py`: Main application coordinating retrospective evaluation and real-time forecasting
+- `dataset-creation.py`: Complete data processing pipeline (standalone)
 
-**Configuration Files**
-- `config.json`: Main data sources, site coordinates, date ranges, API endpoints
-- `satellite_config.json`: ERDDAP URLs for satellite data by location and parameter
+## Critical Temporal Safeguards
 
-## Key Data Flow
+The system implements multiple layers of data leakage prevention:
+- **Temporal splitting BEFORE feature engineering**: Training/test split occurs before any preprocessing
+- **Minimum temporal buffers**: 7-day separation between training end and prediction date
+- **Forward-only interpolation**: Missing values filled using only historical data
+- **Per-forecast category creation**: DA risk categories computed independently for each forecast
+- **Lag feature temporal cutoffs**: Historical lag features use strict temporal boundaries
 
-1. **Raw Data**: DA/PN measurements in `da-input/` and `pn-input/` directories
-2. **Processing**: `data-preprocessing.py` creates `final_output.parquet` and `satellite_data_intermediate.parquet`
-3. **Modeling**: Forecasting scripts use the processed parquet files for ML training/prediction
-
-## Site Coverage
-
-The system monitors 10 Pacific Coast locations from Washington to Oregon:
-- Kalaloch, Quinault, Copalis, Twin Harbors, Long Beach
-- Clatsop Beach, Cannon Beach, Newport, Coos Bay, Gold Beach
+These safeguards are essential for scientific validity - never modify them without understanding the implications.
 
 ## Common Commands
 
-**Data Processing**
+**Full Data Processing Pipeline**
 ```bash
-python data-preprocessing.py
+python dataset-creation.py
 ```
-This downloads all external data sources, processes CSV files, and generates the main dataset. Runtime: 30-60 minutes depending on satellite data volume.
+Downloads all external data sources and processes local CSV files. Runtime: 30-60 minutes depending on satellite data volume. Set `FORCE_SATELLITE_REPROCESSING = True` in the file to regenerate cached satellite data.
 
-**Model Evaluation** 
+**Retrospective Model Evaluation**
 ```bash
-python past-forecasts-final.py
+python leak_free_forecast_modular.py
 ```
-Runs retrospective evaluation with random anchor forecasting. Launches interactive dashboard on port 8071.
+Runs retrospective evaluation with random anchor points and launches interactive dashboard on port 8071. Configure evaluation parameters in `config.py`.
 
-**Real-time Forecasting**
+**Real-time Forecasting Dashboard**
 ```bash
-python future-forecasts.py  
+python leak_free_forecast_modular.py  # with FORECAST_MODE = "realtime" in config.py
 ```
-Launches forecasting dashboard for specific date/site predictions on port 8065.
+Launches forecasting dashboard for specific date/site predictions on port 8065. Supports model selection between XGBoost and Ridge Regression.
 
-## Data Dependencies
+**Custom Analysis**
+```bash
+python xgboost_spectral_analysis.py  # from spectral analysis folder
+```
+Runs comprehensive spectral analysis of XGBoost predictions including coherence and phase analysis.
 
-External data sources are automatically downloaded:
-- NOAA ERDDAP servers for satellite oceanographic data
-- NOAA climate indices (PDO/ONI) 
-- USGS streamflow data
-- BEUTI upwelling index
+## Configuration System
 
-Local CSV files in `da-input/` and `pn-input/` contain historical shellfish toxin measurements.
+**Primary Configuration (`config.py`)**
+- `FORECAST_MODEL`: Primary ML model ("xgboost" or "ridge")
+- `FORECAST_MODE`: Operating mode ("retrospective" or "realtime") 
+- `FORECAST_TASK`: Prediction type ("regression" or "classification")
+- `TEMPORAL_BUFFER_DAYS`: Minimum separation between training and prediction (default: 1)
+- `N_RANDOM_ANCHORS`: Number of evaluation points for retrospective analysis
+- `SITES`: Dictionary mapping site names to [latitude, longitude] coordinates
+- `ORIGINAL_DA_FILES` / `ORIGINAL_PN_FILES`: Local CSV file paths for toxin measurements
+- `SATELLITE_DATA`: Complex nested configuration for ERDDAP satellite data URLs
 
-## Model Architecture
+**Key Configuration Patterns**
+- Date ranges use pandas datetime format
+- Site coordinates are [latitude, longitude] arrays
+- URLs contain templated parameters `{start_date}`, `{end_date}` for dynamic date insertion
+- All temporal buffers account for real-world data reporting delays
 
-**Regression Models**: Random Forest and Gradient Boosting for continuous DA level prediction
-**Classification Models**: Random Forest for categorical risk levels (Low/Moderate/High/Extreme)
-**Features**: Oceanographic variables, climate indices, lag features, seasonal components
+## ML Model Architecture
 
-The system uses time series cross-validation and supports both quantile regression (uncertainty estimation) and point predictions.
+**Current Model Hierarchy (after comprehensive evaluation)**
+- **Primary**: XGBoost (7.4% better R² than Random Forest baseline)
+- **Fallback**: Ridge Regression (linear baseline for regression tasks)
+- **Classification**: XGBoost for categorical risk prediction, Logistic Regression fallback
 
-## Configuration Notes
+**Model Factory Pattern**
+The `ModelFactory` class creates configured models based on task type. It validates model/task combinations and provides model descriptions. Only XGBoost and Ridge/Logistic models remain after streamlining - Random Forest and Stacking Ensemble were removed.
 
-Set `FORCE_SATELLITE_REPROCESSING = True` in `data-preprocessing.py` to regenerate satellite data cache. Satellite data processing is the most time-intensive step and results are cached in `satellite_data_intermediate.parquet`.
+**Feature Engineering**
+- Temporal features: sin/cos day-of-year transformations
+- Lag features: 1, 2, 3-period historical DA values with temporal cutoffs
+- Environmental features: Satellite oceanographic parameters, climate indices, streamflow
+- Preprocessing: MedianImputer + MinMaxScaler fitted only on training data
 
-Date ranges and site coordinates are configured in `config.json`. The system expects weekly data resolution and handles missing values through interpolation.
+## Data Flow and Dependencies
+
+**Processing Sequence**
+1. Raw CSV files in `da-input/` and `pn-input/` directories contain historical toxin measurements
+2. `dataset-creation.py` downloads external data and processes all sources into `final_output.parquet`
+3. Modular forecasting system loads processed data for training and prediction
+4. Dashboards provide interactive interfaces for analysis and forecasting
+
+**External Dependencies**
+- NOAA ERDDAP servers for satellite oceanographic data (requires internet connectivity)
+- NOAA climate indices (PDO/ONI) and BEUTI upwelling data
+- USGS streamflow data (Columbia River station 14246900)
+- All external downloads are cached - satellite data in `satellite_data_intermediate.parquet`
+
+**Site Coverage**
+10 Pacific Coast monitoring locations: Kalaloch, Quinault, Copalis, Twin Harbors, Long Beach, Clatsop Beach, Cannon Beach, Newport, Coos Bay, Gold Beach.
+
+## Development Patterns
+
+**When modifying temporal logic**: Always verify that training data cannot access future information. The system uses anchor dates, temporal buffers, and forward-only processing to maintain scientific integrity.
+
+**When adding new features**: Follow the pattern in `data_processor.py` with temporal cutoffs. New features must be computable using only historical data available at prediction time.
+
+**When updating ML models**: Use the `ModelFactory` pattern and ensure new models support the same interface (fit/predict). Maintain compatibility with both regression and classification tasks.
+
+**Configuration changes**: Modify `config.py` for system-wide settings. The modular architecture loads configuration centrally, so changes propagate throughout the system.
+
+**Dashboard customization**: Both dashboards use Plotly/Dash. The retrospective dashboard analyzes historical results, while the realtime dashboard generates new predictions interactively.
