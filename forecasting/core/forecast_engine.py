@@ -19,6 +19,7 @@ from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
 import config
 from .data_processor import DataProcessor
 from .model_factory import ModelFactory
+from .validation import validate_system_startup, validate_runtime_parameters
 
 warnings.filterwarnings('ignore')
 
@@ -35,10 +36,14 @@ class ForecastEngine:
     - Original algorithm performance
     """
     
-    def __init__(self, data_file=None):
+    def __init__(self, data_file=None, validate_on_init=True):
         self.data_file = data_file or config.FINAL_OUTPUT_PATH
         self.data = None
         self.results_df = None
+        
+        # Validate system configuration on initialization
+        if validate_on_init:
+            validate_system_startup()
         
         # Initialize sub-components
         self.data_processor = DataProcessor()
@@ -67,6 +72,9 @@ class ForecastEngine:
         Returns:
             DataFrame with evaluation results matching original format
         """
+        # Validate runtime parameters
+        validate_runtime_parameters(n_anchors, min_test_date)
+        
         print(f"\n[INFO] Running LEAK-FREE {task} evaluation with {model_type}")
         
         # Load data using original method
@@ -249,6 +257,9 @@ class ForecastEngine:
             # Load data using original method
             data = self.data_processor.load_and_prepare_base_data(data_path)
             forecast_date = pd.Timestamp(forecast_date)
+            
+            # Validate forecast inputs
+            self.data_processor.validate_forecast_inputs(data, site, forecast_date)
             
             # Get site data
             df_site = data[data['site'] == site].copy()

@@ -31,6 +31,104 @@ class DataProcessor:
         self.da_category_bins = config.DA_CATEGORY_BINS
         self.da_category_labels = config.DA_CATEGORY_LABELS
         
+    def validate_data_integrity(self, df, required_columns=None):
+        """
+        Validate data integrity for scientific forecasting.
+        
+        Args:
+            df: DataFrame to validate
+            required_columns: List of required columns (defaults to essential columns)
+            
+        Returns:
+            bool: True if validation passes
+            
+        Raises:
+            ValueError: If critical data integrity issues found
+        """
+        if required_columns is None:
+            required_columns = ['date', 'site', 'da']
+            
+        # Check if DataFrame is empty
+        if df.empty:
+            raise ValueError("Empty dataset detected - cannot proceed with forecasting")
+            
+        # Check for required columns
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Critical columns missing: {missing_cols}")
+            
+        # Check date column integrity
+        if 'date' in df.columns:
+            if df['date'].isna().all():
+                raise ValueError("All dates are NaN - invalid temporal data")
+            if df['date'].dtype not in ['datetime64[ns]', 'object']:
+                raise ValueError(f"Invalid date column type: {df['date'].dtype}")
+                
+        # Check site column integrity
+        if 'site' in df.columns:
+            if df['site'].isna().all():
+                raise ValueError("All sites are NaN - invalid site data")
+            valid_sites = set(config.SITES.keys())
+            data_sites = set(df['site'].dropna().unique())
+            invalid_sites = data_sites - valid_sites
+            if invalid_sites:
+                print(f"Warning: Unknown sites found: {invalid_sites}")
+                
+        # Check DA target variable integrity
+        if 'da' in df.columns:
+            da_values = df['da'].dropna()
+            if not da_values.empty:
+                if (da_values < 0).any():
+                    raise ValueError("Negative DA values detected - invalid biological data")
+                if (da_values > 1000).any():  # Extremely high threshold
+                    print(f"Warning: Very high DA values detected (max: {da_values.max():.2f})")
+                    
+        print(f"[INFO] Data integrity validation passed: {len(df)} records, {df.columns.nunique()} features")
+        return True
+        
+    def validate_forecast_inputs(self, data, site, forecast_date):
+        """
+        Validate inputs for a specific forecast.
+        
+        Args:
+            data: DataFrame with historical data
+            site: Site name for forecast
+            forecast_date: Target forecast date
+            
+        Returns:
+            bool: True if validation passes
+            
+        Raises:
+            ValueError: If invalid inputs detected
+        """
+        # Validate site
+        if site not in config.SITES:
+            raise ValueError(f"Unknown site: '{site}'. Valid sites: {list(config.SITES.keys())}")
+            
+        # Validate forecast date
+        forecast_date = pd.Timestamp(forecast_date)
+        if forecast_date < pd.Timestamp('2000-01-01'):
+            raise ValueError("Forecast date too early - satellite data not available before 2000")
+        if forecast_date > pd.Timestamp.now() + pd.Timedelta(days=365):
+            raise ValueError("Forecast date too far in future (>1 year)")
+            
+        # Validate site-specific data availability
+        site_data = data[data['site'] == site] if 'site' in data.columns else data
+        if site_data.empty:
+            raise ValueError(f"No historical data available for site: {site}")
+            
+        # Check temporal data coverage
+        available_dates = site_data['date'].dropna()
+        if available_dates.empty:
+            raise ValueError(f"No valid dates in historical data for site: {site}")
+            
+        latest_data = available_dates.max()
+        if (forecast_date - latest_data).days > 365:
+            print(f"Warning: Large gap between latest data ({latest_data.date()}) and forecast date ({forecast_date.date()})")
+            
+        print(f"[INFO] Forecast input validation passed for {site} on {forecast_date.date()}")
+        return True
+        
     def load_and_prepare_base_data(self, file_path):
         """
         Load base data WITHOUT any target-based preprocessing.
@@ -45,6 +143,9 @@ class DataProcessor:
         data["date"] = pd.to_datetime(data["date"])
         data.sort_values(["site", "date"], inplace=True)
         data.reset_index(drop=True, inplace=True)
+
+        # Validate data integrity after loading
+        self.validate_data_integrity(data)
 
         # Add temporal features (safe - no future information)
         day_of_year = data["date"].dt.dayofyear
