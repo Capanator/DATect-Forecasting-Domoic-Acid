@@ -402,13 +402,14 @@ async def generate_enhanced_forecast(request: ForecastRequest):
 async def run_retrospective_analysis():
     """Run complete retrospective analysis based on current config."""
     try:
-        # Import the modular forecast system
-        sys.path.append(project_root)
-        from modular_forecast import LeakFreeForecastApp
-        
-        # Run retrospective analysis
-        app = LeakFreeForecastApp(config.FINAL_OUTPUT_PATH)
-        results_df = app.run_retrospective_forecasts()
+        # Run retrospective analysis using forecast engine directly
+        # This avoids launching the dashboard but still gets the results
+        engine = ForecastEngine(data_file=config.FINAL_OUTPUT_PATH)
+        results_df = engine.run_retrospective_evaluation(
+            task=config.FORECAST_TASK,
+            model_type=config.FORECAST_MODEL,
+            n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 50)  # Use smaller number for API
+        )
         
         if results_df is None or results_df.empty:
             return {
