@@ -611,17 +611,17 @@ const Dashboard = () => {
                 Filter by Site
               </label>
               <Select
-                value={config.selected_sites.length === 0 || config.selected_sites.length === sites.length ? 
+                value={(config.selected_sites || []).length === 0 || (config.selected_sites || []).length === sites.length ? 
                   { value: 'all', label: 'All Sites' } :
-                  config.selected_sites.map(site => ({ value: site, label: site }))
+                  (config.selected_sites || []).map(site => ({ value: site, label: site }))
                 }
                 onChange={(selectedOptions) => {
-                  if (selectedOptions && selectedOptions.some && selectedOptions.some(opt => opt.value === 'all')) {
+                  if (!selectedOptions || selectedOptions.length === 0) {
                     setConfig({...config, selected_sites: []}) // Empty means all sites
-                  } else if (selectedOptions) {
-                    setConfig({...config, selected_sites: Array.isArray(selectedOptions) ? selectedOptions.map(opt => opt.value) : [selectedOptions.value]})
+                  } else if (selectedOptions.some && selectedOptions.some(opt => opt.value === 'all')) {
+                    setConfig({...config, selected_sites: []}) // All sites selected
                   } else {
-                    setConfig({...config, selected_sites: []})
+                    setConfig({...config, selected_sites: selectedOptions.map(opt => opt.value)})
                   }
                 }}
                 options={[

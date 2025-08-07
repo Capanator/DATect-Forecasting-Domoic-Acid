@@ -1,0 +1,10 @@
+DATect Scientific Validation Summary
+==================================================
+
+Validation Date: 2025-08-07T14:27:19.386221
+Tests Completed: 4
+Tests Passed: 4
+Overall Status: PASSED
+
+
+Detailed results available in JSON files.

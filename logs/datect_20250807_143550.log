@@ -1,0 +1,13 @@
+2025-08-07 14:35:50 - root - INFO - File logging enabled: logs/datect_20250807_143550.log
+2025-08-07 14:35:50 - __main__ - INFO - Starting Domoic Acid Forecasting System
+2025-08-07 14:35:50 - __main__ - INFO - System started in retrospective mode
+2025-08-07 14:35:50 - __main__ - INFO - Initializing forecast application
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - Initializing ForecastEngine
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - Using data file: ./data/processed/final_output.parquet
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - Validating system startup configuration
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - System startup validation completed successfully
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - Initializing data processor and model factory
+2025-08-07 14:35:50 - forecasting.core.data_processor - INFO - Initializing DataProcessor
+2025-08-07 14:35:50 - forecasting.core.data_processor - INFO - DA category configuration loaded: 4 categories
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - Configuration: buffer_days=1, min_samples=5, seed=42
+2025-08-07 14:35:50 - forecasting.core.forecast_engine - INFO - ForecastEngine initialization completed successfully

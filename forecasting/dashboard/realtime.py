@@ -120,7 +120,7 @@ class RealtimeDashboard:
                     dcc.Dropdown(
                         id="model-selector",
                         options=model_options,
-                        value="xgboost",  # Default to XGBoost
+                        value="rf",  # Default to Random Forest
                         clearable=False
                     ),
                 ], style={'width': '220px', 'display': 'inline-block', 'margin': '0 15px'}),

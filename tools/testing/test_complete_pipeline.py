@@ -198,8 +198,8 @@ try:
     
     # Test model factory
     factory = ModelFactory()
-    model = factory.get_model('regression', 'xgboost')
-    print("✅ XGBoost model created")
+    model = factory.get_model('regression', 'rf')
+    print("✅ Random Forest model created")
     
     # Test data loading
     data = pd.read_parquet('./data/processed/final_output.parquet')

@@ -101,7 +101,7 @@ class DATectLauncher:
         print("Installing Python dependencies...")
         python_packages = [
             'fastapi', 'uvicorn', 'pydantic', 'pandas', 'numpy', 
-            'scikit-learn', 'xgboost', 'plotly', 'requests'
+            'scikit-learn', 'plotly', 'requests'
         ]
         
         try:

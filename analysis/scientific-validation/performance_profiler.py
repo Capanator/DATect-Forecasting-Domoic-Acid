@@ -210,8 +210,8 @@ class PerformanceProfiler:
             transformer, X_train = processor.create_numeric_transformer(train_data, drop_cols)
             X_train_processed = transformer.fit_transform(X_train)
             
-            # Train XGBoost model
-            model = model_factory.get_model('regression', 'xgboost')
+            # Train Random Forest model
+            model = model_factory.get_model('regression', 'rf')
             model.fit(X_train_processed, train_data['da'])
             
             return model, X_train_processed, train_data

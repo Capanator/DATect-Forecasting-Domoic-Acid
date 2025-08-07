@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "message": "Performance validation completed",
+  "data_samples": 10950,
+  "model_type": "rf",
+  "task_type": "regression"
+}
