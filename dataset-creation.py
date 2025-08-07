@@ -31,6 +31,14 @@ import warnings
 import shutil
 import config
 
+# Import logging and exception handling
+from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.core.exception_handling import safe_execute, handle_data_errors, ScientificValidationError
+
+# Setup logging
+setup_logging(log_level='INFO', enable_file_logging=True)
+logger = get_logger(__name__)
+
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
@@ -51,6 +59,8 @@ temporary_nc_files_for_stitching = []  # Track yearly files per dataset
 
 
 # Load main configuration
+logger.info("Starting dataset creation pipeline")
+logger.info("Loading configuration from config.py")
 print(f"--- Loading Configuration from config.py ---")
 
 # Extract config values
@@ -66,11 +76,14 @@ end_date = pd.to_datetime(config.END_DATE)
 final_output_path = config.FINAL_OUTPUT_PATH
 SATELLITE_OUTPUT_PARQUET = './data/intermediate/satellite_data_intermediate.parquet'
 
+logger.info(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
+logger.info(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
 print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
 # Load satellite configuration from main config
 satellite_metadata = config.SATELLITE_DATA
+logger.info(f"Satellite configuration loaded with {len(satellite_metadata)} data types")
 print(f"\n--- Satellite Configuration loaded from main config ---")
 print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
@@ -78,6 +91,7 @@ print(f"Satellite configuration loaded with {len(satellite_metadata)} data types
 # UTILITY FUNCTIONS
 # =============================================================================
 
+@handle_data_errors
 def download_file(url, filename):
     """
     Download file from URL with error handling and progress tracking.
@@ -92,15 +106,33 @@ def download_file(url, filename):
     Raises:
         requests.RequestException: If download fails
     """
-    response = requests.get(url, timeout=5000, stream=True)
-    response.raise_for_status()
-    
-    with open(filename, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+    try:
+        logger.info(f"Downloading file from {url}")
+        logger.debug(f"Saving to: {filename}")
+        
+        response = requests.get(url, timeout=5000, stream=True)
+        response.raise_for_status()
+        
+        file_size = int(response.headers.get('content-length', 0))
+        logger.debug(f"File size: {file_size / (1024*1024):.2f} MB")
+        
+        with open(filename, 'wb') as f:
+            downloaded = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                
+        logger.info(f"Successfully downloaded {downloaded / (1024*1024):.2f} MB to {filename}")
+        
+    except requests.RequestException as e:
+        logger.error(f"Failed to download {url}: {str(e)}")
+        raise ScientificValidationError(f"Download failed: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error downloading {url}: {str(e)}")
+        raise
             
-    downloaded_files.append(filename)
-    return filename
+        downloaded_files.append(filename)
+        return filename
 
 def local_filename(url, ext, temp_dir=None):
     """
@@ -151,13 +183,23 @@ def convert_files_to_parquet(files_dict):
         new_files[name] = csv_to_parquet(path)
     return new_files
 
+@handle_data_errors
 def process_stitched_dataset(yearly_nc_files, data_type, site):
     """
     Process a stitched satellite NetCDF dataset from multiple yearly files.
     (Core logic for stitching)
     """
-    ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
-    ds = ds.sortby('time')
+    try:
+        logger.info(f"Processing stitched dataset for {data_type} at site {site}")
+        logger.debug(f"Processing {len(yearly_nc_files)} yearly files: {yearly_nc_files[:3]}...")
+        
+        ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
+        ds = ds.sortby('time')
+        logger.debug(f"Dataset loaded: {ds.dims} dimensions, {len(ds.data_vars)} variables")
+        
+    except Exception as e:
+        logger.error(f"Failed to load NetCDF dataset for {data_type} at {site}: {str(e)}")
+        raise ScientificValidationError(f"Satellite data loading failed: {str(e)}")
 
     # Determine data variable name
     data_var = None

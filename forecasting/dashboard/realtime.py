@@ -52,18 +52,35 @@ class RealtimeDashboard:
             port: Port to run server on
             debug: Whether to run in debug mode
         """
-        print(f"Starting realtime dashboard on port {port}")
-        self.app.run(debug=debug, port=port, host='0.0.0.0')
+        try:
+            logger.info(f"Starting RealtimeDashboard server on port {port}")
+            logger.info(f"Debug mode: {debug}")
+            print(f"Starting realtime dashboard on port {port}")
+            self.app.run(debug=debug, port=port, host='0.0.0.0')
+            
+        except Exception as e:
+            logger.error(f"Failed to start RealtimeDashboard server: {str(e)}")
+            raise ScientificValidationError(f"Dashboard server failed: {str(e)}")
         
     def _setup_layout(self):
         """Setup the dashboard layout."""
-        # Load data to get available sites and date range
-        data = pd.read_parquet(self.data_path)
-        data['date'] = pd.to_datetime(data['date'])
+        try:
+            logger.info("Setting up dashboard layout")
+            
+            # Load data to get available sites and date range
+            logger.debug(f"Loading data from {self.data_path}")
+            data = pd.read_parquet(self.data_path)
+            data['date'] = pd.to_datetime(data['date'])
+            
+            sites_list = sorted(data['site'].unique().tolist())
+            min_date = data['date'].min().date()
+            max_date = data['date'].max().date()
+            
+            logger.info(f"Dashboard setup: {len(sites_list)} sites, date range {min_date} to {max_date}")
         
-        sites_list = sorted(data['site'].unique().tolist())
-        min_date = data['date'].min().date()
-        max_date = data['date'].max().date()
+        except Exception as e:
+            logger.error(f"Failed to setup dashboard layout: {str(e)}")
+            raise ScientificValidationError(f"Dashboard layout setup failed: {str(e)}")
         
         # Get available models from model factory
         available_models = self.model_factory.get_supported_models('regression')['regression']

@@ -15,6 +15,10 @@ import plotly.graph_objects as go
 from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
 
 import config
+from ..core.logging_config import get_logger
+from ..core.exception_handling import ScientificValidationError
+
+logger = get_logger(__name__)
 
 
 class RetrospectiveDashboard:
@@ -35,10 +39,21 @@ class RetrospectiveDashboard:
         Args:
             results_df: DataFrame with forecasting results
         """
-        self.results_df = results_df
-        self.app = dash.Dash(__name__)
-        self._setup_layout()
-        self._setup_callbacks()
+        try:
+            logger.info("Initializing RetrospectiveDashboard")
+            self.results_df = results_df
+            logger.info(f"Results data: {len(results_df)} records")
+            
+            logger.info("Setting up Dash application")
+            self.app = dash.Dash(__name__)
+            self._setup_layout()
+            self._setup_callbacks()
+            
+            logger.info("RetrospectiveDashboard initialization completed")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize RetrospectiveDashboard: {str(e)}")
+            raise ScientificValidationError(f"Dashboard initialization failed: {str(e)}")
         
     def run(self, port=8071, debug=False):
         """
@@ -48,8 +63,15 @@ class RetrospectiveDashboard:
             port: Port to run server on
             debug: Whether to run in debug mode
         """
-        print(f"Starting retrospective dashboard on port {port}")
-        self.app.run(debug=debug, port=port, host='0.0.0.0')
+        try:
+            logger.info(f"Starting RetrospectiveDashboard server on port {port}")
+            logger.info(f"Debug mode: {debug}")
+            print(f"Starting retrospective dashboard on port {port}")
+            self.app.run(debug=debug, port=port, host='0.0.0.0')
+            
+        except Exception as e:
+            logger.error(f"Failed to start RetrospectiveDashboard server: {str(e)}")
+            raise ScientificValidationError(f"Dashboard server failed: {str(e)}")
         
     def _setup_layout(self):
         """Setup the dashboard layout."""

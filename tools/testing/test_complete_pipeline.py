@@ -47,6 +47,7 @@ class PipelineTester:
             execution_time = time.time() - start_time
             
             if result.returncode == 0:
+                logger.info(f"{description} completed successfully in {execution_time:.1f}s")
                 self.log(f"✅ {description} completed in {execution_time:.1f}s")
                 self.results[description] = {
                     'success': True,
@@ -56,6 +57,7 @@ class PipelineTester:
                 }
                 return True
             else:
+                logger.error(f"{description} failed in {execution_time:.1f}s: {result.stderr}")
                 self.log(f"❌ {description} failed: {result.stderr}", "ERROR")
                 self.results[description] = {
                     'success': False,

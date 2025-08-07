@@ -14,6 +14,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
 
 import config
+from .logging_config import get_logger
+from .exception_handling import handle_data_errors, validate_data_integrity, ScientificValidationError, TemporalLeakageError
+
+logger = get_logger(__name__)
 
 
 class DataProcessor:
@@ -28,9 +32,12 @@ class DataProcessor:
     """
     
     def __init__(self):
+        logger.info("Initializing DataProcessor")
         self.da_category_bins = config.DA_CATEGORY_BINS
         self.da_category_labels = config.DA_CATEGORY_LABELS
+        logger.info(f"DA category configuration loaded: {len(self.da_category_bins)-1} categories")
         
+    @handle_data_errors
     def validate_data_integrity(self, df, required_columns=None):
         """
         Validate data integrity for scientific forecasting.
@@ -45,47 +52,76 @@ class DataProcessor:
         Raises:
             ValueError: If critical data integrity issues found
         """
-        if required_columns is None:
-            required_columns = ['date', 'site', 'da']
+        try:
+            logger.info("Starting data integrity validation")
             
-        # Check if DataFrame is empty
-        if df.empty:
-            raise ValueError("Empty dataset detected - cannot proceed with forecasting")
+            if required_columns is None:
+                required_columns = ['date', 'site', 'da']
             
-        # Check for required columns
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Critical columns missing: {missing_cols}")
+            logger.debug(f"Validating required columns: {required_columns}")
             
-        # Check date column integrity
-        if 'date' in df.columns:
-            if df['date'].isna().all():
-                raise ValueError("All dates are NaN - invalid temporal data")
-            if df['date'].dtype not in ['datetime64[ns]', 'object']:
-                raise ValueError(f"Invalid date column type: {df['date'].dtype}")
+            # Check if DataFrame is empty
+            if df.empty:
+                error_msg = "Empty dataset detected - cannot proceed with forecasting"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
                 
-        # Check site column integrity
-        if 'site' in df.columns:
-            if df['site'].isna().all():
-                raise ValueError("All sites are NaN - invalid site data")
-            valid_sites = set(config.SITES.keys())
-            data_sites = set(df['site'].dropna().unique())
-            invalid_sites = data_sites - valid_sites
-            if invalid_sites:
-                print(f"Warning: Unknown sites found: {invalid_sites}")
+            # Check for required columns
+            missing_cols = [col for col in required_columns if col not in df.columns]
+            if missing_cols:
+                error_msg = f"Critical columns missing: {missing_cols}"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
                 
-        # Check DA target variable integrity
-        if 'da' in df.columns:
-            da_values = df['da'].dropna()
-            if not da_values.empty:
-                if (da_values < 0).any():
-                    raise ValueError("Negative DA values detected - invalid biological data")
-                if (da_values > 1000).any():  # Extremely high threshold
-                    print(f"Warning: Very high DA values detected (max: {da_values.max():.2f})")
+            # Check date column integrity
+            if 'date' in df.columns:
+                logger.debug("Validating date column")
+                if df['date'].isna().all():
+                    error_msg = "All dates are NaN - invalid temporal data"
+                    logger.error(error_msg)
+                    raise ScientificValidationError(error_msg)
+                if df['date'].dtype not in ['datetime64[ns]', 'object']:
+                    error_msg = f"Invalid date column type: {df['date'].dtype}"
+                    logger.error(error_msg)
+                    raise ScientificValidationError(error_msg)
                     
-        print(f"[INFO] Data integrity validation passed: {len(df)} records, {df.columns.nunique()} features")
-        return True
+            # Check site column integrity
+            if 'site' in df.columns:
+                logger.debug("Validating site column")
+                if df['site'].isna().all():
+                    error_msg = "All sites are NaN - invalid site data"
+                    logger.error(error_msg)
+                    raise ScientificValidationError(error_msg)
+                valid_sites = set(config.SITES.keys())
+                data_sites = set(df['site'].dropna().unique())
+                invalid_sites = data_sites - valid_sites
+                if invalid_sites:
+                    logger.warning(f"Unknown sites found: {invalid_sites}")
+                    print(f"Warning: Unknown sites found: {invalid_sites}")
+                    
+            # Check DA target variable integrity
+            if 'da' in df.columns:
+                logger.debug("Validating DA target variable")
+                da_values = df['da'].dropna()
+                if not da_values.empty:
+                    if (da_values < 0).any():
+                        error_msg = "Negative DA values detected - invalid biological data"
+                        logger.error(error_msg)
+                        raise ScientificValidationError(error_msg)
+                    if (da_values > 1000).any():  # Extremely high threshold
+                        warning_msg = f"Very high DA values detected (max: {da_values.max():.2f})"
+                        logger.warning(warning_msg)
+                        print(f"Warning: {warning_msg}")
+                        
+            logger.info(f"Data integrity validation passed: {len(df)} records, {len(df.columns)} features")
+            print(f"[INFO] Data integrity validation passed: {len(df)} records, {len(df.columns)} features")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Data integrity validation failed: {str(e)}")
+            raise
         
+    @handle_data_errors
     def validate_forecast_inputs(self, data, site, forecast_date):
         """
         Validate inputs for a specific forecast.
@@ -101,34 +137,56 @@ class DataProcessor:
         Raises:
             ValueError: If invalid inputs detected
         """
-        # Validate site
-        if site not in config.SITES:
-            raise ValueError(f"Unknown site: '{site}'. Valid sites: {list(config.SITES.keys())}")
+        try:
+            logger.info(f"Validating forecast inputs for {site} on {forecast_date}")
             
-        # Validate forecast date
-        forecast_date = pd.Timestamp(forecast_date)
-        if forecast_date < pd.Timestamp('2000-01-01'):
-            raise ValueError("Forecast date too early - satellite data not available before 2000")
-        if forecast_date > pd.Timestamp.now() + pd.Timedelta(days=365):
-            raise ValueError("Forecast date too far in future (>1 year)")
+            # Validate site
+            if site not in config.SITES:
+                error_msg = f"Unknown site: '{site}'. Valid sites: {list(config.SITES.keys())}"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
+                
+            # Validate forecast date
+            forecast_date = pd.Timestamp(forecast_date)
+            if forecast_date < pd.Timestamp('2000-01-01'):
+                error_msg = "Forecast date too early - satellite data not available before 2000"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
+            if forecast_date > pd.Timestamp.now() + pd.Timedelta(days=365):
+                error_msg = "Forecast date too far in future (>1 year)"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
+                
+            # Validate site-specific data availability
+            site_data = data[data['site'] == site] if 'site' in data.columns else data
+            if site_data.empty:
+                error_msg = f"No historical data available for site: {site}"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
+                
+            # Check temporal data coverage
+            available_dates = site_data['date'].dropna()
+            if available_dates.empty:
+                error_msg = f"No valid dates in historical data for site: {site}"
+                logger.error(error_msg)
+                raise ScientificValidationError(error_msg)
+                
+            latest_data = available_dates.max()
+            gap_days = (forecast_date - latest_data).days
+            if gap_days > 365:
+                warning_msg = f"Large gap between latest data ({latest_data.date()}) and forecast date ({forecast_date.date()}): {gap_days} days"
+                logger.warning(warning_msg)
+                print(f"Warning: {warning_msg}")
+                
+            logger.info(f"Forecast input validation passed for {site} on {forecast_date.date()}")
+            print(f"[INFO] Forecast input validation passed for {site} on {forecast_date.date()}")
+            return True
             
-        # Validate site-specific data availability
-        site_data = data[data['site'] == site] if 'site' in data.columns else data
-        if site_data.empty:
-            raise ValueError(f"No historical data available for site: {site}")
-            
-        # Check temporal data coverage
-        available_dates = site_data['date'].dropna()
-        if available_dates.empty:
-            raise ValueError(f"No valid dates in historical data for site: {site}")
-            
-        latest_data = available_dates.max()
-        if (forecast_date - latest_data).days > 365:
-            print(f"Warning: Large gap between latest data ({latest_data.date()}) and forecast date ({forecast_date.date()})")
-            
-        print(f"[INFO] Forecast input validation passed for {site} on {forecast_date.date()}")
-        return True
+        except Exception as e:
+            logger.error(f"Forecast input validation failed: {str(e)}")
+            raise
         
+    @handle_data_errors
     def load_and_prepare_base_data(self, file_path):
         """
         Load base data WITHOUT any target-based preprocessing.
@@ -139,23 +197,41 @@ class DataProcessor:
         Returns:
             DataFrame with base features and temporal components
         """
-        data = pd.read_parquet(file_path, engine="pyarrow")
-        data["date"] = pd.to_datetime(data["date"])
-        data.sort_values(["site", "date"], inplace=True)
-        data.reset_index(drop=True, inplace=True)
+        try:
+            logger.info(f"Loading base data from {file_path}")
+            
+            # Load data
+            data = pd.read_parquet(file_path, engine="pyarrow")
+            logger.info(f"Raw data loaded: {len(data)} records, {len(data.columns)} columns")
+            
+            # Process temporal data
+            data["date"] = pd.to_datetime(data["date"])
+            data.sort_values(["site", "date"], inplace=True)
+            data.reset_index(drop=True, inplace=True)
+            logger.debug("Data sorted and indexed by site and date")
 
-        # Validate data integrity after loading
-        self.validate_data_integrity(data)
+            # Validate data integrity after loading
+            logger.info("Validating loaded data integrity")
+            self.validate_data_integrity(data)
 
-        # Add temporal features (safe - no future information)
-        day_of_year = data["date"].dt.dayofyear
-        data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
-        data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
+            # Add temporal features (safe - no future information)
+            logger.debug("Adding temporal features")
+            day_of_year = data["date"].dt.dayofyear
+            data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
+            data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
+            logger.debug("Temporal features added: sin_day_of_year, cos_day_of_year")
 
-        # DO NOT create da-category globally - this will be done per forecast
-        print(f"[INFO] Loaded {len(data)} records across {data['site'].nunique()} sites")
-        return data
+            # DO NOT create da-category globally - this will be done per forecast
+            sites_count = data['site'].nunique()
+            logger.info(f"Data preparation completed: {len(data)} records across {sites_count} sites")
+            print(f"[INFO] Loaded {len(data)} records across {sites_count} sites")
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to load and prepare base data: {str(e)}")
+            raise ScientificValidationError(f"Data loading failed: {str(e)}")
         
+    @handle_data_errors
     def create_lag_features_safe(self, df, group_col, value_col, lags, cutoff_date):
         """
         Create lag features with strict temporal cutoff to prevent leakage.
@@ -171,23 +247,47 @@ class DataProcessor:
         Returns:
             DataFrame with lag features and temporal safeguards
         """
-        df = df.copy()
-        df_sorted = df.sort_values([group_col, 'date'])
-        
-        for lag in lags:
-            # Create lag feature
-            df_sorted[f"{value_col}_lag_{lag}"] = df_sorted.groupby(group_col)[value_col].shift(lag)
+        try:
+            logger.info(f"Creating lag features for {value_col} with temporal cutoff at {cutoff_date}")
+            logger.debug(f"Lag periods: {lags}")
             
-            # CRITICAL: Only use lag values that are strictly before cutoff_date
-            # This prevents using future information in training data
-            # But be less restrictive - only affect data very close to cutoff (original method)
-            buffer_days = 1  # Reduced from original stricter implementation
-            lag_cutoff_date = cutoff_date - pd.Timedelta(days=buffer_days)
-            lag_cutoff_mask = df_sorted['date'] > lag_cutoff_date
-            df_sorted.loc[lag_cutoff_mask, f"{value_col}_lag_{lag}"] = np.nan
+            df = df.copy()
+            df_sorted = df.sort_values([group_col, 'date'])
             
-        return df_sorted
+            created_features = []
+            for lag in lags:
+                feature_name = f"{value_col}_lag_{lag}"
+                logger.debug(f"Creating lag feature: {feature_name}")
+                
+                # Create lag feature
+                df_sorted[feature_name] = df_sorted.groupby(group_col)[value_col].shift(lag)
+                
+                # CRITICAL: Only use lag values that are strictly before cutoff_date
+                # This prevents using future information in training data
+                buffer_days = 1  # Reduced from original stricter implementation
+                lag_cutoff_date = cutoff_date - pd.Timedelta(days=buffer_days)
+                lag_cutoff_mask = df_sorted['date'] > lag_cutoff_date
+                
+                # Apply temporal safeguard
+                affected_rows = lag_cutoff_mask.sum()
+                df_sorted.loc[lag_cutoff_mask, feature_name] = np.nan
+                
+                logger.debug(f"Lag feature {feature_name} created, {affected_rows} rows masked for temporal safety")
+                created_features.append(feature_name)
+                
+            logger.info(f"Successfully created {len(created_features)} lag features with temporal safeguards")
+            
+            # Validate temporal integrity
+            if df_sorted['date'].max() > cutoff_date:
+                logger.debug(f"Data contains dates after cutoff ({cutoff_date}) - temporal leakage risk exists (expected for retrospective evaluation)")
+                
+            return df_sorted
+            
+        except Exception as e:
+            logger.error(f"Failed to create lag features: {str(e)}")
+            raise TemporalLeakageError(f"Lag feature creation failed: {str(e)}")
         
+    @handle_data_errors
     def create_da_categories_safe(self, da_values):
         """
         Create DA categories from training data only.
@@ -198,13 +298,41 @@ class DataProcessor:
         Returns:
             Categorical series with DA risk categories
         """
-        return pd.cut(
-            da_values,
-            bins=self.da_category_bins,
-            labels=self.da_category_labels,
-            right=True,
-        ).astype(pd.Int64Dtype())
+        try:
+            logger.debug(f"Creating DA categories for {len(da_values)} values")
+            
+            # Validate input
+            if da_values.empty:
+                logger.warning("Empty DA values provided for categorization")
+                return pd.Series([], dtype=pd.Int64Dtype())
+                
+            # Check for invalid values
+            invalid_mask = da_values < 0
+            if invalid_mask.any():
+                invalid_count = invalid_mask.sum()
+                logger.warning(f"Found {invalid_count} negative DA values - setting to NaN")
+                da_values = da_values.copy()
+                da_values[invalid_mask] = np.nan
+                
+            # Create categories
+            categories = pd.cut(
+                da_values,
+                bins=self.da_category_bins,
+                labels=self.da_category_labels,
+                right=True,
+            ).astype(pd.Int64Dtype())
+            
+            # Log category distribution
+            value_counts = categories.value_counts().sort_index()
+            logger.debug(f"DA category distribution: {dict(value_counts)}")
+            
+            return categories
+            
+        except Exception as e:
+            logger.error(f"Failed to create DA categories: {str(e)}")
+            raise ScientificValidationError(f"DA categorization failed: {str(e)}")
         
+    @handle_data_errors
     def create_numeric_transformer(self, df, drop_cols):
         """
         Create preprocessing transformer for numeric features.
@@ -216,23 +344,37 @@ class DataProcessor:
         Returns:
             Tuple of (transformer, feature_dataframe)
         """
-        X = df.drop(columns=drop_cols, errors="ignore")
-        numeric_cols = X.select_dtypes(include=[np.number]).columns
-        
-        # Create preprocessing pipeline
-        numeric_pipeline = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", MinMaxScaler()),
-        ])
-        
-        transformer = ColumnTransformer(
-            [("num", numeric_pipeline, numeric_cols)],
-            remainder="drop",  # Drop non-numeric to avoid issues
-            verbose_feature_names_out=False
-        )
-        transformer.set_output(transform="pandas")
-        
-        return transformer, X
+        try:
+            logger.debug(f"Creating numeric transformer, dropping columns: {drop_cols}")
+            
+            X = df.drop(columns=drop_cols, errors="ignore")
+            numeric_cols = X.select_dtypes(include=[np.number]).columns
+            
+            logger.debug(f"Selected {len(numeric_cols)} numeric features: {list(numeric_cols)[:10]}...")
+            
+            if len(numeric_cols) == 0:
+                logger.warning("No numeric columns found for feature transformation")
+                raise ScientificValidationError("No numeric features available for modeling")
+                
+            # Create preprocessing pipeline
+            numeric_pipeline = Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", MinMaxScaler()),
+            ])
+            
+            transformer = ColumnTransformer(
+                [("num", numeric_pipeline, numeric_cols)],
+                remainder="drop",  # Drop non-numeric to avoid issues
+                verbose_feature_names_out=False
+            )
+            transformer.set_output(transform="pandas")
+            
+            logger.debug(f"Numeric transformer created with {len(numeric_cols)} features")
+            return transformer, X
+            
+        except Exception as e:
+            logger.error(f"Failed to create numeric transformer: {str(e)}")
+            raise ScientificValidationError(f"Feature transformation setup failed: {str(e)}")
         
     def validate_temporal_integrity(self, train_df, test_df):
         """
@@ -245,14 +387,31 @@ class DataProcessor:
         Returns:
             Boolean indicating if temporal integrity is maintained
         """
-        if train_df.empty or test_df.empty:
-            return False
+        try:
+            logger.debug("Validating temporal integrity between train and test sets")
             
-        max_train_date = train_df['date'].max()
-        min_test_date = test_df['date'].min()
-        
-        # Training data should be strictly before test data
-        return max_train_date < min_test_date
+            if train_df.empty or test_df.empty:
+                logger.warning("Empty train or test dataframe - temporal validation failed")
+                return False
+                
+            max_train_date = train_df['date'].max()
+            min_test_date = test_df['date'].min()
+            
+            # Training data should be strictly before test data
+            is_valid = max_train_date < min_test_date
+            
+            if is_valid:
+                gap_days = (min_test_date - max_train_date).days
+                logger.debug(f"Temporal integrity validated: {gap_days} day gap between train ({max_train_date.date()}) and test ({min_test_date.date()})")
+            else:
+                logger.error(f"TEMPORAL LEAKAGE DETECTED: train ends {max_train_date.date()}, test starts {min_test_date.date()}")
+                raise TemporalLeakageError(f"Training data ({max_train_date}) overlaps with test data ({min_test_date})")
+                
+            return is_valid
+            
+        except Exception as e:
+            logger.error(f"Temporal integrity validation failed: {str(e)}")
+            raise
         
     def get_feature_importance(self, model, feature_names):
         """
@@ -265,11 +424,21 @@ class DataProcessor:
         Returns:
             DataFrame with feature importance scores
         """
-        if hasattr(model, 'feature_importances_'):
-            importance_df = pd.DataFrame({
-                'feature': feature_names,
-                'importance': model.feature_importances_
-            }).sort_values('importance', ascending=False)
-            return importance_df
-        else:
+        try:
+            logger.debug(f"Extracting feature importance from {type(model).__name__}")
+            
+            if hasattr(model, 'feature_importances_'):
+                importance_df = pd.DataFrame({
+                    'feature': feature_names,
+                    'importance': model.feature_importances_
+                }).sort_values('importance', ascending=False)
+                
+                logger.debug(f"Feature importance extracted: top feature is {importance_df.iloc[0]['feature']} (importance: {importance_df.iloc[0]['importance']:.4f})")
+                return importance_df
+            else:
+                logger.debug(f"Model {type(model).__name__} does not support feature importance extraction")
+                return None
+                
+        except Exception as e:
+            logger.warning(f"Failed to extract feature importance: {str(e)}")
             return None

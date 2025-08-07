@@ -20,8 +20,12 @@ import config
 from .data_processor import DataProcessor
 from .model_factory import ModelFactory
 from .validation import validate_system_startup, validate_runtime_parameters
+from .logging_config import get_logger
+from .exception_handling import safe_execute, handle_data_errors, ScientificValidationError, TemporalLeakageError
 
 warnings.filterwarnings('ignore')
+
+logger = get_logger(__name__)
 
 
 class ForecastEngine:
@@ -37,26 +41,41 @@ class ForecastEngine:
     """
     
     def __init__(self, data_file=None, validate_on_init=True):
-        self.data_file = data_file or config.FINAL_OUTPUT_PATH
-        self.data = None
-        self.results_df = None
-        
-        # Validate system configuration on initialization
-        if validate_on_init:
-            validate_system_startup()
-        
-        # Initialize sub-components
-        self.data_processor = DataProcessor()
-        self.model_factory = ModelFactory()
-        
-        # Configuration matching original
-        self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
-        self.min_training_samples = 5  # Restore original minimum
-        self.random_seed = config.RANDOM_SEED
-        
-        # Set random seeds
-        random.seed(self.random_seed)
-        np.random.seed(self.random_seed)
+        try:
+            logger.info("Initializing ForecastEngine")
+            self.data_file = data_file or config.FINAL_OUTPUT_PATH
+            self.data = None
+            self.results_df = None
+            
+            logger.info(f"Using data file: {self.data_file}")
+            
+            # Validate system configuration on initialization
+            if validate_on_init:
+                logger.info("Validating system startup configuration")
+                validate_system_startup()
+                logger.info("System startup validation completed successfully")
+            
+            # Initialize sub-components
+            logger.info("Initializing data processor and model factory")
+            self.data_processor = DataProcessor()
+            self.model_factory = ModelFactory()
+            
+            # Configuration matching original
+            self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
+            self.min_training_samples = 5  # Restore original minimum
+            self.random_seed = config.RANDOM_SEED
+            
+            logger.info(f"Configuration: buffer_days={self.temporal_buffer_days}, min_samples={self.min_training_samples}, seed={self.random_seed}")
+            
+            # Set random seeds
+            random.seed(self.random_seed)
+            np.random.seed(self.random_seed)
+            
+            logger.info("ForecastEngine initialization completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize ForecastEngine: {str(e)}")
+            raise ScientificValidationError(f"ForecastEngine initialization failed: {str(e)}")
         
     def run_retrospective_evaluation(self, task="regression", model_type="rf", 
                                    n_anchors=50, min_test_date="2008-01-01"):
@@ -318,6 +337,7 @@ class ForecastEngine:
                 prediction = model.predict(X_forecast)[0]
                 result['predicted_da'] = prediction
                 result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
+                logger.debug(f"Regression prediction completed for {site}: {prediction:.4f}")
                 
             elif task == "classification":
                 # Check if we have multiple classes
@@ -328,6 +348,7 @@ class ForecastEngine:
                     prediction = model.predict(X_forecast)[0]
                     result['predicted_category'] = prediction
                     result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
+                    logger.debug(f"Classification prediction completed for {site}: {prediction}")
                     
                     # Add class probabilities if available
                     if hasattr(model, 'predict_proba'):

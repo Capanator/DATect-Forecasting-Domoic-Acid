@@ -54,6 +54,10 @@ def handle_data_errors(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except (ScientificValidationError, TemporalLeakageError, ModelValidationError) as e:
+            # Re-raise our custom exceptions to maintain scientific validation
+            logger.error(f"Scientific validation error in {func.__name__}: {e}")
+            raise
         except FileNotFoundError as e:
             logger.error(f"Data file not found in {func.__name__}: {e}")
             return None
