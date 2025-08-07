@@ -135,33 +135,59 @@ const Dashboard = () => {
         results: retrospectiveResults.results.filter(r => r.site === siteFilter)
       }
       
-      // Recalculate summary statistics for filtered data
-      const validRegression = filtered.results.filter(r => 
-        r.actual_da !== null && r.predicted_da !== null
-      )
+      // Recalculate summary statistics for filtered data based on task type
+      const isClassification = config.forecast_task === 'classification'
       
-      if (validRegression.length > 0) {
-        const actuals = validRegression.map(r => r.actual_da)
-        const predictions = validRegression.map(r => r.predicted_da)
-        
-        // Calculate R2
-        const meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length
-        const ssTotal = actuals.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0)
-        const ssResidual = actuals.reduce((sum, val, i) => 
-          sum + Math.pow(val - predictions[i], 2), 0
+      if (isClassification) {
+        // Recalculate classification metrics
+        const validClassification = filtered.results.filter(r => 
+          r.actual_category !== null && r.actual_category !== undefined &&
+          r.predicted_category !== null && r.predicted_category !== undefined
         )
-        const r2 = 1 - (ssResidual / ssTotal)
         
-        // Calculate MAE
-        const mae = actuals.reduce((sum, val, i) => 
-          sum + Math.abs(val - predictions[i]), 0
-        ) / actuals.length
+        if (validClassification.length > 0) {
+          const correctPredictions = validClassification.filter(r => 
+            r.actual_category === r.predicted_category
+          ).length
+          const accuracy = correctPredictions / validClassification.length
+          
+          filtered.summary = {
+            ...filtered.summary,
+            total_forecasts: filtered.results.length,
+            classification_forecasts: validClassification.length,
+            accuracy: accuracy
+          }
+        }
+      } else {
+        // Recalculate regression metrics
+        const validRegression = filtered.results.filter(r => 
+          r.actual_da !== null && r.predicted_da !== null
+        )
         
-        filtered.summary = {
-          ...filtered.summary,
-          total_forecasts: filtered.results.length,
-          r2_score: r2,
-          mae: mae
+        if (validRegression.length > 0) {
+          const actuals = validRegression.map(r => r.actual_da)
+          const predictions = validRegression.map(r => r.predicted_da)
+          
+          // Calculate R2
+          const meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length
+          const ssTotal = actuals.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0)
+          const ssResidual = actuals.reduce((sum, val, i) => 
+            sum + Math.pow(val - predictions[i], 2), 0
+          )
+          const r2 = 1 - (ssResidual / ssTotal)
+          
+          // Calculate MAE
+          const mae = actuals.reduce((sum, val, i) => 
+            sum + Math.abs(val - predictions[i]), 0
+          ) / actuals.length
+          
+          filtered.summary = {
+            ...filtered.summary,
+            total_forecasts: filtered.results.length,
+            regression_forecasts: validRegression.length,
+            r2_score: r2,
+            mae: mae
+          }
         }
       }
       
@@ -244,51 +270,117 @@ const Dashboard = () => {
     if (!filteredResults?.results) return null
 
     const results = filteredResults.results
+    const isClassification = config.forecast_task === 'classification'
     
     // Group by site for better visualization
     const sites = [...new Set(results.map(r => r.site))].slice(0, 5) // Limit to 5 sites for readability
     
     const traces = []
     
-    sites.forEach((site, siteIndex) => {
-      const siteData = results
-        .filter(r => r.site === site && r.actual_da !== null && r.predicted_da !== null)
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-      
-      if (siteData.length === 0) return
-      
-      const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-      const color = colors[siteIndex % colors.length]
-      
-      // Actual values
-      traces.push({
-        x: siteData.map(d => d.date),
-        y: siteData.map(d => d.actual_da),
-        mode: 'lines+markers',
-        name: `${site} - Actual`,
-        line: { color: color, width: 2 },
-        marker: { size: 4 }
+    if (isClassification) {
+      // Classification time series
+      sites.forEach((site, siteIndex) => {
+        const siteData = results
+          .filter(r => r.site === site && r.actual_category !== null && r.actual_category !== undefined && 
+                       r.predicted_category !== null && r.predicted_category !== undefined)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+        
+        if (siteData.length === 0) return
+        
+        const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        const color = colors[siteIndex % colors.length]
+        
+        // Actual categories
+        traces.push({
+          x: siteData.map(d => d.date),
+          y: siteData.map(d => d.actual_category),
+          mode: 'lines+markers',
+          name: `${site} - Actual Category`,
+          line: { color: color, width: 2 },
+          marker: { size: 6 },
+          hovertemplate: '<b>%{text}</b><br>Date: %{x}<br>Actual Category: %{customdata}<extra></extra>',
+          text: siteData.map(d => site),
+          customdata: siteData.map(d => {
+            const categories = ['Low', 'Moderate', 'High', 'Extreme']
+            return categories[d.actual_category] || `Category ${d.actual_category}`
+          })
+        })
+        
+        // Predicted categories
+        traces.push({
+          x: siteData.map(d => d.date),
+          y: siteData.map(d => d.predicted_category),
+          mode: 'lines+markers',
+          name: `${site} - Predicted Category`,
+          line: { color: color, width: 2, dash: 'dash' },
+          marker: { size: 6, symbol: 'square' },
+          hovertemplate: '<b>%{text}</b><br>Date: %{x}<br>Predicted Category: %{customdata}<extra></extra>',
+          text: siteData.map(d => site),
+          customdata: siteData.map(d => {
+            const categories = ['Low', 'Moderate', 'High', 'Extreme']
+            return categories[d.predicted_category] || `Category ${d.predicted_category}`
+          })
+        })
       })
       
-      // Predicted values
-      traces.push({
-        x: siteData.map(d => d.date),
-        y: siteData.map(d => d.predicted_da),
-        mode: 'lines+markers',
-        name: `${site} - Predicted`,
-        line: { color: color, width: 2, dash: 'dash' },
-        marker: { size: 4, symbol: 'square' }
+      return {
+        data: traces,
+        layout: {
+          title: `DA Category Forecasting Results - ${config.forecast_model} Classification`,
+          xaxis: { title: 'Date' },
+          yaxis: { 
+            title: 'DA Risk Category',
+            tickmode: 'array',
+            tickvals: [0, 1, 2, 3],
+            ticktext: ['Low', 'Moderate', 'High', 'Extreme'],
+            range: [-0.5, 3.5]
+          },
+          height: 500,
+          hovermode: 'closest'
+        }
+      }
+    } else {
+      // Regression time series (existing code)
+      sites.forEach((site, siteIndex) => {
+        const siteData = results
+          .filter(r => r.site === site && r.actual_da !== null && r.predicted_da !== null)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+        
+        if (siteData.length === 0) return
+        
+        const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        const color = colors[siteIndex % colors.length]
+        
+        // Actual values
+        traces.push({
+          x: siteData.map(d => d.date),
+          y: siteData.map(d => d.actual_da),
+          mode: 'lines+markers',
+          name: `${site} - Actual`,
+          line: { color: color, width: 2 },
+          marker: { size: 4 }
+        })
+        
+        // Predicted values
+        traces.push({
+          x: siteData.map(d => d.date),
+          y: siteData.map(d => d.predicted_da),
+          mode: 'lines+markers',
+          name: `${site} - Predicted`,
+          line: { color: color, width: 2, dash: 'dash' },
+          marker: { size: 4, symbol: 'square' }
+        })
       })
-    })
 
-    return {
-      data: traces,
-      layout: {
-        title: `Retrospective Analysis: Actual vs Predicted DA Concentrations (${config.forecast_task})`,
-        xaxis: { title: 'Date' },
-        yaxis: { title: 'DA Concentration (μg/g)' },
-        height: 500,
-        hovermode: 'closest'
+      return {
+        data: traces,
+        layout: {
+          title: `Retrospective Analysis: Actual vs Predicted DA Concentrations (${config.forecast_task})`,
+          xaxis: { title: 'Date' },
+          yaxis: { title: 'DA Concentration (μg/g)' },
+          height: 500,
+          hovermode: 'closest'
+        }
       }
     }
   }
@@ -296,77 +388,177 @@ const Dashboard = () => {
   // Create scatter plot for retrospective results
   const createRetrospectiveScatter = () => {
     if (!filteredResults?.results) return null
-
-    const validData = filteredResults.results.filter(r => 
-      r.actual_da !== null && r.predicted_da !== null
-    )
-
-    if (validData.length === 0) return null
-
-    // Calculate range for diagonal line
-    const allValues = [...validData.map(d => d.actual_da), ...validData.map(d => d.predicted_da)]
-    const minVal = Math.min(...allValues)
-    const maxVal = Math.max(...allValues)
-    const range = [Math.max(0, minVal - 0.1), maxVal + 0.1]
-
-    // Group data by site for different colors
-    const siteGroups = {}
-    validData.forEach(d => {
-      if (!siteGroups[d.site]) {
-        siteGroups[d.site] = []
-      }
-      siteGroups[d.site].push(d)
-    })
-
-    const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-    const traces = []
-
-    // Add diagonal reference line
-    traces.push({
-      x: range,
-      y: range,
-      mode: 'lines',
-      line: { color: 'red', width: 2, dash: 'dash' },
-      name: 'Perfect Prediction',
-      hovertemplate: 'Perfect prediction line<extra></extra>'
-    })
-
-    // Add scatter points for each site
-    Object.entries(siteGroups).forEach(([site, data], index) => {
-      traces.push({
-        x: data.map(d => d.actual_da),
-        y: data.map(d => d.predicted_da),
-        mode: 'markers',
-        type: 'scatter',
-        name: site,
-        marker: { 
-          color: colors[index % colors.length],
-          size: 8,
-          opacity: 0.7
-        },
-        text: data.map(d => `${d.site}<br>${d.date}`),
-        hovertemplate: '%{text}<br>Actual: %{x:.2f} μg/g<br>Predicted: %{y:.2f} μg/g<extra></extra>'
+    
+    const isClassification = config.forecast_task === 'classification'
+    
+    if (isClassification) {
+      // Classification scatter plot (confusion matrix style)
+      const validData = filteredResults.results.filter(r => 
+        r.actual_category !== null && r.actual_category !== undefined &&
+        r.predicted_category !== null && r.predicted_category !== undefined
+      )
+      
+      if (validData.length === 0) return null
+      
+      // Calculate accuracy
+      const correctPredictions = validData.filter(d => d.actual_category === d.predicted_category).length
+      const accuracy = correctPredictions / validData.length
+      
+      // Add jitter to see overlapping points better
+      const jitterStrength = 0.1
+      const jitteredData = validData.map(d => ({
+        ...d,
+        x_jitter: d.actual_category + (Math.random() - 0.5) * jitterStrength * 2,
+        y_jitter: d.predicted_category + (Math.random() - 0.5) * jitterStrength * 2
+      }))
+      
+      // Group by site for colors
+      const siteGroups = {}
+      jitteredData.forEach(d => {
+        if (!siteGroups[d.site]) {
+          siteGroups[d.site] = []
+        }
+        siteGroups[d.site].push(d)
       })
-    })
+      
+      const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+      const traces = []
+      
+      // Add diagonal reference line for perfect predictions
+      traces.push({
+        x: [-0.5, 3.5],
+        y: [-0.5, 3.5],
+        mode: 'lines',
+        line: { color: 'red', width: 2, dash: 'dash' },
+        name: 'Perfect Prediction',
+        hoverinfo: 'skip'
+      })
+      
+      // Add scatter points for each site
+      Object.entries(siteGroups).forEach(([site, data], index) => {
+        traces.push({
+          x: data.map(d => d.x_jitter),
+          y: data.map(d => d.y_jitter),
+          mode: 'markers',
+          type: 'scatter',
+          name: site,
+          marker: { 
+            color: colors[index % colors.length],
+            size: 8,
+            opacity: 0.6
+          },
+          hovertemplate: '<b>%{text}</b><br>Actual Category: %{customdata[0]}<br>Predicted Category: %{customdata[1]}<extra></extra>',
+          text: data.map(d => `${d.site}<br>${d.date}`),
+          customdata: data.map(d => {
+            const categories = ['Low', 'Moderate', 'High', 'Extreme']
+            return [
+              categories[d.actual_category] || `Category ${d.actual_category}`,
+              categories[d.predicted_category] || `Category ${d.predicted_category}`
+            ]
+          })
+        })
+      })
+      
+      return {
+        data: traces,
+        layout: {
+          title: `Actual vs Predicted Category - ${config.forecast_model} (Accuracy = ${(accuracy * 100).toFixed(1)}%)`,
+          xaxis: {
+            title: 'Actual DA Category',
+            tickmode: 'array',
+            tickvals: [0, 1, 2, 3],
+            ticktext: ['Low', 'Moderate', 'High', 'Extreme'],
+            range: [-0.5, 3.5]
+          },
+          yaxis: {
+            title: 'Predicted DA Category',
+            tickmode: 'array',
+            tickvals: [0, 1, 2, 3],
+            ticktext: ['Low', 'Moderate', 'High', 'Extreme'],
+            range: [-0.5, 3.5]
+          },
+          height: 500,
+          showlegend: true,
+          legend: { 
+            x: 0.02, 
+            y: 0.98,
+            bgcolor: 'rgba(255,255,255,0.8)'
+          }
+        }
+      }
+    } else {
+      // Regression scatter plot (existing code)
+      const validData = filteredResults.results.filter(r => 
+        r.actual_da !== null && r.predicted_da !== null
+      )
 
-    return {
-      data: traces,
-      layout: {
-        title: 'Model Performance: Actual vs Predicted DA Concentrations',
-        xaxis: { 
-          title: 'Actual DA Concentration (μg/g)',
-          range: range
-        },
-        yaxis: { 
-          title: 'Predicted DA Concentration (μg/g)',
-          range: range
-        },
-        height: 500,
-        showlegend: true,
-        legend: { 
-          x: 0.02, 
-          y: 0.98,
-          bgcolor: 'rgba(255,255,255,0.8)'
+      if (validData.length === 0) return null
+
+      // Calculate range for diagonal line
+      const allValues = [...validData.map(d => d.actual_da), ...validData.map(d => d.predicted_da)]
+      const minVal = Math.min(...allValues)
+      const maxVal = Math.max(...allValues)
+      const range = [Math.max(0, minVal - 0.1), maxVal + 0.1]
+
+      // Group data by site for different colors
+      const siteGroups = {}
+      validData.forEach(d => {
+        if (!siteGroups[d.site]) {
+          siteGroups[d.site] = []
+        }
+        siteGroups[d.site].push(d)
+      })
+
+      const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+      const traces = []
+
+      // Add diagonal reference line
+      traces.push({
+        x: range,
+        y: range,
+        mode: 'lines',
+        line: { color: 'red', width: 2, dash: 'dash' },
+        name: 'Perfect Prediction',
+        hovertemplate: 'Perfect prediction line<extra></extra>'
+      })
+
+      // Add scatter points for each site
+      Object.entries(siteGroups).forEach(([site, data], index) => {
+        traces.push({
+          x: data.map(d => d.actual_da),
+          y: data.map(d => d.predicted_da),
+          mode: 'markers',
+          type: 'scatter',
+          name: site,
+          marker: { 
+            color: colors[index % colors.length],
+            size: 8,
+            opacity: 0.7
+          },
+          text: data.map(d => `${d.site}<br>${d.date}`),
+          hovertemplate: '%{text}<br>Actual: %{x:.2f} μg/g<br>Predicted: %{y:.2f} μg/g<extra></extra>'
+        })
+      })
+
+      return {
+        data: traces,
+        layout: {
+          title: 'Model Performance: Actual vs Predicted DA Concentrations',
+          xaxis: { 
+            title: 'Actual DA Concentration (μg/g)',
+            range: range
+          },
+          yaxis: { 
+            title: 'Predicted DA Concentration (μg/g)',
+            range: range
+          },
+          height: 500,
+          showlegend: true,
+          legend: { 
+            x: 0.02, 
+            y: 0.98,
+            bgcolor: 'rgba(255,255,255,0.8)'
+          }
         }
       }
     }
