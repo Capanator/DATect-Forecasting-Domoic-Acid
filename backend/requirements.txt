@@ -1,0 +1,21 @@
+# Backend-specific requirements for DATect Web Application
+# ========================================================
+
+# Web Framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+# Data validation and serialization
+pydantic>=2.0.0
+
+# Database (optional - for future user management)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+
+# Authentication (optional - for future user management) 
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.5
+bcrypt>=4.0.0
+
+# Inherit all requirements from main application
+-r ../requirements.txt
