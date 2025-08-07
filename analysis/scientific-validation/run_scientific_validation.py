@@ -88,9 +88,9 @@ Examples:
     parser.add_argument(
         '--model-type',
         type=str,
-        default='rf',
-        choices=['rf', 'ridge', 'logistic'],
-        help='Model type to validate (default: rf)'
+        default='xgboost',
+        choices=['xgboost', 'ridge', 'logistic'],
+        help='Model type to validate (default: xgboost)'
     )
     
     parser.add_argument(

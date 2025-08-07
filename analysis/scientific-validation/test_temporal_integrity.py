@@ -25,6 +25,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from forecasting.core.data_processor import DataProcessor
 import config
 from forecasting.core.forecast_engine import ForecastEngine
+from forecasting.core.exception_handling import TemporalLeakageError
 
 
 class TestTemporalIntegrity(unittest.TestCase):
@@ -158,8 +159,9 @@ class TestDataIntegrity(unittest.TestCase):
             'da': range(200, 200 + len(bad_test_dates))
         })
         
-        is_invalid = self.data_processor.validate_temporal_integrity(train_df, bad_test_df)
-        self.assertFalse(is_invalid, "Overlapping data should fail temporal integrity check")
+        # Should raise TemporalLeakageError for overlapping data
+        with self.assertRaises(TemporalLeakageError):
+            self.data_processor.validate_temporal_integrity(train_df, bad_test_df)
 
 
 class TestModelValidation(unittest.TestCase):

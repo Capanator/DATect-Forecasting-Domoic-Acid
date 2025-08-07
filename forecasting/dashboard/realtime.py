@@ -17,6 +17,11 @@ from datetime import datetime, timedelta
 import config
 from ..core.forecast_engine import ForecastEngine
 from ..core.model_factory import ModelFactory
+from ..core.logging_config import get_logger
+from ..core.exception_handling import ScientificValidationError
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class RealtimeDashboard:
@@ -120,7 +125,7 @@ class RealtimeDashboard:
                     dcc.Dropdown(
                         id="model-selector",
                         options=model_options,
-                        value="rf",  # Default to Random Forest
+                        value=config.FORECAST_MODEL,  # Use config default
                         clearable=False
                     ),
                 ], style={'width': '220px', 'display': 'inline-block', 'margin': '0 15px'}),
@@ -156,7 +161,7 @@ class RealtimeDashboard:
     def _setup_callbacks(self):
         """Setup dashboard callbacks."""
         
-# Removed model dropdown callback - using fixed RF model
+# Removed model dropdown callback - using fixed XGBoost model
             
         # Generate forecast when button is clicked
         @self.app.callback(
@@ -181,19 +186,27 @@ class RealtimeDashboard:
                        go.Figure(), go.Figure(), go.Figure())
                 
             try:
-                # Generate both regression and classification forecasts with selected model
+                # Map model names based on task
+                def get_actual_model(ui_model, task):
+                    if ui_model == "xgboost":
+                        return "xgboost"
+                    elif ui_model == "ridge":
+                        return "ridge" if task == "regression" else "logistic"
+                    else:
+                        return ui_model
+                
+                # Generate both regression and classification forecasts with mapped models
+                regression_model = get_actual_model(selected_model, "regression")
                 regression_result = self.forecast_engine.generate_single_forecast(
                     self.data_path, 
                     pd.to_datetime(forecast_date), 
                     site, 
                     "regression", 
-                    selected_model
+                    regression_model
                 )
                 
-                # For classification, use logistic if selected model doesn't support classification
-                classification_models = self.model_factory.get_supported_models('classification')['classification']
-                classification_model = selected_model if selected_model in classification_models else "logistic"
-                
+                # Map for classification task
+                classification_model = get_actual_model(selected_model, "classification")
                 classification_result = self.forecast_engine.generate_single_forecast(
                     self.data_path, 
                     pd.to_datetime(forecast_date), 
@@ -404,13 +417,13 @@ class RealtimeDashboard:
                 x=0.5, y=0.5, showarrow=False
             )
             
-        # Use predicted_da as both RF prediction and median for now
-        # In the original, these came from different models (GB quantiles + RF point)
+        # Use predicted_da as both XGBoost prediction and median for now
+        # In the original, these came from different models (GB quantiles + XGBoost point)
         predicted_da = result['predicted_da']
         
-        # Create approximate quantiles around the RF prediction
+        # Create approximate quantiles around the XGBoost prediction
         q05 = predicted_da * 0.7  
-        q50 = predicted_da        # Use RF prediction as median
+        q50 = predicted_da        # Use XGBoost prediction as median
         q95 = predicted_da * 1.3  
         rf_prediction = predicted_da  # Same as q50 for now
         actual_levels = None  # Not available in realtime
@@ -447,7 +460,7 @@ class RealtimeDashboard:
             x=[q50, q50], y=[0.4, 0.6],
             mode='lines',
             line=dict(color='rgb(30, 60, 90)', width=3),
-            name='Median (Q50 - RF)'
+            name='Median (Q50 - XGBoost)'
         ))
 
         # Add range endpoints
@@ -455,7 +468,7 @@ class RealtimeDashboard:
             x=[q05, q95], y=[0.5, 0.5],
             mode='markers',
             marker=dict(size=15, color='rgba(70, 130, 180, 0.3)', symbol='line-ns-open'),
-            name='Prediction Range (RF Q05-Q95)'
+            name='Prediction Range (XGBoost Q05-Q95)'
         ))
 
         if rf_prediction is not None:
@@ -468,7 +481,7 @@ class RealtimeDashboard:
                     symbol='diamond-tall',
                     line=dict(width=1, color='black')
                 ),
-                name='Random Forest Pred.'
+                name='XGBoost Pred.'
             ))
 
         if actual_levels is not None:
@@ -480,7 +493,7 @@ class RealtimeDashboard:
             ))
 
         fig.update_layout(
-            title="DA Level Forecast: Gradient (RF) & Point (RF)",
+            title="DA Level Forecast: Gradient (XGBoost) & Point (XGBoost)",
             xaxis_title="DA Level",
             yaxis=dict(visible=False, range=[0, 1]),
             showlegend=True,

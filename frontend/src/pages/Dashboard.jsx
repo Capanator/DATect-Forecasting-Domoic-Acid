@@ -15,7 +15,7 @@ const Dashboard = () => {
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
-    forecast_model: 'rf', // Changed from xgboost to rf (random forest)
+    forecast_model: 'xgboost',
     selected_sites: [] // For retrospective site filtering
   })
   const [configLoading, setConfigLoading] = useState(false)
@@ -28,12 +28,14 @@ const Dashboard = () => {
   // Realtime forecast state
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('rf') // Changed from xgboost to rf
+  const [selectedModel, setSelectedModel] = useState('xgboost')
   const [task, setTask] = useState('regression')
   
   // Results state
   const [forecast, setForecast] = useState(null)
   const [retrospectiveResults, setRetrospectiveResults] = useState(null)
+  const [filteredResults, setFilteredResults] = useState(null)
+  const [selectedSiteFilter, setSelectedSiteFilter] = useState('all') // For filtering existing results
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -119,6 +121,54 @@ const Dashboard = () => {
     }
   }
 
+  // Filter results locally without re-running analysis
+  const filterResultsBySite = (siteFilter) => {
+    if (!retrospectiveResults) return
+    
+    setSelectedSiteFilter(siteFilter)
+    
+    if (siteFilter === 'all') {
+      setFilteredResults(retrospectiveResults)
+    } else {
+      const filtered = {
+        ...retrospectiveResults,
+        results: retrospectiveResults.results.filter(r => r.site === siteFilter)
+      }
+      
+      // Recalculate summary statistics for filtered data
+      const validRegression = filtered.results.filter(r => 
+        r.actual_da !== null && r.predicted_da !== null
+      )
+      
+      if (validRegression.length > 0) {
+        const actuals = validRegression.map(r => r.actual_da)
+        const predictions = validRegression.map(r => r.predicted_da)
+        
+        // Calculate R2
+        const meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length
+        const ssTotal = actuals.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0)
+        const ssResidual = actuals.reduce((sum, val, i) => 
+          sum + Math.pow(val - predictions[i], 2), 0
+        )
+        const r2 = 1 - (ssResidual / ssTotal)
+        
+        // Calculate MAE
+        const mae = actuals.reduce((sum, val, i) => 
+          sum + Math.abs(val - predictions[i]), 0
+        ) / actuals.length
+        
+        filtered.summary = {
+          ...filtered.summary,
+          total_forecasts: filtered.results.length,
+          r2_score: r2,
+          mae: mae
+        }
+      }
+      
+      setFilteredResults(filtered)
+    }
+  }
+
   const runRetrospectiveAnalysis = async () => {
     setLoading(true)
     setError(null)
@@ -130,6 +180,8 @@ const Dashboard = () => {
       
       if (response.data.success) {
         setRetrospectiveResults(response.data)
+        setFilteredResults(response.data) // Initially show all results
+        setSelectedSiteFilter('all')
         setCurrentStep('results')
       } else {
         setError(response.data.error || 'Retrospective analysis failed')
@@ -152,6 +204,13 @@ const Dashboard = () => {
     setError(null)
     
     try {
+      console.log('Sending forecast request:', {
+        date: format(selectedDate, 'yyyy-MM-dd'),
+        site: selectedSite.value,
+        task: task,
+        model: selectedModel
+      })
+      
       const response = await api.post('/api/forecast/enhanced', {
         date: format(selectedDate, 'yyyy-MM-dd'),
         site: selectedSite.value,
@@ -159,11 +218,15 @@ const Dashboard = () => {
         model: selectedModel
       })
       
+      console.log('Received forecast response:', response.data)
+      console.log('Classification data:', response.data?.classification)
+      console.log('Class probabilities:', response.data?.classification?.class_probabilities)
       setForecast(response.data)
       setCurrentStep('results')
     } catch (err) {
-      setError('Failed to generate forecast')
-      console.error(err)
+      console.error('Forecast error details:', err)
+      console.error('Error response:', err.response?.data)
+      setError(`Failed to generate forecast: ${err.response?.data?.detail || err.message}`)
     } finally {
       setLoading(false)
     }
@@ -178,9 +241,9 @@ const Dashboard = () => {
 
   // Create retrospective time series graph
   const createRetrospectiveTimeSeries = () => {
-    if (!retrospectiveResults?.results) return null
+    if (!filteredResults?.results) return null
 
-    const results = retrospectiveResults.results
+    const results = filteredResults.results
     
     // Group by site for better visualization
     const sites = [...new Set(results.map(r => r.site))].slice(0, 5) // Limit to 5 sites for readability
@@ -232,9 +295,9 @@ const Dashboard = () => {
 
   // Create scatter plot for retrospective results
   const createRetrospectiveScatter = () => {
-    if (!retrospectiveResults?.results) return null
+    if (!filteredResults?.results) return null
 
-    const validData = retrospectiveResults.results.filter(r => 
+    const validData = filteredResults.results.filter(r => 
       r.actual_da !== null && r.predicted_da !== null
     )
 
@@ -377,7 +440,7 @@ const Dashboard = () => {
                     onChange={(e) => setConfig({...config, forecast_model: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md text-lg"
                   >
-                    <option value="rf">Random Forest - RF regression & RF classification (Recommended)</option>
+                    <option value="xgboost">XGBoost - Advanced gradient boosting (Recommended)</option>
                     <option value="ridge">Linear Models - Ridge regression & Logistic classification</option>
                   </select>
                 </div>
@@ -487,6 +550,14 @@ const Dashboard = () => {
             </button>
           </div>
         </div>
+        
+        {/* Helpful note */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <p className="text-sm text-blue-700">
+            💡 <strong>Tip:</strong> Change the date or site above and click "Generate Forecast" to get new predictions. 
+            Each forecast is specific to the selected date and monitoring location.
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -572,7 +643,182 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Graphs would go here - implement if needed */}
+          {/* Level Range and Category Range Graphs - Match modular-forecast exactly */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Level Range Graph - for regression */}
+              {forecast.graphs && forecast.graphs.level_range && (
+                <div>
+                  <Plot
+                    data={(() => {
+                      const levelData = forecast.graphs.level_range;
+                      const q05 = levelData.q05;
+                      const q50 = levelData.q50;
+                      const q95 = levelData.q95;
+                      const predicted = levelData.predicted_da;
+                      
+                      const traces = [];
+                      const n_segments = 30;
+                      const range_width = q95 - q05;
+                      const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
+                      
+                      // Create gradient segments
+                      const shapes = [];
+                      for (let i = 0; i < n_segments; i++) {
+                        const x0 = q05 + (i / n_segments) * range_width;
+                        const x1 = q05 + ((i + 1) / n_segments) * range_width;
+                        const midpoint = (x0 + x1) / 2;
+                        const distance = Math.abs(midpoint - q50);
+                        const opacity = Math.max(0, Math.min(1, 1 - Math.sqrt(distance / max_distance)));
+                        
+                        shapes.push({
+                          type: 'rect',
+                          x0: x0,
+                          x1: x1,
+                          y0: 0.4,
+                          y1: 0.6,
+                          fillcolor: `rgba(70, 130, 180, ${opacity})`,
+                          line: { width: 0 },
+                          layer: 'below'
+                        });
+                      }
+                      
+                      // Median line
+                      traces.push({
+                        x: [q50, q50],
+                        y: [0.4, 0.6],
+                        mode: 'lines',
+                        line: { color: 'rgb(30, 60, 90)', width: 3 },
+                        name: 'Median (Q50 - XGBoost)'
+                      });
+                      
+                      // Range endpoints
+                      traces.push({
+                        x: [q05, q95],
+                        y: [0.5, 0.5],
+                        mode: 'markers',
+                        marker: { size: 15, color: 'rgba(70, 130, 180, 0.3)', symbol: 'line-ns-open' },
+                        name: 'Prediction Range (XGBoost Q05-Q95)'
+                      });
+                      
+                      // XGBoost prediction
+                      traces.push({
+                        x: [predicted],
+                        y: [0.5],
+                        mode: 'markers',
+                        marker: {
+                          size: 14,
+                          color: 'darkorange',
+                          symbol: 'diamond-tall',
+                          line: { width: 1, color: 'black' }
+                        },
+                        name: 'XGBoost Pred.'
+                      });
+                      
+                      return traces;
+                    })()}
+                    layout={{
+                      title: 'DA Level Forecast: Gradient (XGBoost) & Point (XGBoost)',
+                      xaxis: { title: 'DA Level' },
+                      yaxis: { visible: false, range: [0, 1] },
+                      showlegend: true,
+                      height: 300,
+                      plot_bgcolor: 'white',
+                      shapes: (() => {
+                        const levelData = forecast.graphs.level_range;
+                        const q05 = levelData.q05;
+                        const q50 = levelData.q50;
+                        const q95 = levelData.q95;
+                        const n_segments = 30;
+                        const range_width = q95 - q05;
+                        const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
+                        
+                        const shapes = [];
+                        for (let i = 0; i < n_segments; i++) {
+                          const x0 = q05 + (i / n_segments) * range_width;
+                          const x1 = q05 + ((i + 1) / n_segments) * range_width;
+                          const midpoint = (x0 + x1) / 2;
+                          const distance = Math.abs(midpoint - q50);
+                          const opacity = Math.max(0, Math.min(1, 1 - Math.sqrt(distance / max_distance)));
+                          
+                          shapes.push({
+                            type: 'rect',
+                            x0: x0,
+                            x1: x1,
+                            y0: 0.4,
+                            y1: 0.6,
+                            fillcolor: `rgba(70, 130, 180, ${opacity})`,
+                            line: { width: 0 },
+                            layer: 'below'
+                          });
+                        }
+                        return shapes;
+                      })()
+                    }}
+                    config={{ responsive: true }}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+              
+              {/* Category Range Graph - for classification */}
+              {forecast.graphs && forecast.graphs.category_range && (
+                <div>
+                  <Plot
+                    data={[{
+                      x: forecast.graphs.category_range.category_labels || ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
+                      y: forecast.graphs.category_range.class_probabilities || [0, 0, 0, 0],
+                      type: 'bar',
+                      marker: {
+                        color: forecast.graphs.category_range.category_labels?.map((_, i) => 
+                          i === forecast.graphs.category_range.predicted_category ? '#2ca02c' : '#1f77b4'
+                        ) || ['#1f77b4', '#1f77b4', '#1f77b4', '#1f77b4']
+                      },
+                      text: forecast.graphs.category_range.class_probabilities?.map(p => `${(p * 100).toFixed(1)}%`) || [],
+                      textposition: 'auto'
+                    }]}
+                    layout={{
+                      title: 'Category Probability Distribution',
+                      xaxis: { title: 'Category' },
+                      yaxis: { title: 'Probability', range: [0, 1.1] },
+                      showlegend: false,
+                      height: 400
+                    }}
+                    config={{ responsive: true }}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Feature Importance Graph - if available */}
+          {(forecast.regression?.feature_importance || forecast.classification?.feature_importance) && (
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h3 className="text-lg font-semibold mb-4">Top Feature Importance</h3>
+              <Plot
+                data={[{
+                  x: (forecast.regression?.feature_importance || forecast.classification?.feature_importance)
+                    ?.slice(0, 15)
+                    ?.map(f => f.importance) || [],
+                  y: (forecast.regression?.feature_importance || forecast.classification?.feature_importance)
+                    ?.slice(0, 15)
+                    ?.map(f => f.feature) || [],
+                  type: 'bar',
+                  orientation: 'h',
+                  marker: { color: 'steelblue' }
+                }]}
+                layout={{
+                  title: 'Top Feature Importance',
+                  xaxis: { title: 'Importance Score' },
+                  yaxis: { title: 'Features', categoryorder: 'total ascending' },
+                  height: 400
+                }}
+                config={{ responsive: true }}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -602,46 +848,26 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Site filtering controls */}
+        {/* Site filtering controls - Simple dropdown that filters existing results */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="w-4 h-4 inline mr-1" />
-                Filter by Site
-              </label>
-              <Select
-                value={(config.selected_sites || []).length === 0 || (config.selected_sites || []).length === sites.length ? 
-                  { value: 'all', label: 'All Sites' } :
-                  (config.selected_sites || []).map(site => ({ value: site, label: site }))
-                }
-                onChange={(selectedOptions) => {
-                  if (!selectedOptions || selectedOptions.length === 0) {
-                    setConfig({...config, selected_sites: []}) // Empty means all sites
-                  } else if (selectedOptions.some && selectedOptions.some(opt => opt.value === 'all')) {
-                    setConfig({...config, selected_sites: []}) // All sites selected
-                  } else {
-                    setConfig({...config, selected_sites: selectedOptions.map(opt => opt.value)})
-                  }
-                }}
-                options={[
-                  { value: 'all', label: 'All Sites' },
-                  ...sites.map(site => ({ value: site, label: site }))
-                ]}
-                isMulti
-                className="text-sm"
-                placeholder="Select sites..."
-              />
-            </div>
-            <div className="flex justify-center">
-              <button
-                onClick={runRetrospectiveAnalysis}
-                disabled={loading}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Updating Results...' : 'Update Results'}
-              </button>
-            </div>
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">
+              <MapPin className="w-4 h-4 inline mr-1" />
+              Filter by Site:
+            </label>
+            <select
+              value={selectedSiteFilter}
+              onChange={(e) => filterResultsBySite(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="all">All Sites</option>
+              {sites.map(site => (
+                <option key={site} value={site}>{site}</option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-600">
+              Showing {filteredResults?.results?.length || 0} forecasts
+            </span>
           </div>
         </div>
 
@@ -650,24 +876,24 @@ const Dashboard = () => {
           <h3 className="text-lg font-semibold mb-4">Performance Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg text-center">
-              <div className="text-2xl font-bold text-blue-600">{retrospectiveResults.summary.total_forecasts}</div>
+              <div className="text-2xl font-bold text-blue-600">{filteredResults?.summary?.total_forecasts || 0}</div>
               <div className="text-sm text-gray-600">Total Forecasts</div>
             </div>
-            {retrospectiveResults.summary.r2_score !== undefined && (
+            {filteredResults?.summary?.r2_score !== undefined && (
               <div className="bg-green-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-green-600">{retrospectiveResults.summary.r2_score.toFixed(3)}</div>
+                <div className="text-2xl font-bold text-green-600">{filteredResults.summary.r2_score.toFixed(3)}</div>
                 <div className="text-sm text-gray-600">R² Score</div>
               </div>
             )}
-            {retrospectiveResults.summary.mae !== undefined && (
+            {filteredResults?.summary?.mae !== undefined && (
               <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-yellow-600">{retrospectiveResults.summary.mae.toFixed(2)}</div>
+                <div className="text-2xl font-bold text-yellow-600">{filteredResults.summary.mae.toFixed(2)}</div>
                 <div className="text-sm text-gray-600">MAE (μg/g)</div>
               </div>
             )}
-            {retrospectiveResults.summary.accuracy !== undefined && (
+            {filteredResults?.summary?.accuracy !== undefined && (
               <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-purple-600">{(retrospectiveResults.summary.accuracy * 100).toFixed(1)}%</div>
+                <div className="text-2xl font-bold text-purple-600">{(filteredResults.summary.accuracy * 100).toFixed(1)}%</div>
                 <div className="text-sm text-gray-600">Accuracy</div>
               </div>
             )}

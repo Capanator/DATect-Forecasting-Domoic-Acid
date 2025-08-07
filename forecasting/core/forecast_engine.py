@@ -77,14 +77,14 @@ class ForecastEngine:
             logger.error(f"Failed to initialize ForecastEngine: {str(e)}")
             raise ScientificValidationError(f"ForecastEngine initialization failed: {str(e)}")
         
-    def run_retrospective_evaluation(self, task="regression", model_type="rf", 
+    def run_retrospective_evaluation(self, task="regression", model_type="xgboost", 
                                    n_anchors=50, min_test_date="2008-01-01"):
         """
         Run leak-free retrospective evaluation matching original behavior.
         
         Args:
             task: "regression" or "classification"
-            model_type: "rf", "gb", "ridge", or "logistic" 
+            model_type: "xgboost", "ridge", or "logistic" 
             n_anchors: Number of random anchor points per site
             min_test_date: Earliest date for test anchors
             

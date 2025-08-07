@@ -2,6 +2,6 @@
   "success": true,
   "message": "Performance validation completed",
   "data_samples": 10950,
-  "model_type": "rf",
+  "model_type": "xgboost",
   "task_type": "regression"
 }

@@ -1,0 +1,9 @@
+2025-08-07 15:54:37 - root - INFO - File logging enabled: logs/datect_20250807_155437.log
+2025-08-07 15:54:37 - __main__ - INFO - Starting Domoic Acid Forecasting System
+2025-08-07 15:54:37 - __main__ - INFO - System started in retrospective mode
+2025-08-07 15:54:37 - __main__ - INFO - Initializing forecast application
+2025-08-07 15:54:37 - forecasting.core.forecast_engine - INFO - Initializing ForecastEngine
+2025-08-07 15:54:37 - forecasting.core.forecast_engine - INFO - Using data file: ./data/processed/final_output.parquet
+2025-08-07 15:54:37 - forecasting.core.forecast_engine - INFO - Validating system startup configuration
+2025-08-07 15:54:37 - forecasting.core.forecast_engine - ERROR - Failed to initialize ForecastEngine: Invalid FORECAST_MODEL: logistic. Must be one of: ['xgboost', 'ridge']
+2025-08-07 15:54:37 - __main__ - ERROR - Application failed: ForecastEngine initialization failed: Invalid FORECAST_MODEL: logistic. Must be one of: ['xgboost', 'ridge']

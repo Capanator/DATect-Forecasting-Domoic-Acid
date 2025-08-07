@@ -1,5 +1,5 @@
 {
-  "validation_timestamp": "2025-08-07T14:27:19.386221",
+  "validation_timestamp": "2025-08-07T15:13:24.129783",
   "system_info": {
     "python_version": "3.13.1 (v3.13.1:06714517797, Dec  3 2024, 14:00:22) [Clang 15.0.0 (clang-1500.3.9.4)]",
     "working_directory": "/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid",
@@ -16,7 +16,7 @@
       "success": true,
       "message": "Performance validation completed",
       "data_samples": 10950,
-      "model_type": "rf",
+      "model_type": "xgboost",
       "task_type": "regression"
     },
     "statistical": {

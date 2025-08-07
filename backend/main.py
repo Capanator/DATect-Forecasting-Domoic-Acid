@@ -15,6 +15,7 @@ from typing import Optional, List, Dict, Any
 import sys
 import os
 import pandas as pd
+import numpy as np
 
 # Add parent directory to path to import forecasting modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -53,8 +54,8 @@ model_factory = ModelFactory()
 # Model mapping function
 def get_actual_model_name(ui_model: str, task: str) -> str:
     """Map UI model selection to actual model names based on task."""
-    if ui_model == "rf":
-        return "rf"  # Random Forest works for both regression and classification
+    if ui_model == "xgboost":
+        return "xgboost"  # XGBoost works for both regression and classification
     elif ui_model == "ridge":
         if task == "regression":
             return "ridge"  # Ridge regression
@@ -68,12 +69,12 @@ class ForecastRequest(BaseModel):
     date: date
     site: str
     task: str = "regression"  # "regression" or "classification"
-    model: str = "rf"
+    model: str = "xgboost"
 
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
     forecast_task: str = "regression"  # "regression" or "classification"
-    forecast_model: str = "rf"  # "rf" (random forest) or "ridge" (linear models)
+    forecast_model: str = "xgboost"  # "xgboost" or "ridge" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
 
 class ForecastResponse(BaseModel):
@@ -285,7 +286,7 @@ async def get_config():
     return {
         "forecast_mode": getattr(config, 'FORECAST_MODE', 'realtime'),
         "forecast_task": getattr(config, 'FORECAST_TASK', 'regression'),
-        "forecast_model": getattr(config, 'FORECAST_MODEL', 'rf')
+        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost')
     }
 
 @app.post("/api/config")
@@ -372,19 +373,59 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             classification_model
         )
         
+        # Helper function to make results JSON serializable
+        def clean_result(result):
+            if not result:
+                return result
+            cleaned = {}
+            for key, value in result.items():
+                if value is None:
+                    cleaned[key] = None
+                elif isinstance(value, np.ndarray):
+                    cleaned[key] = value.tolist()
+                elif isinstance(value, (np.int64, np.int32, np.int16, np.int8)):
+                    cleaned[key] = int(value)
+                elif isinstance(value, (np.float64, np.float32, np.float16)):
+                    cleaned[key] = float(value)
+                elif isinstance(value, (np.bool_, bool)):
+                    cleaned[key] = bool(value)
+                elif isinstance(value, pd.DataFrame):
+                    # Convert DataFrame to dict or limit to top entries
+                    if key == 'feature_importance':
+                        # For feature importance, convert to list of dicts (top 10)
+                        cleaned[key] = value.head(10).to_dict('records') if not value.empty else None
+                    else:
+                        cleaned[key] = value.to_dict('records') if not value.empty else None
+                elif hasattr(value, 'isoformat'):
+                    cleaned[key] = value.isoformat()
+                elif hasattr(value, 'item'):  # Handle numpy scalars
+                    try:
+                        cleaned[key] = value.item()
+                    except:
+                        cleaned[key] = str(value)
+                elif isinstance(value, (list, tuple)):
+                    # Recursively clean lists/tuples
+                    cleaned[key] = [clean_result({'item': item})['item'] if isinstance(item, (np.ndarray, np.integer, np.floating)) else item for item in value]
+                elif isinstance(value, dict):
+                    # Recursively clean nested dicts
+                    cleaned[key] = clean_result(value)
+                else:
+                    cleaned[key] = value
+            return cleaned
+        
         # Create enhanced response with graph data
         response_data = {
             "success": True,
             "forecast_date": request.date,
             "site": actual_site,
-            "regression": regression_result,
-            "classification": classification_result,
+            "regression": clean_result(regression_result),
+            "classification": clean_result(classification_result),
             "graphs": {}
         }
         
         # Add level range graph data for regression
         if regression_result and 'predicted_da' in regression_result:
-            predicted_da = regression_result['predicted_da']
+            predicted_da = float(regression_result['predicted_da'])  # Convert numpy float to Python float
             response_data["graphs"]["level_range"] = {
                 "predicted_da": predicted_da,
                 "q05": predicted_da * 0.7,
@@ -395,9 +436,14 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         # Add category graph data for classification  
         if classification_result and 'predicted_category' in classification_result:
+            # Convert numpy arrays to Python lists for JSON serialization
+            class_probs = classification_result.get('class_probabilities')
+            if isinstance(class_probs, np.ndarray):
+                class_probs = class_probs.tolist()
+            
             response_data["graphs"]["category_range"] = {
-                "predicted_category": classification_result['predicted_category'],
-                "class_probabilities": classification_result.get('class_probabilities'),
+                "predicted_category": int(classification_result['predicted_category']),
+                "class_probabilities": class_probs,
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
             }

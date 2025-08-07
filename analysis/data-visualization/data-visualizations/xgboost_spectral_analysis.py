@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Random Forest Spectral Analysis of DA Forecasting
-==================================================
+XGBoost Spectral Analysis of DA Forecasting
+===========================================
 
-Comprehensive spectral analysis of Random Forest predictions including:
+Comprehensive spectral analysis of XGBoost predictions including:
 - Power Spectral Density (PSD) for all sites
 - Coherence between predicted and actual values
 - Phase relationships and time-varying analysis

@@ -57,6 +57,18 @@ class LeakFreeForecastApp:
         # Validate configuration
         self._validate_config()
         
+    def _get_actual_model_name(self, ui_model, task):
+        """Map UI model selection to actual model names based on task."""
+        if ui_model == "xgboost":
+            return "xgboost"  # XGBoost works for both regression and classification
+        elif ui_model == "ridge":
+            if task == "regression":
+                return "ridge"  # Ridge regression
+            else:
+                return "logistic"  # Logistic regression for classification
+        else:
+            return ui_model  # Fallback to original name
+    
     def _validate_config(self):
         """Validate configuration settings."""
         # Check file exists
@@ -67,17 +79,20 @@ class LeakFreeForecastApp:
             print(f"[ERROR] Cannot load data file {self.data_path}: {e}")
             sys.exit(1)
             
+        # Map model name for validation
+        actual_model = self._get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
+        
         # Validate model/task combination
-        if not self.model_factory.validate_model_task_combination(config.FORECAST_TASK, config.FORECAST_MODEL):
+        if not self.model_factory.validate_model_task_combination(config.FORECAST_TASK, actual_model):
             supported = self.model_factory.get_supported_models(config.FORECAST_TASK)
-            print(f"[ERROR] Model '{config.FORECAST_MODEL}' not supported for task '{config.FORECAST_TASK}'")
+            print(f"[ERROR] Model '{actual_model}' not supported for task '{config.FORECAST_TASK}'")
             print(f"[ERROR] Supported models for {config.FORECAST_TASK}: {supported[config.FORECAST_TASK]}")
             sys.exit(1)
             
         print(f"[INFO] Configuration validated successfully")
         print(f"[INFO] Mode: {config.FORECAST_MODE}")
         print(f"[INFO] Task: {config.FORECAST_TASK}")
-        print(f"[INFO] Model: {config.FORECAST_MODEL} ({self.model_factory.get_model_description(config.FORECAST_MODEL)})")
+        print(f"[INFO] Model: {config.FORECAST_MODEL} → {actual_model} ({self.model_factory.get_model_description(actual_model)})")
         
     def run_retrospective_evaluation(self):
         """
@@ -92,10 +107,11 @@ class LeakFreeForecastApp:
             print(f"[INFO] Temporal buffer: {config.TEMPORAL_BUFFER_DAYS} days")
             print(f"[INFO] Minimum training samples: {config.MIN_TRAINING_SAMPLES}")
             
-            # Run evaluation
+            # Run evaluation with mapped model name
+            actual_model = self._get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
             results_df = self.forecast_engine.run_retrospective_evaluation(
                 task=config.FORECAST_TASK,
-                model_type=config.FORECAST_MODEL,
+                model_type=actual_model,
                 n_anchors=config.N_RANDOM_ANCHORS
             )
             
@@ -126,10 +142,10 @@ class LeakFreeForecastApp:
         """Launch interactive real-time forecasting dashboard."""
         try:
             logger.info("Starting real-time forecasting dashboard")
-            logger.info("Using Random Forest model for real-time forecasting")
+            logger.info("Using XGBoost model for real-time forecasting")
             
             print(f"\n[INFO] Launching real-time forecasting dashboard...")
-            print(f"[INFO] Model: Random Forest (fixed for realtime)")
+            print(f"[INFO] Model: XGBoost (fixed for realtime)")
             print(f"[INFO] Tasks: Both regression (primary) & classification displayed")
             
             dashboard = RealtimeDashboard(self.data_path)
