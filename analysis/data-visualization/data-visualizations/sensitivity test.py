@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.inspection import permutation_importance
 import warnings
+import os
 
 # For Sobol sensitivity analysis (install SALib if needed)
 try:
@@ -77,7 +78,16 @@ def sophisticated_nan_handling_for_sensitivity(df):
 # Load and Prepare the Dataset from Parquet with Sophisticated NaN Handling
 # ----------------------------------------
 print("Loading data with sophisticated NaN handling for sensitivity analysis...")
-df = pd.read_parquet("final_output.parquet")
+# Use robust path resolution
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.join(script_dir, '..', '..', '..')
+file_path = os.path.join(repo_root, 'data', 'processed', 'final_output.parquet')
+
+# Create output directory
+output_dir = os.path.join(script_dir, 'outputs')
+os.makedirs(output_dir, exist_ok=True)
+
+df = pd.read_parquet(file_path)
 
 # Apply sophisticated NaN handling
 df_processed = sophisticated_nan_handling_for_sensitivity(df)
@@ -110,7 +120,7 @@ plt.xlabel("Input Variables", fontsize=14)
 plt.ylabel("Absolute Pearson Correlation", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
-corr_pdf = "data-visualizations/sensitivity-correlation_sensitivity_analysis_sophisticated.pdf"
+corr_pdf = os.path.join(output_dir, "sensitivity-correlation_sensitivity_analysis_sophisticated.pdf")
 plt.savefig(corr_pdf, format='pdf')
 plt.close()  # Close the figure to free memory
 print(f"Correlation sensitivity PDF saved at: {corr_pdf}")
@@ -163,7 +173,7 @@ if SALIB_AVAILABLE and len(X) > 200:  # Need sufficient data for Sobol analysis
         plt.ylabel("First Order Sobol Index", fontsize=14)
         plt.xticks(rotation=45, fontsize=12)
         plt.tight_layout()
-        sobol_pdf = "data-visualizations/sensitivity-sobol_sensitivity_analysis_sophisticated.pdf"
+        sobol_pdf = os.path.join(output_dir, "sensitivity-sobol_sensitivity_analysis_sophisticated.pdf")
         plt.savefig(sobol_pdf, format='pdf')
         plt.close()
         print(f"Sobol sensitivity PDF saved at: {sobol_pdf}")
@@ -191,7 +201,7 @@ plt.xlabel("Input Variables", fontsize=14)
 plt.ylabel("Decrease in Model Score", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.tight_layout()
-perm_pdf = "data-visualizations/sensitivity-permutation_importance_sophisticated.pdf"
+perm_pdf = os.path.join(output_dir, "sensitivity-permutation_importance_sophisticated.pdf")
 plt.savefig(perm_pdf, format='pdf')
 plt.close()
 print(f"Permutation importance PDF saved at: {perm_pdf}")

@@ -26,6 +26,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 from forecasting.core.forecast_engine import ForecastEngine
 import config
 
+# Create output directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = os.path.join(script_dir, 'outputs')
+os.makedirs(output_dir, exist_ok=True)
+
 # For wavelet analysis
 try:
     import pywt
@@ -871,8 +876,9 @@ def create_single_site_plot(results, site, filename):
                 fontsize=10, verticalalignment='top', fontfamily='monospace')
     
     plt.tight_layout()
-    plt.savefig(f'{filename}.png', dpi=300, bbox_inches='tight')
-    print(f"Plot saved as '{filename}.png'")
+    output_file = os.path.join(output_dir, f'{filename}.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Plot saved as '{output_file}'")
     plt.close()  # Close instead of show to prevent blocking
 
 
@@ -992,8 +998,9 @@ def create_comparison_plot(results, sites, filename):
                 fontsize=11, verticalalignment='top', fontfamily='monospace')
     
     plt.tight_layout()
-    plt.savefig(f'{filename}.png', dpi=300, bbox_inches='tight')
-    print(f"Comparison plot saved as '{filename}.png'")
+    output_file = os.path.join(output_dir, f'{filename}.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Comparison plot saved as '{output_file}'")
     plt.close()  # Close instead of show to prevent blocking
 
 

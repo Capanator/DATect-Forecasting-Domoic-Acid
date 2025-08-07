@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.impute import SimpleImputer
 import warnings
+import os
 
 warnings.filterwarnings('ignore')
 
@@ -60,8 +61,14 @@ def sophisticated_nan_handling_for_correlation(df, preserve_temporal=True):
     return df_processed
 
 
-# Load the data
-file_path = "final_output.parquet"
+# Load the data - use robust path resolution
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.join(script_dir, '..', '..', '..')
+file_path = os.path.join(repo_root, 'data', 'processed', 'final_output.parquet')
+
+# Create output directory
+output_dir = os.path.join(script_dir, 'outputs')
+os.makedirs(output_dir, exist_ok=True)
 print("Loading data with sophisticated NaN handling...")
 df = pd.read_parquet(file_path)
 
@@ -121,7 +128,7 @@ cbar.set_label('Correlation (r)', rotation=270, labelpad=20, fontsize=14)
 plt.tight_layout()
 
 # Save the figure as a high-resolution PDF
-pdf_path = "data-visualizations/correlation_heatmap_overall.pdf"
+pdf_path = os.path.join(output_dir, "correlation_heatmap_overall.pdf")
 plt.savefig(pdf_path, format="pdf")
 
 plt.close()  # Close the figure to free memory
@@ -186,7 +193,7 @@ if 'site' in df.columns:
         plt.tight_layout()
         
         # Save the figure as a high-resolution PDF
-        pdf_path = f"data-visualizations/correlation_heatmap_{site}.pdf"
+        pdf_path = os.path.join(output_dir, f"correlation_heatmap_{site}.pdf")
         plt.savefig(pdf_path, format="pdf")
         
         plt.close()  # Close the figure to free memory

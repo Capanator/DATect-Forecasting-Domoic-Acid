@@ -65,9 +65,14 @@ def sophisticated_nan_handling_for_waterfall(df):
 
 # --- Configuration Parameters ---
 
-# Input file
-PARQUET_FILE = "final_output.parquet"
-OUTPUT_DIR = "data-visualizations"
+# Input file - use robust path resolution
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.join(script_dir, '..', '..', '..')
+PARQUET_FILE = os.path.join(repo_root, 'data', 'processed', 'final_output.parquet')
+
+# Create output directory
+OUTPUT_DIR = os.path.join(script_dir, 'outputs')
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 # MODIFIED: Updated filename to reflect sophisticated NaN handling
 OUTPUT_FILENAME = "waterfall_plot_absolute_da_sophisticated_nan.pdf"
 

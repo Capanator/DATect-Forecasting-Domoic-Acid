@@ -4,6 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.impute import SimpleImputer
 import numpy as np
 import warnings
+import os
 
 warnings.filterwarnings('ignore')
 
@@ -56,9 +57,11 @@ def sophisticated_nan_handling_for_timeseries(df):
         imputer = SimpleImputer(strategy="median")
         df_processed[non_essential_cols] = imputer.fit_transform(df_processed[non_essential_cols])
     
-    # For MODIS-chla, use forward fill within sites to maintain temporal patterns (no leakage)
+    # For MODIS-chla, use forward-only interpolation within sites to prevent temporal leakage
     df_processed = df_processed.sort_values(['site', 'date'])
-    df_processed['modis-chla'] = df_processed.groupby('site')['modis-chla'].fillna(method='ffill')
+    df_processed['modis-chla'] = df_processed.groupby('site')['modis-chla'].transform(
+        lambda x: x.interpolate(method='linear', limit_direction='forward')
+    )
     
     # Keep NaN values for DA - time series plot will naturally show gaps
     # This maintains scientific integrity and prevents data leakage
@@ -73,10 +76,20 @@ def sophisticated_nan_handling_for_timeseries(df):
 # Load the data from parquet file with sophisticated NaN handling
 print("Loading data with sophisticated NaN handling for time series visualization...")
 try:
-    df = pd.read_parquet('final_output.parquet')
+    # Use robust path resolution
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.join(script_dir, '..', '..', '..')
+    file_path = os.path.join(repo_root, 'data', 'processed', 'final_output.parquet')
+    
+    # Create output directory
+    output_dir = os.path.join(script_dir, 'outputs')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    df = pd.read_parquet(file_path)
     print(f"Raw data loaded: {len(df)} records")
 except FileNotFoundError:
     print("Error: final_output.parquet not found. Please make sure the file is in the correct directory.")
+    print(f"Looking for file at: {file_path}")
     exit()
 
 # Apply sophisticated NaN handling
@@ -122,7 +135,7 @@ for site in sites:
     plt.ylim(0, 1)
 
     # Save plot with sophisticated NaN handling identifier
-    plot_filename = f'data-visualizations/timeseries_normalized_{site.replace(" ", "_")}_sophisticated.pdf'
+    plot_filename = os.path.join(output_dir, f'timeseries_normalized_{site.replace(" ", "_")}_sophisticated.pdf')
     plt.savefig(plot_filename, format='pdf', bbox_inches='tight')
     print(f"Saved plot for {site}: {plot_filename}")
     
