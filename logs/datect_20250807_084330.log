@@ -1,0 +1,14 @@
+2025-08-07 08:43:30 - root - INFO - File logging enabled: logs/datect_20250807_084330.log
+2025-08-07 08:43:30 - __main__ - INFO - Starting dataset creation pipeline
+2025-08-07 08:43:30 - __main__ - INFO - Loading configuration from config.py
+2025-08-07 08:43:30 - __main__ - INFO - Configuration loaded: 10 DA files, 10 PN files, 10 sites
+2025-08-07 08:43:30 - __main__ - INFO - Date range: 2003-01-01 to 2023-12-31, Output: ./data/processed/final_output.parquet
+2025-08-07 08:43:30 - __main__ - INFO - Satellite configuration loaded with 10 data types
+2025-08-07 08:43:30 - __main__ - INFO - Starting main dataset creation function
+2025-08-07 08:43:30 - __main__ - INFO - Initializing DatasetCreationApp
+2025-08-07 08:43:30 - __main__ - INFO - DatasetCreationApp initialization completed
+2025-08-07 08:43:30 - __main__ - INFO - Starting dataset creation pipeline execution
+2025-08-07 08:43:30 - __main__ - INFO - Created temporary directory: /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_1mxicdqj
+2025-08-07 08:43:30 - __main__ - INFO - Processing all data sources
+2025-08-07 08:43:30 - __main__ - INFO - Handling satellite data processing
+2025-08-07 08:43:30 - __main__ - INFO - Downloading file from https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22

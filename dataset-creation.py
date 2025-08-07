@@ -87,6 +87,244 @@ logger.info(f"Satellite configuration loaded with {len(satellite_metadata)} data
 print(f"\n--- Satellite Configuration loaded from main config ---")
 print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
+
+# =============================================================================
+# DATASET CREATION APPLICATION CLASS
+# =============================================================================
+
+class DatasetCreationApp:
+    """
+    Main application class for the DA dataset creation pipeline.
+    
+    Coordinates the complete data processing workflow while maintaining
+    identical output to the original procedural implementation.
+    """
+    
+    def __init__(self):
+        """Initialize the dataset creation application."""
+        logger.info("Initializing DatasetCreationApp")
+        
+        # Move global variables to class attributes
+        self.da_files = da_files
+        self.pn_files = pn_files
+        self.sites = sites
+        self.pdo_url = pdo_url
+        self.oni_url = oni_url
+        self.beuti_url = beuti_url
+        self.streamflow_url = streamflow_url
+        self.start_date = start_date
+        self.end_date = end_date
+        self.final_output_path = final_output_path
+        self.satellite_metadata = satellite_metadata
+        self.SATELLITE_OUTPUT_PARQUET = SATELLITE_OUTPUT_PARQUET
+        self.FORCE_SATELLITE_REPROCESSING = FORCE_SATELLITE_REPROCESSING
+        
+        # File tracking (move globals to instance)
+        self.downloaded_files = []
+        self.generated_parquet_files = []
+        self.temporary_nc_files_for_stitching = []
+        
+        logger.info("DatasetCreationApp initialization completed")
+        
+    def run_pipeline(self):
+        """
+        Execute the complete dataset creation pipeline.
+        
+        This method orchestrates the entire workflow while maintaining
+        identical behavior to the original main() function.
+        """
+        logger.info("Starting dataset creation pipeline execution")
+        print("\n======= Starting Data Processing Pipeline =======")
+        start_time = datetime.now()
+        
+        try:
+            # Setup pipeline
+            download_temp_dir, da_files_parquet, pn_files_parquet = self._setup_pipeline()
+            
+            # Process all data sources
+            final_data = self._process_data_sources(download_temp_dir, da_files_parquet, pn_files_parquet)
+            
+            # Finalize and save output
+            self._finalize_output(final_data, download_temp_dir, start_time)
+            
+            logger.info("Dataset creation pipeline completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Dataset creation pipeline failed: {str(e)}")
+            raise ScientificValidationError(f"Pipeline execution failed: {str(e)}")
+    
+    def _setup_pipeline(self):
+        """Setup the pipeline with temporary directories and file conversions."""
+        # Create temp directory for downloads
+        download_temp_dir = tempfile.mkdtemp(prefix="data_dl_")
+        print(f"Using temporary directory: {download_temp_dir}")
+        logger.info(f"Created temporary directory: {download_temp_dir}")
+        
+        # Convert input CSVs to Parquet
+        da_files_parquet = convert_files_to_parquet(self.da_files)
+        pn_files_parquet = convert_files_to_parquet(self.pn_files)
+        
+        return download_temp_dir, da_files_parquet, pn_files_parquet
+    
+    def _process_data_sources(self, download_temp_dir, da_files_parquet, pn_files_parquet):
+        """Process all data sources and return combined final data."""
+        logger.info("Processing all data sources")
+        
+        # --- Satellite Data Handling ---
+        satellite_parquet_file_path = self._handle_satellite_data()
+        
+        # Process core data
+        da_data = process_da(da_files_parquet)
+        pn_data = process_pn(pn_files_parquet)
+        
+        # Process environmental data
+        streamflow_data = process_streamflow(self.streamflow_url, download_temp_dir)
+        pdo_data = fetch_climate_index(self.pdo_url, "pdo", download_temp_dir)
+        oni_data = fetch_climate_index(self.oni_url, "oni", download_temp_dir)
+        beuti_data = fetch_beuti_data(self.beuti_url, self.sites, download_temp_dir)
+        
+        # Generate and merge data
+        compiled_base = generate_compiled_data(self.sites, self.start_date, self.end_date)
+        lt_data = compile_data(compiled_base, oni_data, pdo_data, streamflow_data)
+        lt_da_pn = compile_da_pn(lt_data, da_data, pn_data)
+        
+        # Filter, process duplicates, and final processing
+        base_final_data = convert_and_fill(lt_da_pn)
+        
+        # Merge BEUTI data
+        beuti_data["Date"] = pd.to_datetime(beuti_data["Date"])
+        beuti_data["Site"] = (
+            beuti_data["Site"].astype(str).str.replace("_", " ").str.title()
+        )
+        base_final_data = pd.merge(
+            base_final_data, beuti_data, on=["Date", "Site"], how="left"
+        )
+        base_final_data["beuti"] = base_final_data["beuti"].fillna(0)
+        
+        # Add satellite data if a valid path was determined and the file exists
+        final_data = base_final_data
+        if satellite_parquet_file_path and os.path.exists(satellite_parquet_file_path):
+            print(f"\n--- Adding satellite data from: {satellite_parquet_file_path} ---")
+            final_data = add_satellite_data(base_final_data, satellite_parquet_file_path)
+        
+        return final_data
+    
+    def _handle_satellite_data(self):
+        """Handle satellite data processing and return file path."""
+        logger.info("Handling satellite data processing")
+        
+        satellite_parquet_file_path = None  # Initialize path
+        
+        # Determine if we need to generate a new satellite file
+        should_generate_new_satellite_file = False
+        if self.FORCE_SATELLITE_REPROCESSING:
+            print(f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---")
+            should_generate_new_satellite_file = True
+        elif not os.path.exists(self.SATELLITE_OUTPUT_PARQUET):
+            print(f"\n--- Intermediate satellite data file '{self.SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---")
+            should_generate_new_satellite_file = True
+        else:
+            print(f"\n--- Found existing satellite data: {self.SATELLITE_OUTPUT_PARQUET}. Using this file. ---")
+            print(f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---")
+            satellite_parquet_file_path = self.SATELLITE_OUTPUT_PARQUET  # Use existing file
+        
+        if should_generate_new_satellite_file:
+            print(f"--- Generating satellite data. This may take a while... ---")
+            if self.FORCE_SATELLITE_REPROCESSING and os.path.exists(self.SATELLITE_OUTPUT_PARQUET):
+                try:
+                    os.remove(self.SATELLITE_OUTPUT_PARQUET)
+                    print(f"--- Removed old intermediate file due to force reprocessing: {self.SATELLITE_OUTPUT_PARQUET} ---")
+                except OSError as e:
+                    print(f"--- Warning: Could not remove old intermediate file {self.SATELLITE_OUTPUT_PARQUET}: {e} ---")
+            
+            generated_path = generate_satellite_parquet(
+                self.satellite_metadata,
+                list(self.sites.keys()),
+                self.SATELLITE_OUTPUT_PARQUET,
+            )
+            if generated_path and os.path.exists(generated_path):
+                print(f"--- Satellite data successfully generated and saved to: {generated_path} ---")
+                satellite_parquet_file_path = generated_path
+            else:
+                satellite_parquet_file_path = None
+        
+        return satellite_parquet_file_path
+    
+    def _finalize_output(self, final_data, download_temp_dir, start_time):
+        """Finalize and save the output, clean up temporary files."""
+        logger.info("Finalizing output and saving")
+        
+        # Final processing and save
+        print("\n--- Final Checks and Saving Output ---")
+        
+        # Sort columns
+        final_core_cols = [
+            "Date", "Site", "lat", "lon", "oni", "pdo", "discharge", 
+            "DA_Levels", "PN_Levels", "beuti"
+        ]
+        
+        # Get satellite columns (if any) - exclude core columns
+        all_cols = set(final_data.columns)
+        core_cols = set(final_core_cols)
+        sat_cols = sorted(all_cols - core_cols)
+        
+        # Column mappings for standardized names
+        col_mapping = {
+            "DA_Levels": "da",
+            "PN_Levels": "pn", 
+            "Date": "date",
+            "Site": "site",
+            "discharge": "streamflow"
+        }
+        
+        # Add satellite column mappings if we have enough satellite columns
+        if len(sat_cols) >= 7:
+            sat_mapping = {}
+            if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
+            if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla"
+            if len(sat_cols) > 2: sat_mapping[sat_cols[2]] = "modis-flr"
+            if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-k490"
+            if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-par"
+            if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "modis-sst"
+            if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "sst-anom"
+            col_mapping.update(sat_mapping)
+        
+        final_data = final_data.rename(columns=col_mapping)
+        
+        # Ensure date column is datetime (not string) for proper parquet storage
+        if 'date' in final_data.columns:
+            final_data['date'] = pd.to_datetime(final_data['date'])
+            print(f"Date column info: {final_data['date'].dtype}, sample: {final_data['date'].iloc[0]}")
+        
+        # Save output
+        print(f"Saving final data to {self.final_output_path}...")
+        
+        # Check if final_output_path has a directory component
+        output_dir = os.path.dirname(self.final_output_path)
+        if output_dir:  # Only create directories if there's actually a directory path
+            os.makedirs(output_dir, exist_ok=True)
+        
+        final_data.to_parquet(self.final_output_path, index=False)
+        
+        # Clean up
+        print("\n--- Cleaning Up ---")
+        for f in set(self.downloaded_files + self.generated_parquet_files):
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except OSError as e:
+                    print(f"  Warning: Could not remove temporary file {f}: {e}")
+        
+        try:
+            shutil.rmtree(download_temp_dir)
+        except OSError as e:
+            print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
+        
+        end_time = datetime.now()
+        print(f"\n======= Script Finished in {end_time - start_time} =======")
+        logger.info(f"Pipeline completed in {end_time - start_time}")
+
+
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
@@ -987,206 +1225,23 @@ def convert_and_fill(data_df):
         
     return df_processed
 
+
 def main():
     """
-    Main data processing pipeline for Domoic Acid forecasting dataset.
+    Main entry point for the dataset creation pipeline.
     
-    This function orchestrates the complete data processing workflow:
-    1. Downloads and processes satellite oceanographic data (MODIS)
-    2. Fetches climate indices (PDO, ONI, BEUTI) from NOAA
-    3. Downloads USGS streamflow data
-    4. Processes DA and PN measurement files
-    5. Combines all data sources into unified weekly time series
-    6. Applies temporal safeguards to prevent data leakage
-    7. Outputs final dataset as Parquet file
-    
-    The entire process typically takes 30-60 minutes depending on 
-    satellite data volume and network conditions.
-    
-    Raises:
-        Exception: If critical data sources cannot be accessed or processed
+    Creates and runs the DatasetCreationApp to process all data sources
+    into a unified forecasting dataset.
     """
-    print("\n======= Starting Data Processing Pipeline =======")
-    start_time = datetime.now()
-
-    # Create temp directory for downloads
-    download_temp_dir = tempfile.mkdtemp(prefix="data_dl_")
-    print(f"Using temporary directory: {download_temp_dir}")
-
-    # Convert input CSVs to Parquet
-    da_files_parquet = convert_files_to_parquet(da_files)
-    pn_files_parquet = convert_files_to_parquet(pn_files)
-
-    # --- Satellite Data Handling ---
-    satellite_parquet_file_path = None  # Initialize path
-
-    # Determine if we need to generate a new satellite file
-    should_generate_new_satellite_file = False
-    if FORCE_SATELLITE_REPROCESSING:
-        print(
-            f"\n--- FORCE_SATELLITE_REPROCESSING is True. Satellite data will be regenerated. ---"
-        )
-        should_generate_new_satellite_file = True
-    elif not os.path.exists(SATELLITE_OUTPUT_PARQUET):
-        print(
-            f"\n--- Intermediate satellite data file '{SATELLITE_OUTPUT_PARQUET}' not found. Will attempt to generate. ---"
-        )
-        should_generate_new_satellite_file = True
-    else:
-        print(
-            f"\n--- Found existing satellite data: {SATELLITE_OUTPUT_PARQUET}. Using this file. ---"
-        )
-        print(
-            f"--- To regenerate, set FORCE_SATELLITE_REPROCESSING = True in the script. ---"
-        )
-        satellite_parquet_file_path = (
-            SATELLITE_OUTPUT_PARQUET  # Use existing file
-        )
-
-    if should_generate_new_satellite_file:
-        print(
-            f"--- Generating satellite data. This may take a while... ---"
-        )
-        if FORCE_SATELLITE_REPROCESSING and os.path.exists(SATELLITE_OUTPUT_PARQUET):
-            try:
-                os.remove(SATELLITE_OUTPUT_PARQUET)
-                print(
-                    f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
-                )
-            except OSError as e:
-                print(
-                    f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
-                )
-
-        generated_path = generate_satellite_parquet(
-            satellite_metadata,
-            list(sites.keys()),
-            SATELLITE_OUTPUT_PARQUET,
-        )
-        if generated_path and os.path.exists(generated_path):
-            print(
-                f"--- Satellite data successfully generated and saved to: {generated_path} ---"
-            )
-            satellite_parquet_file_path = generated_path
-        else:
-            satellite_parquet_file_path = None
-
-    # Process core data
-    da_data = process_da(da_files_parquet)
-    pn_data = process_pn(pn_files_parquet)
-
-    # Process environmental data
-    streamflow_data = process_streamflow(streamflow_url, download_temp_dir)
-    pdo_data = fetch_climate_index(pdo_url, "pdo", download_temp_dir)
-    oni_data = fetch_climate_index(oni_url, "oni", download_temp_dir)
-    beuti_data = fetch_beuti_data(beuti_url, sites, download_temp_dir)
-
-    # Generate and merge data
-    compiled_base = generate_compiled_data(sites, start_date, end_date)
-    lt_data = compile_data(compiled_base, oni_data, pdo_data, streamflow_data)
-    lt_da_pn = compile_da_pn(lt_data, da_data, pn_data)
-
-    # Filter, process duplicates, and final processing
-    base_final_data = convert_and_fill(lt_da_pn)
-
-    # Merge BEUTI data
-    beuti_data["Date"] = pd.to_datetime(beuti_data["Date"])
-    beuti_data["Site"] = (
-        beuti_data["Site"].astype(str).str.replace("_", " ").str.title()
-    )
-    base_final_data = pd.merge(
-        base_final_data, beuti_data, on=["Date", "Site"], how="left"
-    )
-    base_final_data["beuti"] = base_final_data["beuti"].fillna(0)
-
-    # Add satellite data if a valid path was determined and the file exists
-    final_data = base_final_data
-    if satellite_parquet_file_path and os.path.exists(
-        satellite_parquet_file_path
-    ):
-        print(
-            f"\n--- Adding satellite data from: {satellite_parquet_file_path} ---"
-        )
-        final_data = add_satellite_data(
-            base_final_data, satellite_parquet_file_path
-        )
-
-    # Final processing and save
-    print("\n--- Final Checks and Saving Output ---")
-
-    # Sort columns
-    final_core_cols = [
-        "Date",
-        "Site",
-        "lat",
-        "lon",
-        "oni",
-        "pdo",
-        "discharge",
-        "DA_Levels",
-        "PN_Levels",
-        "beuti",
-    ]
-    sat_cols = sorted(
-        [col for col in final_data.columns if col.startswith("sat_")]
-    )
-
-    final_cols = [
-        col for col in final_core_cols if col in final_data.columns
-    ] + sat_cols
-    final_data = final_data[final_cols]
-
-    # Convert Date to string format
-    final_data["Date"] = final_data["Date"].dt.strftime("%m/%d/%Y")
-
-    # Rename columns if needed
-    col_mapping = {
-        "Date": "date",
-        "Site": "site",
-        "DA_Levels": "da",
-        "PN_Levels": "pn",
-    }
-
-    if len(sat_cols) >= 7:
-        sat_mapping = {}
-        if len(sat_cols) > 0: sat_mapping[sat_cols[0]] = "chla-anom"
-        if len(sat_cols) > 1: sat_mapping[sat_cols[1]] = "modis-chla"
-        if len(sat_cols) > 2: sat_mapping[sat_cols[2]] = "modis-flr"
-        if len(sat_cols) > 3: sat_mapping[sat_cols[3]] = "modis-k490"
-        if len(sat_cols) > 4: sat_mapping[sat_cols[4]] = "modis-par"
-        if len(sat_cols) > 5: sat_mapping[sat_cols[5]] = "modis-sst"
-        if len(sat_cols) > 6: sat_mapping[sat_cols[6]] = "sst-anom"
-        col_mapping.update(sat_mapping)
-
-    final_data = final_data.rename(columns=col_mapping)
-
-    # Save output
-    print(f"Saving final data to {final_output_path}...")
-
-    # Check if final_output_path has a directory component
-    output_dir = os.path.dirname(final_output_path)
-    if output_dir: # Only create directories if there's actually a directory path
-        os.makedirs(output_dir, exist_ok=True)
-
-    final_data.to_parquet(final_output_path, index=False)
-
-    # Clean up
-    print("\n--- Cleaning Up ---")
-    for f in set(downloaded_files + generated_parquet_files):
-        if os.path.exists(f):
-            try:
-                os.remove(f)
-            except OSError as e:
-                print(f"  Warning: Could not remove temporary file {f}: {e}")
-
     try:
-        shutil.rmtree(download_temp_dir)
-    except OSError as e:
-        print(f"  Warning: Could not remove temp directory {download_temp_dir}: {e}")
-
-
-    end_time = datetime.now()
-    print(f"\n======= Script Finished in {end_time - start_time} =======")
+        logger.info("Starting main dataset creation function")
+        app = DatasetCreationApp()
+        app.run_pipeline()
+        logger.info("Dataset creation completed successfully")
+    except Exception as e:
+        logger.error(f"Dataset creation failed: {str(e)}")
+        print(f"[ERROR] Dataset creation failed: {str(e)}")
+        raise
 
 # Run script
 if __name__ == "__main__":

@@ -1,0 +1,23 @@
+2025-08-07 07:45:58 - root - INFO - File logging enabled: logs/datect_20250807_074558.log
+2025-08-07 07:45:58 - __main__ - INFO - Starting dataset creation pipeline
+2025-08-07 07:45:58 - __main__ - INFO - Loading configuration from config.py
+2025-08-07 07:45:58 - __main__ - INFO - Configuration loaded: 10 DA files, 10 PN files, 10 sites
+2025-08-07 07:45:58 - __main__ - INFO - Date range: 2003-01-01 to 2023-12-31, Output: ./data/processed/final_output.parquet
+2025-08-07 07:45:58 - __main__ - INFO - Satellite configuration loaded with 10 data types
+2025-08-07 07:45:58 - __main__ - INFO - Starting main dataset creation function
+2025-08-07 07:45:58 - __main__ - INFO - Initializing DatasetCreationApp
+2025-08-07 07:45:58 - __main__ - INFO - DatasetCreationApp initialization completed
+2025-08-07 07:45:58 - __main__ - INFO - Starting dataset creation pipeline execution
+2025-08-07 07:45:58 - __main__ - INFO - Created temporary directory: /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_xhna5p0m
+2025-08-07 07:45:58 - __main__ - INFO - Processing all data sources
+2025-08-07 07:45:58 - __main__ - INFO - Handling satellite data processing
+2025-08-07 07:45:58 - __main__ - INFO - Downloading file from https://waterservices.usgs.gov/nwis/dv?format=json&siteStatus=all&site=14246900&agencyCd=USGS&statCd=00003&parameterCd=00060&startDT=2002-06-01&endDT=2025-02-22
+2025-08-07 07:45:59 - __main__ - INFO - Successfully downloaded 0.60 MB to /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_xhna5p0m/dv.json
+2025-08-07 07:46:00 - __main__ - INFO - Downloading file from https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_PDO.nc?time%2CPDO&time%3E=2002-05-01&time%3C=2025-01-01T00%3A00%3A00Z
+2025-08-07 07:46:01 - __main__ - INFO - Successfully downloaded 0.01 MB to /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_xhna5p0m/cciea_OC_PDO.nc
+2025-08-07 07:46:01 - __main__ - INFO - Downloading file from https://oceanview.pfeg.noaa.gov/erddap/tabledap/cciea_OC_ONI.nc?time%2CONI&time%3E=2002-05-01&time%3C=2024-12-01T00%3A00%3A00Z
+2025-08-07 07:46:02 - __main__ - INFO - Successfully downloaded 0.01 MB to /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_xhna5p0m/cciea_OC_ONI.nc
+2025-08-07 07:46:02 - __main__ - INFO - Downloading file from https://oceanview.pfeg.noaa.gov/erddap/griddap/erdBEUTIdaily.nc?BEUTI%5B(2002-05-01):1:(2024-11-28T00:00:00Z)%5D%5B(42):1:(47.0)%5D
+2025-08-07 07:46:02 - __main__ - INFO - Successfully downloaded 0.44 MB to /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/data_dl_xhna5p0m/erdBEUTIdaily.nc
+2025-08-07 07:46:04 - __main__ - ERROR - Dataset creation pipeline failed: [Errno 32] Broken pipe
+2025-08-07 07:46:04 - __main__ - ERROR - Dataset creation failed: Pipeline execution failed: [Errno 32] Broken pipe
