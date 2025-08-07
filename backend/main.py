@@ -50,17 +50,31 @@ security = HTTPBearer()
 forecast_engine = ForecastEngine()
 model_factory = ModelFactory()
 
+# Model mapping function
+def get_actual_model_name(ui_model: str, task: str) -> str:
+    """Map UI model selection to actual model names based on task."""
+    if ui_model == "rf":
+        return "rf"  # Random Forest works for both regression and classification
+    elif ui_model == "ridge":
+        if task == "regression":
+            return "ridge"  # Ridge regression
+        else:
+            return "logistic"  # Logistic regression for classification
+    else:
+        return ui_model  # Fallback to original name
+
 # Pydantic models
 class ForecastRequest(BaseModel):
     date: date
     site: str
     task: str = "regression"  # "regression" or "classification"
-    model: str = "xgboost"
+    model: str = "rf"
 
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
     forecast_task: str = "regression"  # "regression" or "classification"
-    forecast_model: str = "xgboost"  # "xgboost" or "ridge"
+    forecast_model: str = "rf"  # "rf" (random forest) or "ridge" (linear models)
+    selected_sites: List[str] = []  # For retrospective site filtering
 
 class ForecastResponse(BaseModel):
     success: bool
@@ -156,13 +170,14 @@ async def generate_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Generate forecast using the existing engine
+        # Generate forecast using the existing engine with proper model mapping
+        actual_model = get_actual_model_name(request.model, request.task)
         result = forecast_engine.generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             request.task,
-            request.model
+            actual_model
         )
         
         if result is None:
@@ -270,7 +285,7 @@ async def get_config():
     return {
         "forecast_mode": getattr(config, 'FORECAST_MODE', 'realtime'),
         "forecast_task": getattr(config, 'FORECAST_TASK', 'regression'),
-        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost')
+        "forecast_model": getattr(config, 'FORECAST_MODEL', 'rf')
     }
 
 @app.post("/api/config")
@@ -337,19 +352,18 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Generate both regression and classification forecasts
+        # Generate both regression and classification forecasts with proper model mapping
+        regression_model = get_actual_model_name(request.model, "regression")
         regression_result = forecast_engine.generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            request.model
+            regression_model
         )
         
-        # For classification, use logistic if the current model doesn't support classification
-        classification_models = model_factory.get_supported_models('classification')['classification']
-        classification_model = "logistic" if request.model not in classification_models else request.model
-        
+        # For classification, use the mapped model
+        classification_model = get_actual_model_name(request.model, "classification")
         classification_result = forecast_engine.generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
@@ -398,17 +412,21 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "error": str(e)
         }
 
+class RetrospectiveRequest(BaseModel):
+    selected_sites: List[str] = []  # Empty list means all sites
+
 @app.post("/api/retrospective")
-async def run_retrospective_analysis():
+async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
     """Run complete retrospective analysis based on current config."""
     try:
         # Run retrospective analysis using forecast engine directly
         # This avoids launching the dashboard but still gets the results
+        actual_model = get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
         engine = ForecastEngine(data_file=config.FINAL_OUTPUT_PATH)
         results_df = engine.run_retrospective_evaluation(
             task=config.FORECAST_TASK,
-            model_type=config.FORECAST_MODEL,
-            n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 50)  # Use smaller number for API
+            model_type=actual_model,
+            n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)  # Use smaller number for faster API response
         )
         
         if results_df is None or results_df.empty:
@@ -417,9 +435,13 @@ async def run_retrospective_analysis():
                 "error": "No results generated from retrospective analysis"
             }
         
-        # Convert results to JSON format
+        # Convert results to JSON format with optional site filtering
         results_json = []
         for _, row in results_df.iterrows():
+            # Filter by selected sites if provided
+            if request.selected_sites and row['site'] not in request.selected_sites:
+                continue
+                
             record = {
                 "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
                 "site": row['site'],

@@ -15,7 +15,8 @@ const Dashboard = () => {
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
-    forecast_model: 'xgboost'
+    forecast_model: 'rf', // Changed from xgboost to rf (random forest)
+    selected_sites: [] // For retrospective site filtering
   })
   const [configLoading, setConfigLoading] = useState(false)
   
@@ -27,7 +28,7 @@ const Dashboard = () => {
   // Realtime forecast state
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('xgboost')
+  const [selectedModel, setSelectedModel] = useState('rf') // Changed from xgboost to rf
   const [task, setTask] = useState('regression')
   
   // Results state
@@ -55,6 +56,8 @@ const Dashboard = () => {
       // Set defaults
       if (sitesRes.data.sites.length > 0) {
         setSelectedSite({ value: sitesRes.data.sites[0], label: sitesRes.data.sites[0] })
+        // Initialize selected_sites with all sites for retrospective analysis
+        setConfig(prev => ({ ...prev, selected_sites: sitesRes.data.sites }))
       }
       
       if (sitesRes.data.date_range.max) {
@@ -79,8 +82,13 @@ const Dashboard = () => {
   }
 
   const applyConfig = async () => {
-    if (!config.forecast_mode || !config.forecast_task || !config.forecast_model) {
-      setError('Please fill in all configuration fields')
+    if (!config.forecast_mode) {
+      setError('Please select a forecast mode')
+      return
+    }
+    
+    if (config.forecast_mode === 'retrospective' && (!config.forecast_task || !config.forecast_model)) {
+      setError('Please select forecast task and model for retrospective analysis')
       return
     }
 
@@ -116,7 +124,9 @@ const Dashboard = () => {
     setError(null)
     
     try {
-      const response = await api.post('/api/retrospective')
+      const response = await api.post('/api/retrospective', {
+        selected_sites: config.selected_sites
+      })
       
       if (response.data.success) {
         setRetrospectiveResults(response.data)
@@ -230,28 +240,71 @@ const Dashboard = () => {
 
     if (validData.length === 0) return null
 
-    return {
-      data: [{
-        x: validData.map(d => d.actual_da),
-        y: validData.map(d => d.predicted_da),
+    // Calculate range for diagonal line
+    const allValues = [...validData.map(d => d.actual_da), ...validData.map(d => d.predicted_da)]
+    const minVal = Math.min(...allValues)
+    const maxVal = Math.max(...allValues)
+    const range = [Math.max(0, minVal - 0.1), maxVal + 0.1]
+
+    // Group data by site for different colors
+    const siteGroups = {}
+    validData.forEach(d => {
+      if (!siteGroups[d.site]) {
+        siteGroups[d.site] = []
+      }
+      siteGroups[d.site].push(d)
+    })
+
+    const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    const traces = []
+
+    // Add diagonal reference line
+    traces.push({
+      x: range,
+      y: range,
+      mode: 'lines',
+      line: { color: 'red', width: 2, dash: 'dash' },
+      name: 'Perfect Prediction',
+      hovertemplate: 'Perfect prediction line<extra></extra>'
+    })
+
+    // Add scatter points for each site
+    Object.entries(siteGroups).forEach(([site, data], index) => {
+      traces.push({
+        x: data.map(d => d.actual_da),
+        y: data.map(d => d.predicted_da),
         mode: 'markers',
         type: 'scatter',
+        name: site,
         marker: { 
-          color: validData.map(d => d.site),
-          size: 6,
-          opacity: 0.7,
-          colorscale: 'Viridis',
-          showscale: true,
-          colorbar: { title: 'Site' }
+          color: colors[index % colors.length],
+          size: 8,
+          opacity: 0.7
         },
-        text: validData.map(d => `${d.site}<br>${d.date}`),
-        hovertemplate: '%{text}<br>Actual: %{x:.2f}<br>Predicted: %{y:.2f}<extra></extra>'
-      }],
+        text: data.map(d => `${d.site}<br>${d.date}`),
+        hovertemplate: '%{text}<br>Actual: %{x:.2f} μg/g<br>Predicted: %{y:.2f} μg/g<extra></extra>'
+      })
+    })
+
+    return {
+      data: traces,
       layout: {
-        title: 'Actual vs Predicted Scatter Plot',
-        xaxis: { title: 'Actual DA (μg/g)' },
-        yaxis: { title: 'Predicted DA (μg/g)' },
-        height: 400
+        title: 'Model Performance: Actual vs Predicted DA Concentrations',
+        xaxis: { 
+          title: 'Actual DA Concentration (μg/g)',
+          range: range
+        },
+        yaxis: { 
+          title: 'Predicted DA Concentration (μg/g)',
+          range: range
+        },
+        height: 500,
+        showlegend: true,
+        legend: { 
+          x: 0.02, 
+          y: 0.98,
+          bgcolor: 'rgba(255,255,255,0.8)'
+        }
       }
     }
   }
@@ -295,35 +348,41 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <BarChart3 className="w-4 h-4 inline mr-1" />
-                Forecast Task *
-              </label>
-              <select
-                value={config.forecast_task}
-                onChange={(e) => setConfig({...config, forecast_task: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-md text-lg"
-              >
-                <option value="regression">Regression - Predict continuous DA levels (μg/g)</option>
-                <option value="classification">Classification - Predict risk categories (Low/Moderate/High/Extreme)</option>
-              </select>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Cpu className="w-4 h-4 inline mr-1" />
-                Machine Learning Model *
-              </label>
-              <select
-                value={config.forecast_model}
-                onChange={(e) => setConfig({...config, forecast_model: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-md text-lg"
-              >
-                <option value="xgboost">XGBoost - Advanced gradient boosting (Recommended)</option>
-                <option value="ridge">Ridge Regression - Linear approach</option>
-              </select>
-            </div>
+            {/* Task and Model selection only for retrospective mode */}
+            {config.forecast_mode === 'retrospective' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <BarChart3 className="w-4 h-4 inline mr-1" />
+                    Forecast Task *
+                  </label>
+                  <select
+                    value={config.forecast_task}
+                    onChange={(e) => setConfig({...config, forecast_task: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-md text-lg"
+                  >
+                    <option value="regression">Regression - Predict continuous DA levels (μg/g)</option>
+                    <option value="classification">Classification - Predict risk categories (Low/Moderate/High/Extreme)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Cpu className="w-4 h-4 inline mr-1" />
+                    Machine Learning Model *
+                  </label>
+                  <select
+                    value={config.forecast_model}
+                    onChange={(e) => setConfig({...config, forecast_model: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-md text-lg"
+                  >
+                    <option value="rf">Random Forest - RF regression & RF classification (Recommended)</option>
+                    <option value="ridge">Linear Models - Ridge regression & Logistic classification</option>
+                  </select>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-blue-200">
@@ -543,6 +602,49 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Site filtering controls */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="w-4 h-4 inline mr-1" />
+                Filter by Site
+              </label>
+              <Select
+                value={config.selected_sites.length === 0 || config.selected_sites.length === sites.length ? 
+                  { value: 'all', label: 'All Sites' } :
+                  config.selected_sites.map(site => ({ value: site, label: site }))
+                }
+                onChange={(selectedOptions) => {
+                  if (selectedOptions && selectedOptions.some && selectedOptions.some(opt => opt.value === 'all')) {
+                    setConfig({...config, selected_sites: []}) // Empty means all sites
+                  } else if (selectedOptions) {
+                    setConfig({...config, selected_sites: Array.isArray(selectedOptions) ? selectedOptions.map(opt => opt.value) : [selectedOptions.value]})
+                  } else {
+                    setConfig({...config, selected_sites: []})
+                  }
+                }}
+                options={[
+                  { value: 'all', label: 'All Sites' },
+                  ...sites.map(site => ({ value: site, label: site }))
+                ]}
+                isMulti
+                className="text-sm"
+                placeholder="Select sites..."
+              />
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={runRetrospectiveAnalysis}
+                disabled={loading}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? 'Updating Results...' : 'Update Results'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Summary statistics */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Performance Summary</h3>
@@ -575,7 +677,14 @@ const Dashboard = () => {
         {/* Time series plot */}
         {timeSeriesData && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-4">Actual vs Predicted Time Series</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Actual vs Predicted Time Series
+              {(config.selected_sites || []).length < sites.length && (config.selected_sites || []).length > 0 && (
+                <span className="text-sm font-normal text-gray-600 ml-2">
+                  ({(config.selected_sites || []).length} of {sites.length} sites)
+                </span>
+              )}
+            </h3>
             <Plot
               data={timeSeriesData.data}
               layout={timeSeriesData.layout}

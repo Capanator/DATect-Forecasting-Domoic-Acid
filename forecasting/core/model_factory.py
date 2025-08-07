@@ -7,6 +7,7 @@ Supports both regression and classification tasks with multiple algorithms.
 """
 
 from sklearn.linear_model import Ridge, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 try:
     import xgboost as xgb
     HAS_XGBOOST = True
@@ -69,9 +70,16 @@ class ModelFactory:
                 alpha=1.0,
                 random_state=self.random_seed
             )
+        elif model_type == "rf":
+            return RandomForestRegressor(
+                n_estimators=200,
+                max_depth=12,
+                random_state=self.random_seed,
+                n_jobs=-1
+            )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'ridge'")
+                           f"Supported: 'xgboost', 'ridge', 'rf'")
             
     def _get_classification_model(self, model_type):
         """Get classification model."""
@@ -97,9 +105,16 @@ class ModelFactory:
                 random_state=self.random_seed,
                 n_jobs=1
             )
+        elif model_type == "rf":
+            return RandomForestClassifier(
+                n_estimators=200,
+                max_depth=12,
+                random_state=self.random_seed,
+                n_jobs=-1
+            )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
-                           f"Supported: 'xgboost', 'logistic'")
+                           f"Supported: 'xgboost', 'logistic', 'rf'")
             
     def get_supported_models(self, task=None):
         """
@@ -112,8 +127,8 @@ class ModelFactory:
             Dictionary of supported models by task
         """
         models = {
-            "regression": ["xgboost", "ridge"],
-            "classification": ["xgboost", "logistic"]
+            "regression": ["xgboost", "ridge", "rf"],
+            "classification": ["xgboost", "logistic", "rf"]
         }
         
         if task is None:
@@ -135,9 +150,10 @@ class ModelFactory:
         """
         descriptions = {
             "xgboost": "XGBoost",
-            "xgb": "XGBoost",
+            "xgb": "XGBoost", 
             "ridge": "Ridge Regression",
-            "logistic": "Logistic Regression"
+            "logistic": "Logistic Regression",
+            "rf": "Random Forest"
         }
         
         return descriptions.get(model_type, f"Unknown model: {model_type}")
