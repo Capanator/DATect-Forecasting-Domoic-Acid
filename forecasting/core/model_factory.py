@@ -146,7 +146,6 @@ class ModelFactory:
             "xgb": "XGBoost",
             "ridge": "Ridge Regression",
             "logistic": "Logistic Regression",
-            "rf": "Random Forest (deprecated)"
         }
         
         return descriptions.get(model_type, f"Unknown model: {model_type}")

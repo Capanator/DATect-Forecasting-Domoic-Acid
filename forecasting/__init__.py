@@ -21,7 +21,7 @@ Usage:
     # Run retrospective evaluation
     results = engine.run_retrospective_evaluation(
         task="regression", 
-        model_type="rf", 
+        model_type="xgboost", 
         n_anchors=50
     )
     
