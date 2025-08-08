@@ -15,12 +15,116 @@ from scipy.stats import pearsonr
 import warnings
 import os
 import sys
+import plotly.graph_objs as go
+import plotly.io as pio
 
 warnings.filterwarnings('ignore')
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+
+
+def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, actual_da=None):
+    """
+    Create advanced gradient visualization for DA level forecast with quantile uncertainty.
+    
+    Args:
+        gradient_quantiles: dict with 'q05', 'q50', 'q95' keys
+        xgboost_prediction: float, XGBoost point prediction 
+        actual_da: float, optional actual DA value
+    
+    Returns:
+        dict: Plotly figure JSON data
+    """
+    q05 = gradient_quantiles['q05']
+    q50 = gradient_quantiles['q50'] 
+    q95 = gradient_quantiles['q95']
+    
+    fig = go.Figure()
+    
+    # Create gradient confidence area with 30 segments
+    n_segments = 30
+    range_width = q95 - q05
+    max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
+    if max_distance <= 1e-6:
+        max_distance = 1  # Avoid division by zero
+    
+    base_color = (70, 130, 180)  # Steel blue
+    
+    # Generate gradient confidence bands
+    for i in range(n_segments):
+        x0 = q05 + (i / n_segments) * range_width
+        x1 = q05 + ((i + 1) / n_segments) * range_width
+        midpoint = (x0 + x1) / 2
+        
+        # Calculate opacity based on distance from median
+        opacity = 1 - (abs(midpoint - q50) / max_distance) ** 0.5 if max_distance > 1e-6 else 0.8
+        opacity = max(0.1, min(0.9, opacity))  # Ensure valid opacity range
+        
+        fig.add_shape(
+            type="rect",
+            x0=x0, x1=x1,
+            y0=0.35, y1=0.65,
+            line=dict(width=0),
+            fillcolor=f'rgba({base_color[0]}, {base_color[1]}, {base_color[2]}, {opacity})',
+            layer='below'
+        )
+    
+    # Add gradient boosting median line (q50)
+    fig.add_trace(go.Scatter(
+        x=[q50, q50], y=[0.35, 0.65],
+        mode='lines',
+        line=dict(color='rgb(30, 60, 90)', width=3),
+        name='GB Median (Q50)',
+        hovertemplate='GB Median: %{x:.2f}<extra></extra>'
+    ))
+    
+    # Add quantile range endpoints
+    fig.add_trace(go.Scatter(
+        x=[q05, q95], y=[0.5, 0.5],
+        mode='markers',
+        marker=dict(size=12, color='rgba(70, 130, 180, 0.4)', symbol='line-ns-open'),
+        name='GB Range (Q05-Q95)',
+        hovertemplate='GB Range: %{x:.2f}<extra></extra>'
+    ))
+    
+    # Add XGBoost point prediction
+    fig.add_trace(go.Scatter(
+        x=[xgboost_prediction], y=[0.5],
+        mode='markers',
+        marker=dict(
+            size=14,
+            color='darkorange',
+            symbol='diamond-tall',
+            line=dict(width=2, color='black')
+        ),
+        name='XGBoost Prediction',
+        hovertemplate='XGBoost: %{x:.2f}<extra></extra>'
+    ))
+    
+    # Add actual value if available
+    if actual_da is not None:
+        fig.add_trace(go.Scatter(
+            x=[actual_da], y=[0.5],
+            mode='markers',
+            marker=dict(size=16, color='red', symbol='x-thin', line=dict(width=3)),
+            name='Actual Value',
+            hovertemplate='Actual: %{x:.2f}<extra></extra>'
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title="Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
+        xaxis_title="DA Level (μg/L)",
+        yaxis=dict(visible=False, range=[0, 1]),
+        showlegend=True,
+        height=350,
+        plot_bgcolor='white',
+        hovermode='closest'
+    )
+    
+    return pio.to_json(fig)
 
 
 def sophisticated_nan_handling_for_correlation(df, preserve_temporal=True):

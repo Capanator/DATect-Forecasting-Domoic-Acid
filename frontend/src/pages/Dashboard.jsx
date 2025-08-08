@@ -848,118 +848,109 @@ const Dashboard = () => {
           {/* Level Range and Category Range Graphs - Match modular-forecast exactly */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Level Range Graph - for regression */}
+              {/* Level Range Graph - Advanced Gradient Visualization */}
               {forecast.graphs && forecast.graphs.level_range && (
                 <div>
-                  <Plot
-                    data={(() => {
-                      const levelData = forecast.graphs.level_range;
-                      const q05 = levelData.q05;
-                      const q50 = levelData.q50;
-                      const q95 = levelData.q95;
-                      const predicted = levelData.predicted_da;
-                      
-                      const traces = [];
-                      const n_segments = 30;
-                      const range_width = q95 - q05;
-                      const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
-                      
-                      // Create gradient segments
-                      const shapes = [];
-                      for (let i = 0; i < n_segments; i++) {
-                        const x0 = q05 + (i / n_segments) * range_width;
-                        const x1 = q05 + ((i + 1) / n_segments) * range_width;
-                        const midpoint = (x0 + x1) / 2;
-                        const distance = Math.abs(midpoint - q50);
-                        const opacity = Math.max(0, Math.min(1, 1 - Math.sqrt(distance / max_distance)));
-                        
-                        shapes.push({
-                          type: 'rect',
-                          x0: x0,
-                          x1: x1,
-                          y0: 0.4,
-                          y1: 0.6,
-                          fillcolor: `rgba(70, 130, 180, ${opacity})`,
-                          line: { width: 0 },
-                          layer: 'below'
-                        });
-                      }
-                      
-                      // Median line
-                      traces.push({
-                        x: [q50, q50],
-                        y: [0.4, 0.6],
-                        mode: 'lines',
-                        line: { color: 'rgb(30, 60, 90)', width: 3 },
-                        name: 'Median (Q50 - XGBoost)'
-                      });
-                      
-                      // Range endpoints
-                      traces.push({
-                        x: [q05, q95],
-                        y: [0.5, 0.5],
-                        mode: 'markers',
-                        marker: { size: 15, color: 'rgba(70, 130, 180, 0.3)', symbol: 'line-ns-open' },
-                        name: 'Prediction Range (XGBoost Q05-Q95)'
-                      });
-                      
-                      // XGBoost prediction
-                      traces.push({
-                        x: [predicted],
-                        y: [0.5],
-                        mode: 'markers',
-                        marker: {
-                          size: 14,
-                          color: 'darkorange',
-                          symbol: 'diamond-tall',
-                          line: { width: 1, color: 'black' }
-                        },
-                        name: 'XGBoost Pred.'
-                      });
-                      
-                      return traces;
-                    })()}
-                    layout={{
-                      title: "DA Level Forecast: Gradient (XGBoost) & Point (XGBoost)",
-                      xaxis_title: "DA Level",
-                      yaxis: { visible: false, range: [0, 1] },
-                      showlegend: true,
-                      height: 300,
-                      plot_bgcolor: 'white',
-                      shapes: (() => {
+                  {forecast.graphs.level_range.type === 'gradient_uncertainty' && forecast.graphs.level_range.gradient_plot ? (
+                    // Use the advanced gradient plot from backend
+                    <Plot
+                      {...JSON.parse(forecast.graphs.level_range.gradient_plot)}
+                      config={{ responsive: true }}
+                      style={{ width: '100%' }}
+                    />
+                  ) : (
+                    // Fallback to simple visualization
+                    <Plot
+                      data={(() => {
                         const levelData = forecast.graphs.level_range;
-                        const q05 = levelData.q05;
-                        const q50 = levelData.q50;
-                        const q95 = levelData.q95;
+                        const quantiles = levelData.gradient_quantiles || {};
+                        const q05 = quantiles.q05 || levelData.q05;
+                        const q50 = quantiles.q50 || levelData.q50;
+                        const q95 = quantiles.q95 || levelData.q95;
+                        const xgb_pred = levelData.xgboost_prediction || levelData.predicted_da;
+                        
+                        const traces = [];
                         const n_segments = 30;
                         const range_width = q95 - q05;
                         const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
                         
-                        const shapes = [];
-                        for (let i = 0; i < n_segments; i++) {
-                          const x0 = q05 + (i / n_segments) * range_width;
-                          const x1 = q05 + ((i + 1) / n_segments) * range_width;
-                          const midpoint = (x0 + x1) / 2;
-                          const distance = Math.abs(midpoint - q50);
-                          const opacity = Math.max(0, Math.min(1, 1 - Math.sqrt(distance / max_distance)));
+                        // Median line (Gradient Boosting Q50)
+                        traces.push({
+                          x: [q50, q50],
+                          y: [0.35, 0.65],
+                          mode: 'lines',
+                          line: { color: 'rgb(30, 60, 90)', width: 3 },
+                          name: 'GB Median (Q50)'
+                        });
+                        
+                        // Range endpoints (GB quantiles)
+                        traces.push({
+                          x: [q05, q95],
+                          y: [0.5, 0.5],
+                          mode: 'markers',
+                          marker: { size: 12, color: 'rgba(70, 130, 180, 0.4)', symbol: 'line-ns-open' },
+                          name: 'GB Range (Q05-Q95)'
+                        });
+                        
+                        // XGBoost point prediction
+                        traces.push({
+                          x: [xgb_pred],
+                          y: [0.5],
+                          mode: 'markers',
+                          marker: {
+                            size: 14,
+                            color: 'darkorange',
+                            symbol: 'diamond-tall',
+                            line: { width: 2, color: 'black' }
+                          },
+                          name: 'XGBoost Prediction'
+                        });
+                        
+                        return traces;
+                      })()}
+                      layout={{
+                        title: "Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
+                        xaxis: { title: "DA Level (μg/L)" },
+                        yaxis: { visible: false, range: [0, 1] },
+                        showlegend: true,
+                        height: 350,
+                        plot_bgcolor: 'white',
+                        shapes: (() => {
+                          const levelData = forecast.graphs.level_range;
+                          const quantiles = levelData.gradient_quantiles || {};
+                          const q05 = quantiles.q05 || levelData.q05;
+                          const q50 = quantiles.q50 || levelData.q50;
+                          const q95 = quantiles.q95 || levelData.q95;
+                          const n_segments = 30;
+                          const range_width = q95 - q05;
+                          const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
                           
-                          shapes.push({
-                            type: 'rect',
-                            x0: x0,
-                            x1: x1,
-                            y0: 0.4,
-                            y1: 0.6,
-                            fillcolor: `rgba(70, 130, 180, ${opacity})`,
-                            line: { width: 0 },
-                            layer: 'below'
-                          });
-                        }
-                        return shapes;
-                      })()
-                    }}
-                    config={{ responsive: true }}
-                    style={{ width: '100%' }}
-                  />
+                          const shapes = [];
+                          for (let i = 0; i < n_segments; i++) {
+                            const x0 = q05 + (i / n_segments) * range_width;
+                            const x1 = q05 + ((i + 1) / n_segments) * range_width;
+                            const midpoint = (x0 + x1) / 2;
+                            const distance = Math.abs(midpoint - q50);
+                            const opacity = Math.max(0.1, Math.min(0.9, 1 - Math.pow(distance / max_distance, 0.5)));
+                            
+                            shapes.push({
+                              type: 'rect',
+                              x0: x0,
+                              x1: x1,
+                              y0: 0.35,
+                              y1: 0.65,
+                              fillcolor: `rgba(70, 130, 180, ${opacity})`,
+                              line: { width: 0 },
+                              layer: 'below'
+                            });
+                          }
+                          return shapes;
+                        })()
+                      }}
+                      config={{ responsive: true }}
+                      style={{ width: '100%' }}
+                    />
+                  )}
                 </div>
               )}
               

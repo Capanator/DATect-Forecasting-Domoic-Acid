@@ -115,13 +115,32 @@ class DATectLauncher:
             # Load and validate data structure
             data = pd.read_parquet(data_file)
             
-            # Check required columns for scientific validity
-            required_columns = ['date', 'site', 'da', 'da-category']
-            missing_cols = [col for col in required_columns if col not in data.columns]
+            # Check basic required columns
+            basic_columns = ['date', 'site', 'da']
+            missing_cols = [col for col in basic_columns if col not in data.columns]
             if missing_cols:
                 self.print_colored(f"❌ Missing required columns: {missing_cols}", 'red')
-                print("Data must contain 'date', 'site', 'da', and 'da-category' columns")
+                print("Data must contain 'date', 'site', and 'da' columns")
                 return False
+            
+            # Auto-create da-category column if missing
+            if 'da-category' not in data.columns:
+                self.print_colored("📊 Creating da-category column...", 'blue')
+                def create_category(da_val):
+                    if pd.isna(da_val):
+                        return None
+                    elif da_val <= 5:
+                        return 0  # Low (≤5)
+                    elif da_val <= 20:
+                        return 1  # Moderate (5-20]
+                    elif da_val <= 40:
+                        return 2  # High (20-40]
+                    else:
+                        return 3  # Extreme (>40)
+                
+                data['da-category'] = data['da'].apply(create_category)
+                data.to_parquet(data_file, index=False)
+                self.print_colored("✅ da-category column created and saved", 'green')
             
             # Check data quality
             if data.empty:

@@ -19,6 +19,11 @@ import pandas as pd
 import numpy as np
 import json
 import asyncio
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 
 # Add parent directory to path to import forecasting modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,12 +31,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from forecasting.core.forecast_engine import ForecastEngine
 from forecasting.core.model_factory import ModelFactory
 import config
-from visualizations import (
+from backend.visualizations import (
     generate_correlation_heatmap,
     generate_sensitivity_analysis,
     generate_time_series_comparison,
     generate_waterfall_plot,
-    generate_spectral_analysis
+    generate_spectral_analysis,
+    generate_gradient_uncertainty_plot
 )
 
 # Fix path resolution - ensure we use absolute paths relative to project root
@@ -73,6 +79,91 @@ def get_actual_model_name(ui_model: str, task: str) -> str:
             return "logistic"  # Logistic regression for classification
     else:
         return ui_model  # Fallback to original name
+
+def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
+    """Generate quantile predictions using Gradient Boosting and point prediction using XGBoost."""
+    try:
+        # Load and prepare data
+        data = pd.read_parquet(data_file)
+        data['date'] = pd.to_datetime(data['date'])
+        
+        # Filter for site
+        site_data = data[data['site'] == site].copy()
+        site_data.sort_values('date', inplace=True)
+        
+        # Split training and forecast data with temporal integrity
+        train_data = site_data[site_data['date'] < forecast_date].copy()
+        
+        # Remove rows with missing target values
+        train_data = train_data.dropna(subset=['da'])
+        
+        if len(train_data) < 5:  # Minimum samples check
+            return None
+            
+        # Prepare features (exclude target and metadata columns)
+        feature_cols = [col for col in train_data.columns 
+                       if col not in ['date', 'site', 'da', 'da-category']]
+        
+        X_train = train_data[feature_cols]
+        y_train = train_data['da']
+        
+        # Handle missing values in features
+        X_train = X_train.dropna()
+        if len(X_train) < 5:
+            return None
+            
+        # Align y_train with cleaned X_train
+        y_train = y_train.loc[X_train.index]
+        
+        # Create forecast row (use last available data point as template)
+        last_row = train_data.iloc[-1].copy()
+        last_row['date'] = forecast_date
+        forecast_data = pd.DataFrame([last_row])
+        X_forecast = forecast_data[feature_cols]
+        
+        # Preprocessing pipeline
+        numeric_cols = X_train.select_dtypes(include=[np.number]).columns
+        preprocessor = ColumnTransformer([
+            ('num', Pipeline([
+                ('imputer', SimpleImputer(strategy='median')),
+                ('scaler', MinMaxScaler())
+            ]), numeric_cols)
+        ], remainder='drop')
+        
+        X_train_processed = preprocessor.fit_transform(X_train)
+        X_forecast_processed = preprocessor.transform(X_forecast)
+        
+        # Generate quantile predictions using Gradient Boosting
+        quantiles = {'q05': 0.05, 'q50': 0.50, 'q95': 0.95}
+        gb_predictions = {}
+        
+        for name, alpha in quantiles.items():
+            gb_model = GradientBoostingRegressor(
+                n_estimators=100,
+                learning_rate=0.1,
+                loss='quantile',
+                alpha=alpha,
+                random_state=42
+            )
+            gb_model.fit(X_train_processed, y_train)
+            gb_predictions[name] = float(gb_model.predict(X_forecast_processed)[0])
+        
+        # Generate point prediction using existing XGBoost engine
+        xgb_result = forecast_engine.generate_single_forecast(
+            data_file, forecast_date, site, "regression", model_type
+        )
+        
+        xgb_prediction = xgb_result.get('predicted_da') if xgb_result else gb_predictions['q50']
+        
+        return {
+            'quantile_predictions': gb_predictions,
+            'point_prediction': xgb_prediction,
+            'training_samples': len(train_data)
+        }
+        
+    except Exception as e:
+        print(f"Error in quantile prediction: {str(e)}")
+        return None
 
 # Pydantic models
 class ForecastRequest(BaseModel):
@@ -487,6 +578,50 @@ async def get_spectral_analysis_single(site: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
+@app.post("/api/visualizations/gradient")
+async def get_gradient_uncertainty_visualization(request: ForecastRequest):
+    """Generate gradient uncertainty visualization with quantile regression."""
+    try:
+        # Handle site name mapping
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        
+        actual_site = request.site
+        if request.site.lower() in site_mapping:
+            actual_site = site_mapping[request.site.lower()]
+        elif request.site in site_mapping.values():
+            actual_site = request.site
+        
+        # Generate quantile predictions
+        quantile_result = generate_quantile_predictions(
+            config.FINAL_OUTPUT_PATH,
+            pd.to_datetime(request.date),
+            actual_site,
+            get_actual_model_name(request.model, "regression")
+        )
+        
+        if not quantile_result:
+            raise HTTPException(status_code=400, detail="Insufficient data for quantile prediction")
+        
+        gb_preds = quantile_result['quantile_predictions']
+        xgb_pred = quantile_result['point_prediction']
+        
+        # Generate gradient visualization plot
+        gradient_plot = generate_gradient_uncertainty_plot(
+            gb_preds, xgb_pred, actual_da=None
+        )
+        
+        return {
+            "success": True,
+            "plot": gradient_plot,
+            "quantile_predictions": gb_preds,
+            "xgboost_prediction": xgb_pred,
+            "training_samples": quantile_result['training_samples']
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate gradient visualization: {str(e)}")
+
 @app.post("/api/forecast/enhanced")
 async def generate_enhanced_forecast(request: ForecastRequest):
     """Generate enhanced forecast with both regression and classification, plus all graph data."""
@@ -572,22 +707,55 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "graphs": {}
         }
         
-        # Add level range graph data using old working approach (RF-style)
+        # Add advanced quantile-based uncertainty using Gradient Boosting + XGBoost
         if regression_result and 'predicted_da' in regression_result:
-            predicted_da = float(regression_result['predicted_da'])
+            # Generate quantile predictions using dual-model approach
+            quantile_result = generate_quantile_predictions(
+                config.FINAL_OUTPUT_PATH,
+                pd.to_datetime(request.date),
+                actual_site,
+                get_actual_model_name(request.model, "regression")
+            )
             
-            # Use old working approach - simpler quartile estimation around main prediction
-            q05_pred = predicted_da * 0.7  # Use main prediction for quartiles
-            q50_pred = predicted_da        # Main prediction as median
-            q95_pred = predicted_da * 1.3  # Simple multiplier approach
-            
-            response_data["graphs"]["level_range"] = {
-                "predicted_da": predicted_da,
-                "q05": float(q05_pred),
-                "q50": float(q50_pred), 
-                "q95": float(q95_pred),
-                "type": "level_range"
-            }
+            if quantile_result:
+                gb_preds = quantile_result['quantile_predictions']
+                xgb_pred = quantile_result['point_prediction']
+                
+                # Generate advanced gradient visualization plot
+                gradient_plot = generate_gradient_uncertainty_plot(
+                    gb_preds, xgb_pred, actual_da=None
+                )
+                
+                response_data["graphs"]["level_range"] = {
+                    "gradient_quantiles": {
+                        "q05": float(gb_preds['q05']),
+                        "q50": float(gb_preds['q50']),
+                        "q95": float(gb_preds['q95'])
+                    },
+                    "xgboost_prediction": float(xgb_pred),
+                    "gradient_plot": gradient_plot,
+                    "type": "gradient_uncertainty"
+                }
+            else:
+                # Fallback to simple approach if quantile generation fails
+                predicted_da = float(regression_result['predicted_da'])
+                fallback_quantiles = {
+                    "q05": predicted_da * 0.7,
+                    "q50": predicted_da,
+                    "q95": predicted_da * 1.3
+                }
+                
+                # Generate gradient plot with fallback data
+                gradient_plot = generate_gradient_uncertainty_plot(
+                    fallback_quantiles, predicted_da, actual_da=None
+                )
+                
+                response_data["graphs"]["level_range"] = {
+                    "gradient_quantiles": fallback_quantiles,
+                    "xgboost_prediction": float(predicted_da),
+                    "gradient_plot": gradient_plot,
+                    "type": "gradient_uncertainty"
+                }
         
         # Add category graph data for classification  
         if classification_result and 'predicted_category' in classification_result:
