@@ -238,7 +238,7 @@ MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
 
 # Retrospective Evaluation Configuration
-N_RANDOM_ANCHORS = 200  # Number of random anchor points for retrospective evaluation
+N_RANDOM_ANCHORS = 20  # Number of random anchor points for retrospective evaluation
 # - Higher values: More thorough evaluation, longer runtime (recommended: 20-100)
 # - Lower values: Faster evaluation, less comprehensive testing
 

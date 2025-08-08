@@ -270,6 +270,7 @@ const Dashboard = () => {
     
     // Group by site for better visualization
     const sites = [...new Set(results.map(r => r.site))].slice(0, 5) // Limit to 5 sites for readability
+    const isSingleSite = sites.length === 1
     
     const traces = []
     
@@ -284,7 +285,11 @@ const Dashboard = () => {
         if (siteData.length === 0) return
         
         const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        const color = colors[siteIndex % colors.length]
+        const siteColor = colors[siteIndex % colors.length]
+        
+        // Color logic: single site = blue/red, multiple sites = site-specific colors
+        const actualColor = isSingleSite ? 'blue' : siteColor
+        const predictedColor = isSingleSite ? 'red' : siteColor
         
         // Actual categories
         traces.push({
@@ -292,7 +297,7 @@ const Dashboard = () => {
           y: siteData.map(d => d.actual_category),
           mode: 'lines+markers',
           name: `${site} - Actual Category`,
-          line: { color: color, width: 2 },
+          line: { color: actualColor, width: 2 },
           marker: { size: 6 },
           hovertemplate: '<b>%{text}</b><br>Date: %{x}<br>Actual Category: %{customdata}<extra></extra>',
           text: siteData.map(d => site),
@@ -308,7 +313,7 @@ const Dashboard = () => {
           y: siteData.map(d => d.predicted_category),
           mode: 'lines+markers',
           name: `${site} - Predicted Category`,
-          line: { color: color, width: 2, dash: 'dash' },
+          line: { color: predictedColor, width: 2, dash: 'dash' },
           marker: { size: 6, symbol: 'square' },
           hovertemplate: '<b>%{text}</b><br>Date: %{x}<br>Predicted Category: %{customdata}<extra></extra>',
           text: siteData.map(d => site),
@@ -345,7 +350,11 @@ const Dashboard = () => {
         if (siteData.length === 0) return
         
         const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        const color = colors[siteIndex % colors.length]
+        const siteColor = colors[siteIndex % colors.length]
+        
+        // Color logic: single site = blue/red, multiple sites = site-specific colors
+        const actualColor = isSingleSite ? 'blue' : siteColor
+        const predictedColor = isSingleSite ? 'red' : siteColor
         
         // Actual values
         traces.push({
@@ -353,7 +362,7 @@ const Dashboard = () => {
           y: siteData.map(d => d.actual_da),
           mode: 'lines+markers',
           name: `${site} - Actual`,
-          line: { color: color, width: 2 },
+          line: { color: actualColor, width: 2 },
           marker: { size: 4 }
         })
         
@@ -363,7 +372,7 @@ const Dashboard = () => {
           y: siteData.map(d => d.predicted_da),
           mode: 'lines+markers',
           name: `${site} - Predicted`,
-          line: { color: color, width: 2, dash: 'dash' },
+          line: { color: predictedColor, width: 2, dash: 'dash' },
           marker: { size: 4, symbol: 'square' }
         })
       })
