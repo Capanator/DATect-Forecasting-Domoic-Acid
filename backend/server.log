@@ -1,65 +1,0 @@
-INFO:     Started server process [34028]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-[INFO] Starting comprehensive system validation...
-[INFO] Validating system configuration...
-[INFO] Configuration validation passed
-[INFO] Validating site configuration...
-[INFO] Site validation passed: 10 sites configured
-[INFO] Validating data files...
-[INFO] Main data file validated: 10950 records, 620,796 bytes
-[INFO] Data files validation passed
-[INFO] ✅ All system validation checks passed - ready for forecasting
-[INFO] Starting comprehensive system validation...
-[INFO] Validating system configuration...
-[INFO] Configuration validation passed
-[INFO] Validating site configuration...
-[INFO] Site validation passed: 10 sites configured
-[INFO] Validating data files...
-[INFO] Main data file validated: 10950 records, 620,796 bytes
-[INFO] Data files validation passed
-[INFO] ✅ All system validation checks passed - ready for forecasting
-
-[INFO] Running LEAK-FREE regression evaluation with xgboost
-[INFO] Data integrity validation passed: 10950 records, 17 features
-[INFO] Loaded 10950 records across 10 sites
-[INFO] Generated 30 leak-free anchor points
-Processing Leak-Free Anchors:   0%|          | 0/30 [00:00<?, ?it/s][Parallel(n_jobs=-1)]: Using backend LokyBackend with 12 concurrent workers.
-Processing Leak-Free Anchors:  80%|████████  | 24/30 [00:02<00:00, 10.43it/s]Processing Leak-Free Anchors: 100%|██████████| 30/30 [00:02<00:00, 13.02it/s]
-[Parallel(n_jobs=-1)]: Done  30 out of  30 | elapsed:    3.0s finished
-[INFO] Successfully processed 30 leak-free forecasts
-[INFO] Successfully processed 30 leak-free forecasts
-[INFO] LEAK-FREE Regression R2: -1.4341, MAE: 4.4015
-INFO:     127.0.0.1:57380 - "GET /api/visualizations/spectral/Cannon%20Beach HTTP/1.1" 200 OK
-[INFO] Starting comprehensive system validation...
-[INFO] Validating system configuration...
-[INFO] Configuration validation passed
-[INFO] Validating site configuration...
-[INFO] Site validation passed: 10 sites configured
-[INFO] Validating data files...
-[INFO] Main data file validated: 10950 records, 620,796 bytes
-[INFO] Data files validation passed
-[INFO] ✅ All system validation checks passed - ready for forecasting
-
-[INFO] Running LEAK-FREE regression evaluation with xgboost
-[INFO] Data integrity validation passed: 10950 records, 17 features
-[INFO] Loaded 10950 records across 10 sites
-[INFO] Generated 30 leak-free anchor points
-Processing Leak-Free Anchors:   0%|          | 0/30 [00:00<?, ?it/s][Parallel(n_jobs=-1)]: Using backend LokyBackend with 12 concurrent workers.
-Processing Leak-Free Anchors:  40%|████      | 12/30 [00:00<00:00, 113.97it/s]Processing Leak-Free Anchors:  80%|████████  | 24/30 [00:02<00:00,  9.53it/s] Processing Leak-Free Anchors: 100%|██████████| 30/30 [00:02<00:00, 13.81it/s]
-[Parallel(n_jobs=-1)]: Done  30 out of  30 | elapsed:    2.9s finished
-[INFO] Successfully processed 30 leak-free forecasts
-[INFO] Successfully processed 30 leak-free forecasts
-[INFO] LEAK-FREE Regression R2: -1.4341, MAE: 4.4015
-INFO:     127.0.0.1:57673 - "GET /api/visualizations/spectral/all HTTP/1.1" 200 OK
-/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/joblib/externals/loky/backend/resource_tracker.py:314: UserWarning: resource_tracker: There appear to be 6 leaked semlock objects to clean up at shutdown
-  warnings.warn(
-/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/joblib/externals/loky/backend/resource_tracker.py:314: UserWarning: resource_tracker: There appear to be 2 leaked folder objects to clean up at shutdown
-  warnings.warn(
-/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/joblib/externals/loky/backend/resource_tracker.py:330: UserWarning: resource_tracker: /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/joblib_memmapping_folder_34028_ed6055b367ba46e1ac12343bb6a0beb7_03c6d8bc5f3046af8e05ce523ca3a160: FileNotFoundError(2, 'No such file or directory')
-  warnings.warn(f"resource_tracker: {name}: {e!r}")
-/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/joblib/externals/loky/backend/resource_tracker.py:330: UserWarning: resource_tracker: /var/folders/5n/q6llj5253vdbhnh52t2wlcd40000gn/T/joblib_memmapping_folder_34028_ca5ba1314fcc4b438aa3f26d9a93b2f0_f48f6de3c58446bbbf79477367a42653: FileNotFoundError(2, 'No such file or directory')
-  warnings.warn(f"resource_tracker: {name}: {e!r}")
-/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/resource_tracker.py:276: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/loky-34028-hfiflkha'}
-  warnings.warn(

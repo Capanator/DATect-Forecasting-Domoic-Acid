@@ -1,9 +1,9 @@
 """
-DATect Web Application Backend
-============================
+DATect Web Application API
+=========================
 
-FastAPI backend for the Domoic Acid forecasting web application.
-Provides REST API endpoints for forecasting, data management, and user operations.
+FastAPI backend API for the Domoic Acid forecasting web application.
+Provides REST API endpoints for forecasting, data visualization, and analysis.
 """
 
 from fastapi import FastAPI, HTTPException, Depends, status
