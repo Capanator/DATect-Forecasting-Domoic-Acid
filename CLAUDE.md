@@ -5,17 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Development Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# One-command system launch (RECOMMENDED)
+python run_datect.py             # Complete system startup with scientific validation
 
-# Main pipeline commands
+# Individual component commands
+pip install -r requirements.txt  # Install dependencies
 python dataset-creation.py       # Process data (30-60 min runtime)
-python modular-forecast.py       # Run forecasting system
+python modular-forecast.py       # Run forecasting system (Dash interface)
 
-# Web application (full-stack)
-python run_datect.py             # Launch complete web application
+# Development servers (advanced)
 cd frontend && npm run dev       # Frontend development server only
-cd backend && uvicorn main:app --reload  # Backend API server only
+cd backend && uvicorn api:app --reload  # Backend API server only
 
 # Testing commands
 python tools/testing/test_complete_pipeline.py                    # Integration tests
@@ -56,8 +56,9 @@ Web Stack: React Frontend ↔ FastAPI Backend ↔ Python Forecasting Engine
 
 #### Web Application (`frontend/` & `backend/`)
 - `frontend/` - React application with Vite, TailwindCSS, and Plotly.js
-- `backend/main.py` - FastAPI server providing REST API endpoints
-- Modern responsive UI with interactive forecasting and data visualization
+- `backend/api.py` - FastAPI server providing REST API endpoints
+- `backend/visualizations.py` - Scientific visualization logic
+- Modern responsive UI with 5 interactive visualizations and forecasting tools
 
 ### Data Organization
 ```
@@ -102,9 +103,12 @@ The system has strict temporal safeguards to prevent data leakage:
 
 ### Critical Tests (Must Pass)
 ```bash
-# Run these before any changes to temporal logic
+# These tests are AUTOMATICALLY run by run_datect.py
 python analysis/scientific-validation/test_temporal_integrity.py  # 7/7 tests must pass
 python tools/testing/test_complete_pipeline.py                   # Integration validation
+
+# Manual execution for development
+python -m pytest analysis/scientific-validation/test_temporal_integrity.py -v
 ```
 
 ### Scientific Validation
@@ -133,14 +137,14 @@ The system maintains a 100% test success rate across 21 test components. All tem
 - Modify `config.py` for system-wide settings
 - Test configuration changes with complete pipeline
 - Satellite data URLs are complex - validate before changing
-- LAG_FEATURES impacts model performance significantly
+- LAG_FEATURES impacts model performance significantly (current optimized: [1,3])
 
 ### Web Development
 - Frontend uses React 18 with Vite build system and TailwindCSS styling
-- Backend uses FastAPI with Pydantic validation
-- Install frontend dependencies: `cd frontend && npm install`
-- Install backend dependencies: `pip install -r backend/requirements.txt`
-- Web application integrates with existing Python forecasting engine
+- Backend uses FastAPI with comprehensive scientific visualizations
+- Scientific plots: Correlation heatmaps, sensitivity analysis, spectral analysis, waterfall plots
+- Integration with XGBoost forecasting engine for real predictions
+- All visualizations include proper temporal safeguards and NaN handling
 
 ### Performance Considerations
 - Current system: 89,708 samples/second processing
