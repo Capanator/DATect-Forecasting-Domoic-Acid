@@ -1,0 +1,121 @@
+{
+  "success": true,
+  "message": "Feature validation completed",
+  "numeric_features": [
+    "lat",
+    "lon",
+    "oni",
+    "pdo",
+    "discharge",
+    "da",
+    "pn",
+    "beuti",
+    "chla-anom",
+    "modis-chla",
+    "modis-flr",
+    "modis-k490",
+    "modis-par",
+    "modis-sst",
+    "sst-anom"
+  ],
+  "missing_values": {
+    "da": 62,
+    "pn": 870,
+    "chla-anom": 60,
+    "sst-anom": 60
+  },
+  "imputation_comparison": {
+    "da": {
+      "0.1": {
+        "Median (Current)": {
+          "mse_mean": 503.0142058609059,
+          "mse_std": 74.22282260424168,
+          "mae_mean": 8.732630424720458,
+          "mae_std": 0.5272250392734237,
+          "n_trials": 5
+        },
+        "Mean": {
+          "mse_mean": 414.1177285255582,
+          "mse_std": 55.28040930614441,
+          "mae_mean": 10.936495512835586,
+          "mae_std": 0.23466278780054758,
+          "n_trials": 5
+        },
+        "KNN (k=5)": {
+          "mse_mean": 455.9728708691009,
+          "mse_std": 38.4781830070289,
+          "mae_mean": 11.164367134415796,
+          "mae_std": 0.2050797674058088,
+          "n_trials": 5
+        },
+        "Iterative": {
+          "mse_mean": 449.92549913809205,
+          "mse_std": 96.10887063108919,
+          "mae_mean": 11.023978072951419,
+          "mae_std": 0.6321449273961336,
+          "n_trials": 5
+        }
+      },
+      "0.2": {
+        "Median (Current)": {
+          "mse_mean": 512.934443006572,
+          "mse_std": 43.5532347086288,
+          "mae_mean": 8.684894189134694,
+          "mae_std": 0.15912291082089716,
+          "n_trials": 5
+        },
+        "Mean": {
+          "mse_mean": 396.25429243230644,
+          "mse_std": 32.569836004220655,
+          "mae_mean": 10.86752119088614,
+          "mae_std": 0.15949364303714247,
+          "n_trials": 5
+        },
+        "KNN (k=5)": {
+          "mse_mean": 401.51550863281796,
+          "mse_std": 32.4427806486443,
+          "mae_mean": 10.930582621136022,
+          "mae_std": 0.17857559170168208,
+          "n_trials": 5
+        },
+        "Iterative": {
+          "mse_mean": 455.24370599206895,
+          "mse_std": 14.458814279192476,
+          "mae_mean": 11.230840918872477,
+          "mae_std": 0.15127862808462633,
+          "n_trials": 5
+        }
+      },
+      "0.3": {
+        "Median (Current)": {
+          "mse_mean": 485.1058959407639,
+          "mse_std": 30.610985128555658,
+          "mae_mean": 8.313549692515673,
+          "mae_std": 0.2559380027728372,
+          "n_trials": 5
+        },
+        "Mean": {
+          "mse_mean": 428.8375592033808,
+          "mse_std": 25.962784336759743,
+          "mae_mean": 11.060440790461552,
+          "mae_std": 0.09554033129083116,
+          "n_trials": 5
+        },
+        "KNN (k=5)": {
+          "mse_mean": 480.9459676862083,
+          "mse_std": 20.021962015545956,
+          "mae_mean": 11.323487029488158,
+          "mae_std": 0.134304667713666,
+          "n_trials": 5
+        },
+        "Iterative": {
+          "mse_mean": 452.2139236831572,
+          "mse_std": 22.814888051589378,
+          "mae_mean": 11.195515534741368,
+          "mae_std": 0.16959553203411534,
+          "n_trials": 5
+        }
+      }
+    }
+  }
+}
