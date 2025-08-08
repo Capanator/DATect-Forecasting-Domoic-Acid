@@ -202,7 +202,7 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 

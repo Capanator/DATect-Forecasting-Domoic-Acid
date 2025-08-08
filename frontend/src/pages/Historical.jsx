@@ -9,13 +9,12 @@ const Historical = () => {
   const [selectedSite, setSelectedSite] = useState(null)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
-  const [visualizationType, setVisualizationType] = useState('timeseries')
+  const [visualizationType, setVisualizationType] = useState('correlation')
   const [siteScope, setSiteScope] = useState('single') // 'single' or 'all'
   const [visualizationData, setVisualizationData] = useState(null)
   const [loadingVisualization, setLoadingVisualization] = useState(false)
 
   const visualizationOptions = [
-    { value: 'timeseries', label: 'Domoic Acid Plots', icon: Activity },
     { value: 'correlation', label: 'Correlation Heatmap', icon: BarChart3 },
     { value: 'sensitivity', label: 'Sensitivity Analysis', icon: BarChart3 },
     { value: 'comparison', label: 'DA vs Pseudo-nitzschia', icon: Activity },
@@ -83,9 +82,10 @@ const Historical = () => {
       } else if (visualizationType === 'sensitivity') {
         endpoint = '/api/visualizations/sensitivity'
       } else if (visualizationType === 'comparison') {
-        endpoint = siteScope === 'single' && selectedSite
+        // DA vs Pseudo-nitzschia only supports single site
+        endpoint = selectedSite
           ? `/api/visualizations/comparison/${selectedSite.value}`
-          : '/api/visualizations/comparison/all'
+          : null
       } else if (visualizationType === 'waterfall') {
         endpoint = '/api/visualizations/waterfall'
       } else if (visualizationType === 'spectral') {
@@ -115,9 +115,11 @@ const Historical = () => {
   }, [selectedSite, siteScope])
 
   useEffect(() => {
-    if (visualizationType !== 'timeseries') {
-      loadVisualizationData()
+    // Force single site for comparison
+    if (forceSingleSite && siteScope === 'all') {
+      setSiteScope('single')
     }
+    loadVisualizationData()
   }, [visualizationType, selectedSite, siteScope])
 
   const siteOptions = sites.map(site => ({ value: site, label: site }))
@@ -184,21 +186,7 @@ const Historical = () => {
   }
 
   const renderVisualization = () => {
-    if (visualizationType === 'timeseries') {
-      const plotData = createTimeSeries()
-      if (plotData) {
-        return (
-          <Plot
-            data={plotData.data}
-            layout={plotData.layout}
-            config={{ responsive: true }}
-            className="w-full"
-          />
-        )
-      } else {
-        return <p className="text-center text-gray-500">No data available for visualization</p>
-      }
-    } else if (visualizationData) {
+    if (visualizationData) {
       // Handle both single plot and multiple plots
       if (visualizationData.plot) {
         // Single plot visualization
@@ -231,7 +219,9 @@ const Historical = () => {
   }
 
   // Check if current visualization supports site scope selection
-  const supportsSiteScope = ['timeseries', 'correlation', 'comparison', 'spectral'].includes(visualizationType)
+  const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType)
+  // DA vs Pseudo-nitzschia only supports single site
+  const forceSingleSite = visualizationType === 'comparison'
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -290,8 +280,8 @@ const Historical = () => {
             </div>
           )}
 
-          {/* Site Selector - only show for single site scope */}
-          {siteScope === 'single' && supportsSiteScope && (
+          {/* Site Selector - show for single site scope or when forced */}
+          {(siteScope === 'single' || forceSingleSite) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <MapPin className="w-4 h-4 inline mr-1" />
@@ -308,37 +298,6 @@ const Historical = () => {
           )}
         </div>
       </div>
-
-      {/* Data Summary - only show for time series */}
-      {visualizationType === 'timeseries' && data.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Data Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-600">Total Samples</h3>
-              <p className="text-2xl font-bold text-blue-600">{data.length}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-600">Average DA</h3>
-              <p className="text-2xl font-bold text-green-600">
-                {data.length > 0 ? (data.reduce((sum, d) => sum + (d.da || 0), 0) / data.filter(d => d.da).length).toFixed(2) : '0'} μg/g
-              </p>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-600">Max DA</h3>
-              <p className="text-2xl font-bold text-yellow-600">
-                {data.length > 0 ? Math.max(...data.filter(d => d.da).map(d => d.da)).toFixed(2) : '0'} μg/g
-              </p>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-600">Date Range</h3>
-              <p className="text-sm font-bold text-red-600">
-                {data.length > 0 ? `${data[0].date} to ${data[data.length - 1].date}` : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Visualization */}
       <div className="bg-white rounded-lg shadow-md p-6">
