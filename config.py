@@ -214,10 +214,10 @@ FORECAST_TASK = "regression"  # Options: "regression", "classification"
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "ridge"  # Options: "xgboost", "ridge" 
+FORECAST_MODEL = "xgboost"  # Options: "xgboost", "linear" 
 # - "xgboost": XGBoost (primary model - uses XGBoost for both regression & classification)
-# - "ridge": Linear Models (uses Ridge for regression, Logistic for classification)
-# Note: XGBoost is recommended fosr best performance, ridge/logistic for interpretability
+# - "linear": Linear Models (uses Linear Regression for regression, Logistic for classification)
+# Note: XGBoost is recommended for best performance, linear/logistic for interpretability
 
 
 # Dashboard Configuration  

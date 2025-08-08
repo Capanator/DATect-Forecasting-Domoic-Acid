@@ -136,7 +136,7 @@ Edit `config.py` to customize:
 ```python
 FORECAST_MODE = "realtime"      # "realtime" or "retrospective"
 FORECAST_TASK = "regression"    # "regression" or "classification"
-FORECAST_MODEL = "xgboost"      # "xgboost" or "ridge"
+FORECAST_MODEL = "xgboost"      # "xgboost" or "linear"
 TEMPORAL_BUFFER_DAYS = 1        # Minimum days between train/test
 LAG_FEATURES = [1, 3]           # Optimized lag selection
 MIN_TRAINING_SAMPLES = 3        # Minimum training size

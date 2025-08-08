@@ -55,7 +55,7 @@ Get available forecasting models information.
 **Response**:
 ```json
 {
-  "models": ["xgboost", "ridge"],
+  "models": ["xgboost", "linear"],
   "current_model": "xgboost",
   "performance": {
     "r_squared": 0.529,
@@ -327,7 +327,7 @@ class ForecastResponse(BaseModel):
 
 ### Forecast Models
 - `xgboost`: Primary model (R² ≈ 0.529)
-- `ridge`: Fallback linear model
+- `linear`: Fallback linear model
 
 ### Forecast Tasks  
 - `regression`: Continuous DA concentration prediction
@@ -387,7 +387,7 @@ All forecasting endpoints implement strict temporal validation:
 
 ### Model Performance
 - XGBoost R²: ~0.529 (200 forecasts/site)
-- Ridge R²: ~0.35 (fallback performance)
+- Linear R²: ~0.35 (fallback performance)
 - Prediction accuracy: Site-dependent
 
 ## 🚀 Development & Deployment

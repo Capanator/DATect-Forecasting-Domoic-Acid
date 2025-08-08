@@ -204,7 +204,7 @@ class DATectLauncher:
             spec.loader.exec_module(config)
             
             # Validate model/task combinations
-            valid_models = ['xgboost', 'ridge']
+            valid_models = ['xgboost', 'linear']
             if not hasattr(config, 'FORECAST_MODEL') or config.FORECAST_MODEL not in valid_models:
                 self.print_colored(f"❌ Invalid FORECAST_MODEL. Must be one of: {valid_models}", 'red')
                 return False

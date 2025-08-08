@@ -72,9 +72,9 @@ def get_actual_model_name(ui_model: str, task: str) -> str:
     """Map UI model selection to actual model names based on task."""
     if ui_model == "xgboost":
         return "xgboost"  # XGBoost works for both regression and classification
-    elif ui_model == "ridge":
+    elif ui_model == "linear":
         if task == "regression":
-            return "ridge"  # Ridge regression
+            return "linear"  # Linear regression
         else:
             return "logistic"  # Logistic regression for classification
     else:
@@ -175,7 +175,7 @@ class ForecastRequest(BaseModel):
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
     forecast_task: str = "regression"  # "regression" or "classification"
-    forecast_model: str = "xgboost"  # "xgboost" or "ridge" (linear models)
+    forecast_model: str = "xgboost"  # "xgboost" or "linear" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
 
 class ForecastResponse(BaseModel):

@@ -638,7 +638,7 @@ const Dashboard = () => {
                     className="w-full p-3 border border-gray-300 rounded-md text-lg"
                   >
                     <option value="xgboost">XGBoost - Advanced gradient boosting (Recommended)</option>
-                    <option value="ridge">Linear Models - Ridge regression & Logistic classification</option>
+                    <option value="linear">Linear Models - Linear regression & Logistic classification</option>
                   </select>
                 </div>
               </>

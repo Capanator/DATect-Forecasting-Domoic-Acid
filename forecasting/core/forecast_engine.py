@@ -84,7 +84,7 @@ class ForecastEngine:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost", "ridge", or "logistic" 
+            model_type: "xgboost", "linear", or "logistic" 
             n_anchors: Number of random anchor points per site
             min_test_date: Earliest date for test anchors
             

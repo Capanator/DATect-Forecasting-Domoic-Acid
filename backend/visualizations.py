@@ -683,20 +683,15 @@ def generate_spectral_analysis(data, site=None):
     
     # Run actual XGBoost retrospective evaluation for comparison
     try:
-        # Import forecast engine
+        # Import forecast engine and config
         from forecasting.core.forecast_engine import ForecastEngine
+        import config
         
-        # Run minimal retrospective evaluation
+        # Run retrospective evaluation
         engine = ForecastEngine()
         
-        # Run retrospective evaluation with enough samples for meaningful R²
-        # User mentioned R² ≈ 0.529 at ~200 forecasts per site, so use more anchors
-        if site:
-            # For single site, use more anchors to get meaningful statistics
-            n_anchors = 20  # Should give ~20 forecasts for the site
-        else:
-            # For all sites, use fewer anchors but still meaningful
-            n_anchors = 10  # Should give ~100 total forecasts across sites
+        # Use N_RANDOM_ANCHORS from config to match other evaluations
+        n_anchors = config.N_RANDOM_ANCHORS
             
         results_df = engine.run_retrospective_evaluation(
             task="regression",

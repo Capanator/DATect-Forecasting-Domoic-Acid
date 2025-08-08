@@ -45,7 +45,7 @@ Web Stack: React Frontend ↔ FastAPI Backend ↔ Python Forecasting Engine
 #### Core Forecasting Module (`forecasting/core/`)
 - `forecast_engine.py` - Main forecasting logic with strict temporal integrity protection
 - `data_processor.py` - Data processing with temporal safeguards and lag feature creation
-- `model_factory.py` - ML model creation (XGBoost primary, Ridge/Logistic fallback)
+- `model_factory.py` - ML model creation (XGBoost primary, Linear/Logistic fallback)
 - `env_config.py` - Environment configuration management
 - `logging_config.py` - Logging system
 - `exception_handling.py` - Error handling utilities
@@ -71,7 +71,7 @@ data/
 ### Configuration System
 Edit `config.py` to customize key settings:
 - `FORECAST_MODE`: "retrospective" or "realtime"
-- `FORECAST_MODEL`: "xgboost" or "ridge"
+- `FORECAST_MODEL`: "xgboost" or "linear"
 - `FORECAST_TASK`: "regression" or "classification"
 - `LAG_FEATURES`: Time series lag configuration (currently [1,3])
 
@@ -88,7 +88,7 @@ The system has strict temporal safeguards to prevent data leakage:
 
 ### Model Performance Requirements
 - XGBoost is the primary model (superior performance)
-- Ridge/Logistic regression as fallback methods
+- Linear/Logistic regression as fallback methods
 - Minimum 3-5 training samples required per forecast
 - Temporal buffers: 1-7 days for data integrity
 
@@ -129,7 +129,7 @@ The system maintains a 100% test success rate across 21 test components. All tem
 
 ### Model Development
 - Primary: XGBoost for superior performance
-- Fallback: Ridge regression for linear relationships
+- Fallback: Linear regression for linear relationships
 - Classification: Logistic regression with 4 risk categories
 - Always validate with temporal integrity tests
 
