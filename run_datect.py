@@ -77,7 +77,7 @@ class DATectLauncher:
         data_file = self.project_root / "data/processed/final_output.parquet"
         if not data_file.exists():
             self.print_colored("❌ Data file not found at data/processed/final_output.parquet", 'red')
-            print("Please run 'python3 dataset-creation.py' first to generate the data")
+            print("Please run 'python dataset-creation.py' first to generate the data")
             return False
         self.print_colored("✅ Data file found", 'green')
         
