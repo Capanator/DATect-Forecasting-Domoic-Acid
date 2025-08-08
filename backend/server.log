@@ -1,0 +1,23 @@
+INFO:     Started server process [19959]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[INFO] Starting comprehensive system validation...
+[INFO] Validating system configuration...
+[INFO] Configuration validation passed
+[INFO] Validating site configuration...
+[INFO] Site validation passed: 10 sites configured
+[INFO] Validating data files...
+[INFO] Main data file validated: 10950 records, 620,796 bytes
+[INFO] Data files validation passed
+[INFO] ✅ All system validation checks passed - ready for forecasting
+INFO:     127.0.0.1:55362 - "GET /api/visualizations/waterfall HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55381 - "GET /api/visualizations/correlation/all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55383 - "GET /api/visualizations/spectral/all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55385 - "GET /api/visualizations/comparison/all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55387 - "GET /api/visualizations/waterfall HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55389 - "GET /api/visualizations/sensitivity HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [19959]

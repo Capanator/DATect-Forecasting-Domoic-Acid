@@ -1,18 +1,32 @@
 import React, { useState, useEffect } from 'react'
-import { Calendar, MapPin, Download } from 'lucide-react'
+import { MapPin, BarChart3, Activity } from 'lucide-react'
 import Select from 'react-select'
 import Plot from 'react-plotly.js'
-import DatePicker from 'react-datepicker'
-import { format, subMonths } from 'date-fns'
 import api from '../services/api'
 
 const Historical = () => {
   const [sites, setSites] = useState([])
   const [selectedSite, setSelectedSite] = useState(null)
-  const [startDate, setStartDate] = useState(null)
-  const [endDate, setEndDate] = useState(null)
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
+  const [visualizationType, setVisualizationType] = useState('timeseries')
+  const [siteScope, setSiteScope] = useState('single') // 'single' or 'all'
+  const [visualizationData, setVisualizationData] = useState(null)
+  const [loadingVisualization, setLoadingVisualization] = useState(false)
+
+  const visualizationOptions = [
+    { value: 'timeseries', label: 'Domoic Acid Plots', icon: Activity },
+    { value: 'correlation', label: 'Correlation Heatmap', icon: BarChart3 },
+    { value: 'sensitivity', label: 'Sensitivity Analysis', icon: BarChart3 },
+    { value: 'comparison', label: 'DA vs Pseudo-nitzschia', icon: Activity },
+    { value: 'waterfall', label: 'Waterfall Plot', icon: BarChart3 },
+    { value: 'spectral', label: 'Spectral Analysis', icon: Activity },
+  ]
+
+  const siteScopeOptions = [
+    { value: 'single', label: 'Single Site' },
+    { value: 'all', label: 'All Sites' }
+  ]
 
   useEffect(() => {
     loadSites()
@@ -26,12 +40,6 @@ const Historical = () => {
       
       if (sitesList.length > 0) {
         setSelectedSite({ value: sitesList[0], label: sitesList[0] })
-        
-        // Set default date range (last 6 months)
-        const endDate = new Date(response.data.date_range.max)
-        const startDate = subMonths(endDate, 6)
-        setStartDate(startDate)
-        setEndDate(endDate)
       }
     } catch (err) {
       console.error('Failed to load sites:', err)
@@ -39,23 +47,22 @@ const Historical = () => {
   }
 
   const loadHistoricalData = async () => {
-    if (!selectedSite) return
+    if (!selectedSite && siteScope === 'single') return
 
     setLoading(true)
     try {
       const params = new URLSearchParams({
-        limit: '1000'
+        limit: '10000'
       })
-      
-      if (startDate) {
-        params.append('start_date', format(startDate, 'yyyy-MM-dd'))
-      }
-      if (endDate) {
-        params.append('end_date', format(endDate, 'yyyy-MM-dd'))
-      }
 
-      const response = await api.get(`/api/historical/${selectedSite.value}?${params}`)
-      setData(response.data.data)
+      if (siteScope === 'single' && selectedSite) {
+        const response = await api.get(`/api/historical/${selectedSite.value}?${params}`)
+        setData(response.data.data)
+      } else {
+        // Load data for all sites
+        const response = await api.get(`/api/historical/all?${params}`)
+        setData(response.data.data)
+      }
     } catch (err) {
       console.error('Failed to load historical data:', err)
     } finally {
@@ -63,77 +70,177 @@ const Historical = () => {
     }
   }
 
+  const loadVisualizationData = async () => {
+    setLoadingVisualization(true)
+    try {
+      const params = new URLSearchParams()
+
+      let endpoint = ''
+      if (visualizationType === 'correlation') {
+        endpoint = siteScope === 'single' && selectedSite 
+          ? `/api/visualizations/correlation/${selectedSite.value}` 
+          : '/api/visualizations/correlation/all'
+      } else if (visualizationType === 'sensitivity') {
+        endpoint = '/api/visualizations/sensitivity'
+      } else if (visualizationType === 'comparison') {
+        endpoint = siteScope === 'single' && selectedSite
+          ? `/api/visualizations/comparison/${selectedSite.value}`
+          : '/api/visualizations/comparison/all'
+      } else if (visualizationType === 'waterfall') {
+        endpoint = '/api/visualizations/waterfall'
+      } else if (visualizationType === 'spectral') {
+        endpoint = siteScope === 'single' && selectedSite
+          ? `/api/visualizations/spectral/${selectedSite.value}`
+          : '/api/visualizations/spectral/all'
+      }
+
+      if (endpoint) {
+        const response = await api.get(`${endpoint}?${params}`)
+        setVisualizationData(response.data)
+      }
+    } catch (err) {
+      console.error('Failed to load visualization data:', err)
+      setVisualizationData(null)
+    } finally {
+      setLoadingVisualization(false)
+    }
+  }
+
   useEffect(() => {
-    if (selectedSite) {
+    if (siteScope === 'single' && selectedSite) {
+      loadHistoricalData()
+    } else if (siteScope === 'all') {
       loadHistoricalData()
     }
-  }, [selectedSite, startDate, endDate])
+  }, [selectedSite, siteScope])
+
+  useEffect(() => {
+    if (visualizationType !== 'timeseries') {
+      loadVisualizationData()
+    }
+  }, [visualizationType, selectedSite, siteScope])
 
   const siteOptions = sites.map(site => ({ value: site, label: site }))
 
   const createTimeSeries = () => {
     if (!data || data.length === 0) return null
 
-    return {
-      data: [{
-        x: data.map(d => d.date),
-        y: data.map(d => d.da),
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: 'DA Concentration',
-        line: { color: '#2563eb' },
-        marker: { size: 4 }
-      }],
-      layout: {
-        title: `Historical DA Concentrations - ${selectedSite?.label}`,
-        xaxis: { title: 'Date' },
-        yaxis: { title: 'DA Concentration (μg/g)' },
-        height: 400
-      }
-    }
-  }
-
-  const createCategoryDistribution = () => {
-    if (!data || data.length === 0) return null
-
-    const categoryCounts = data.reduce((acc, d) => {
-      if (d['da-category'] !== undefined) {
-        acc[d['da-category']] = (acc[d['da-category']] || 0) + 1
-      }
-      return acc
-    }, {})
-
-    const categoryLabels = ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)']
-    const values = Object.keys(categoryCounts).map(key => categoryCounts[key] || 0)
-
-    return {
-      data: [{
-        type: 'pie',
-        labels: categoryLabels,
-        values: values,
-        hole: 0.4,
-        marker: {
-          colors: ['#10b981', '#f59e0b', '#ef4444', '#dc2626']
+    if (siteScope === 'single') {
+      // Filter out null/undefined DA values
+      const validData = data.filter(d => d.da !== null && d.da !== undefined)
+      if (validData.length === 0) return null
+      
+      return {
+        data: [{
+          x: validData.map(d => d.date),
+          y: validData.map(d => d.da),
+          type: 'scatter',
+          mode: 'lines+markers',
+          name: 'DA Concentration',
+          line: { color: '#2563eb' },
+          marker: { size: 4 }
+        }],
+        layout: {
+          title: `Historical DA Concentrations - ${selectedSite?.label}`,
+          xaxis: { title: 'Date' },
+          yaxis: { title: 'DA Concentration (μg/g)' },
+          height: 500
         }
-      }],
-      layout: {
-        title: `Risk Category Distribution - ${selectedSite?.label}`,
-        height: 400
+      }
+    } else {
+      // Group data by site for all sites view
+      const siteData = {}
+      data.forEach(d => {
+        if (d.da !== null && d.da !== undefined) {
+          if (!siteData[d.site]) {
+            siteData[d.site] = { dates: [], values: [] }
+          }
+          siteData[d.site].dates.push(d.date)
+          siteData[d.site].values.push(d.da)
+        }
+      })
+
+      if (Object.keys(siteData).length === 0) return null
+
+      const traces = Object.keys(siteData).map(site => ({
+        x: siteData[site].dates,
+        y: siteData[site].values,
+        type: 'scatter',
+        mode: 'lines',
+        name: site,
+        line: { width: 2 }
+      }))
+
+      return {
+        data: traces,
+        layout: {
+          title: 'Historical DA Concentrations - All Sites',
+          xaxis: { title: 'Date' },
+          yaxis: { title: 'DA Concentration (μg/g)' },
+          height: 500
+        }
       }
     }
   }
 
-  const plotData = createTimeSeries()
-  const categoryData = createCategoryDistribution()
+  const renderVisualization = () => {
+    if (visualizationType === 'timeseries') {
+      const plotData = createTimeSeries()
+      if (plotData) {
+        return (
+          <Plot
+            data={plotData.data}
+            layout={plotData.layout}
+            config={{ responsive: true }}
+            className="w-full"
+          />
+        )
+      } else {
+        return <p className="text-center text-gray-500">No data available for visualization</p>
+      }
+    } else if (visualizationData) {
+      // Handle both single plot and multiple plots
+      if (visualizationData.plot) {
+        // Single plot visualization
+        return (
+          <Plot
+            data={visualizationData.plot.data}
+            layout={visualizationData.plot.layout}
+            config={{ responsive: true }}
+            className="w-full"
+          />
+        )
+      } else if (visualizationData.plots && Array.isArray(visualizationData.plots)) {
+        // Multiple plots visualization
+        return (
+          <div className="space-y-4">
+            {visualizationData.plots.map((plot, index) => (
+              <Plot
+                key={index}
+                data={plot.data}
+                layout={plot.layout}
+                config={{ responsive: true }}
+                className="w-full"
+              />
+            ))}
+          </div>
+        )
+      }
+    }
+    return <p className="text-center text-gray-500">Loading visualization...</p>
+  }
+
+  // Check if current visualization supports site scope selection
+  const supportsSiteScope = ['timeseries', 'correlation', 'comparison', 'spectral'].includes(visualizationType)
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
           Historical Data Analysis
         </h1>
         <p className="text-gray-600">
-          Explore historical domoic acid measurements and trends
+          Explore historical domoic acid measurements and advanced visualizations
         </p>
       </div>
 
@@ -141,51 +248,69 @@ const Historical = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4">Analysis Parameters</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <MapPin className="w-4 h-4 inline mr-1" />
-              Monitoring Site
-            </label>
-            <Select
-              value={selectedSite}
-              onChange={setSelectedSite}
-              options={siteOptions}
-              className="text-sm"
-              placeholder="Select site..."
-            />
+        {/* Visualization Type Selector */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Visualization Type
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+            {visualizationOptions.map(option => (
+              <button
+                key={option.value}
+                onClick={() => setVisualizationType(option.value)}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  visualizationType === option.value
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <option.icon className="w-4 h-4" />
+                  <span className="text-sm">{option.label}</span>
+                </div>
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              Start Date
-            </label>
-            <DatePicker
-              selected={startDate}
-              onChange={setStartDate}
-              className="w-full p-2 border border-gray-300 rounded-md"
-              dateFormat="yyyy-MM-dd"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Site Scope Selector */}
+          {supportsSiteScope && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <BarChart3 className="w-4 h-4 inline mr-1" />
+                Site Scope
+              </label>
+              <Select
+                value={siteScopeOptions.find(opt => opt.value === siteScope)}
+                onChange={(option) => setSiteScope(option.value)}
+                options={siteScopeOptions}
+                className="text-sm"
+              />
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              End Date
-            </label>
-            <DatePicker
-              selected={endDate}
-              onChange={setEndDate}
-              className="w-full p-2 border border-gray-300 rounded-md"
-              dateFormat="yyyy-MM-dd"
-            />
-          </div>
+          {/* Site Selector - only show for single site scope */}
+          {siteScope === 'single' && supportsSiteScope && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MapPin className="w-4 h-4 inline mr-1" />
+                Monitoring Site
+              </label>
+              <Select
+                value={selectedSite}
+                onChange={setSelectedSite}
+                options={siteOptions}
+                className="text-sm"
+                placeholder="Select site..."
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Data Summary */}
-      {data.length > 0 && (
+      {/* Data Summary - only show for time series */}
+      {visualizationType === 'timeseries' && data.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">Data Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -196,13 +321,13 @@ const Historical = () => {
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-gray-600">Average DA</h3>
               <p className="text-2xl font-bold text-green-600">
-                {(data.reduce((sum, d) => sum + d.da, 0) / data.length).toFixed(2)} μg/g
+                {data.length > 0 ? (data.reduce((sum, d) => sum + (d.da || 0), 0) / data.filter(d => d.da).length).toFixed(2) : '0'} μg/g
               </p>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-gray-600">Max DA</h3>
               <p className="text-2xl font-bold text-yellow-600">
-                {Math.max(...data.map(d => d.da)).toFixed(2)} μg/g
+                {data.length > 0 ? Math.max(...data.filter(d => d.da).map(d => d.da)).toFixed(2) : '0'} μg/g
               </p>
             </div>
             <div className="bg-red-50 p-4 rounded-lg">
@@ -215,35 +340,16 @@ const Historical = () => {
         </div>
       )}
 
-      {/* Time Series Plot */}
-      {plotData && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <Plot
-            data={plotData.data}
-            layout={plotData.layout}
-            config={{ responsive: true }}
-            className="w-full"
-          />
-        </div>
-      )}
-
-      {/* Category Distribution */}
-      {categoryData && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <Plot
-            data={categoryData.data}
-            layout={categoryData.layout}
-            config={{ responsive: true }}
-            className="w-full"
-          />
-        </div>
-      )}
-
-      {loading && (
-        <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <p className="text-gray-600">Loading data...</p>
-        </div>
-      )}
+      {/* Visualization */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {(loading || loadingVisualization) ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Loading visualization...</p>
+          </div>
+        ) : (
+          renderVisualization()
+        )}
+      </div>
     </div>
   )
 }
