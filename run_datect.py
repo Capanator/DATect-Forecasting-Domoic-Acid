@@ -133,9 +133,13 @@ class DATectLauncher:
                 return False
             
             # Check temporal coverage
-            date_range = data['date'].max() - data['date'].min()
-            if date_range.days < 365:
-                self.print_colored("⚠️  Warning: Less than 1 year of data - may affect model performance", 'yellow')
+            try:
+                data['date'] = pd.to_datetime(data['date'])
+                date_range = data['date'].max() - data['date'].min()
+                if date_range.days < 365:
+                    self.print_colored("⚠️  Warning: Less than 1 year of data - may affect model performance", 'yellow')
+            except Exception:
+                self.print_colored("⚠️  Warning: Could not validate date range", 'yellow')
             
             # Check site coverage
             sites = data['site'].nunique()
