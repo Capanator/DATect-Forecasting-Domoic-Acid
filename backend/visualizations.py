@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
+# Removed: from sklearn.model_selection import train_test_split  # Use temporal splits instead
 from sklearn.inspection import permutation_importance
 from scipy import signal
 from scipy.stats import pearsonr
@@ -333,8 +333,24 @@ def generate_sensitivity_analysis(data):
     X = df_clean[feature_cols]
     y = df_clean['da']
     
-    # Split data for training
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+    # Split data for training using temporal ordering (prevent data leakage)
+    if 'date' in df_clean.columns:
+        # Use temporal split: 75% earliest data for training, 25% latest for testing
+        split_idx = int(len(df_clean) * 0.75)
+        train_indices = df_clean.index[:split_idx]
+        test_indices = df_clean.index[split_idx:]
+        
+        X_train = X.loc[train_indices]
+        X_test = X.loc[test_indices]
+        y_train = y.loc[train_indices]
+        y_test = y.loc[test_indices]
+    else:
+        # Fallback to chronological split by index order if no date column
+        split_idx = int(len(X) * 0.75)
+        X_train = X.iloc[:split_idx]
+        X_test = X.iloc[split_idx:]
+        y_train = y.iloc[:split_idx]
+        y_test = y.iloc[split_idx:]
     
     # Train a simple linear regression model
     model = LinearRegression()

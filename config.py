@@ -202,13 +202,13 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "regression"  # Options: "regression", "classification"
+FORECAST_TASK = "classification"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 
