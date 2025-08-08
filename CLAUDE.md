@@ -12,6 +12,11 @@ pip install -r requirements.txt
 python dataset-creation.py       # Process data (30-60 min runtime)
 python modular-forecast.py       # Run forecasting system
 
+# Web application (full-stack)
+python run_datect.py             # Launch complete web application
+cd frontend && npm run dev       # Frontend development server only
+cd backend && uvicorn main:app --reload  # Backend API server only
+
 # Testing commands
 python tools/testing/test_complete_pipeline.py                    # Integration tests
 python analysis/scientific-validation/test_temporal_integrity.py  # Critical data leakage tests
@@ -21,11 +26,12 @@ python analysis/scientific-validation/performance_profiler.py     # Performance 
 
 ## Repository Architecture
 
-This is a scientific machine learning system for forecasting harmful algal bloom concentrations (domoic acid) using satellite oceanographic data and environmental measurements. The system processes 20+ years of data across 10 Pacific Coast monitoring sites.
+This is a scientific machine learning system for forecasting harmful algal bloom concentrations (domoic acid) using satellite oceanographic data and environmental measurements. The system processes 20+ years of data across 10 Pacific Coast monitoring sites, with both standalone Python dashboards and a modern React web application.
 
 ### Core Pipeline Architecture
 ```
 Data Flow: Raw CSV → Satellite Processing → Feature Engineering → ML Forecasting → Dashboard/Analysis
+Web Stack: React Frontend ↔ FastAPI Backend ↔ Python Forecasting Engine
 ```
 
 ### Key Components
@@ -34,6 +40,7 @@ Data Flow: Raw CSV → Satellite Processing → Feature Engineering → ML Forec
 - `dataset-creation.py` - Complete data processing pipeline (satellite + environmental data)
 - `modular-forecast.py` - Main forecasting application with multiple operation modes
 - `config.py` - System configuration with extensive satellite data URLs and settings
+- `run_datect.py` - Full-stack web application launcher
 
 #### Core Forecasting Module (`forecasting/core/`)
 - `forecast_engine.py` - Main forecasting logic with strict temporal integrity protection
@@ -46,6 +53,11 @@ Data Flow: Raw CSV → Satellite Processing → Feature Engineering → ML Forec
 #### Dashboard System (`forecasting/dashboard/`)
 - `realtime.py` - Interactive forecasting UI (port 8066)
 - `retrospective.py` - Historical analysis UI (port 8071)
+
+#### Web Application (`frontend/` & `backend/`)
+- `frontend/` - React application with Vite, TailwindCSS, and Plotly.js
+- `backend/main.py` - FastAPI server providing REST API endpoints
+- Modern responsive UI with interactive forecasting and data visualization
 
 ### Data Organization
 ```
@@ -60,7 +72,7 @@ Edit `config.py` to customize key settings:
 - `FORECAST_MODE`: "retrospective" or "realtime"
 - `FORECAST_MODEL`: "xgboost" or "ridge"
 - `FORECAST_TASK`: "regression" or "classification"
-- `LAG_FEATURES`: Time series lag configuration (currently [1,2,3])
+- `LAG_FEATURES`: Time series lag configuration (currently [1,3])
 
 ## Critical Technical Requirements
 
@@ -123,11 +135,34 @@ The system maintains a 100% test success rate across 21 test components. All tem
 - Satellite data URLs are complex - validate before changing
 - LAG_FEATURES impacts model performance significantly
 
+### Web Development
+- Frontend uses React 18 with Vite build system and TailwindCSS styling
+- Backend uses FastAPI with Pydantic validation
+- Install frontend dependencies: `cd frontend && npm install`
+- Install backend dependencies: `pip install -r backend/requirements.txt`
+- Web application integrates with existing Python forecasting engine
+
 ### Performance Considerations
 - Current system: 89,708 samples/second processing
 - Memory usage: <250MB for full dataset
 - Runtime: 30-60 minutes for complete data processing
 - Dashboard ports: 8066 (realtime), 8071 (retrospective)
+- Web app ports: 3000 (frontend), 8000 (backend API)
+
+## Multi-Interface System
+
+The system provides multiple interfaces:
+
+### Python Dashboards (Dash/Plotly)
+- Retrospective analysis: `python modular-forecast.py` (config: FORECAST_MODE="retrospective")
+- Real-time forecasting: `python modular-forecast.py` (config: FORECAST_MODE="realtime")
+- Scientific validation tools in `analysis/` directory
+
+### Web Application (React/FastAPI)
+- Modern responsive interface accessible via `python run_datect.py`
+- REST API endpoints for programmatic access
+- Interactive visualizations and forecasting tools
+- Production-ready deployment architecture
 
 ## Scientific Context
 

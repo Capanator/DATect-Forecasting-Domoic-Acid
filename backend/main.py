@@ -23,6 +23,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from forecasting.core.forecast_engine import ForecastEngine
 from forecasting.core.model_factory import ModelFactory
 import config
+from visualizations import (
+    generate_correlation_heatmap,
+    generate_sensitivity_analysis,
+    generate_time_series_comparison,
+    generate_waterfall_plot,
+    generate_spectral_analysis
+)
 
 # Fix path resolution - ensure we use absolute paths relative to project root
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -338,6 +345,144 @@ async def update_config(config_request: ConfigUpdateRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
+
+@app.get("/api/historical/all")
+async def get_all_sites_historical(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    limit: Optional[int] = 1000
+):
+    """Get historical data for all sites."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Apply date filters
+        if start_date:
+            data = data[pd.to_datetime(data['date']) >= pd.to_datetime(start_date)]
+        if end_date:
+            data = data[pd.to_datetime(data['date']) <= pd.to_datetime(end_date)]
+        
+        # Sort by date and site
+        data = data.sort_values(['site', 'date'])
+        
+        # Limit results
+        if limit:
+            data = data.head(limit)
+        
+        # Convert to dict for JSON response
+        result = []
+        for _, row in data.iterrows():
+            result.append({
+                'date': row['date'].strftime('%Y-%m-%d') if pd.notna(row['date']) else None,
+                'da': float(row['da']) if pd.notna(row['da']) else None,
+                'site': row['site'],
+                'da-category': int(row['da-category']) if 'da-category' in row and pd.notna(row['da-category']) else None
+            })
+        
+        return {
+            "success": True,
+            "data": result,
+            "count": len(result)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve historical data: {str(e)}")
+
+# Visualization endpoints
+# NOTE: More specific routes must come before generic parameter routes
+@app.get("/api/visualizations/correlation/all")
+async def get_correlation_heatmap_all():
+    """Generate correlation heatmap for all sites combined."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plot_data = generate_correlation_heatmap(data, site=None)
+        return {"success": True, "plot": plot_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate correlation heatmap: {str(e)}")
+
+@app.get("/api/visualizations/correlation/{site}")
+async def get_correlation_heatmap_single(site: str):
+    """Generate correlation heatmap for a single site."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Handle site name mapping
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        actual_site = site_mapping.get(site.lower(), site)
+        
+        plot_data = generate_correlation_heatmap(data, actual_site)
+        return {"success": True, "plot": plot_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate correlation heatmap: {str(e)}")
+
+@app.get("/api/visualizations/sensitivity")
+async def get_sensitivity_analysis():
+    """Generate sensitivity analysis plots."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plots = generate_sensitivity_analysis(data)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate sensitivity analysis: {str(e)}")
+
+@app.get("/api/visualizations/comparison/all")
+async def get_time_series_comparison_all():
+    """Generate time series comparison for all sites."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plot_data = generate_time_series_comparison(data, site=None)
+        return {"success": True, "plot": plot_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate time series comparison: {str(e)}")
+
+@app.get("/api/visualizations/comparison/{site}")
+async def get_time_series_comparison_single(site: str):
+    """Generate time series comparison for a single site."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Handle site name mapping
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        actual_site = site_mapping.get(site.lower(), site)
+        
+        plot_data = generate_time_series_comparison(data, actual_site)
+        return {"success": True, "plot": plot_data}  # plot_data is already in correct format
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate time series comparison: {str(e)}")
+
+@app.get("/api/visualizations/waterfall")
+async def get_waterfall_plot():
+    """Generate waterfall plot for all sites."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plot_data = generate_waterfall_plot(data)
+        return {"success": True, "plot": plot_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate waterfall plot: {str(e)}")
+
+@app.get("/api/visualizations/spectral/all")
+async def get_spectral_analysis_all():
+    """Generate spectral analysis for all sites combined."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plots = generate_spectral_analysis(data, site=None)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
+
+@app.get("/api/visualizations/spectral/{site}")
+async def get_spectral_analysis_single(site: str):
+    """Generate spectral analysis for a single site."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Handle site name mapping
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        actual_site = site_mapping.get(site.lower(), site)
+        
+        plots = generate_spectral_analysis(data, actual_site)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
 @app.post("/api/forecast/enhanced")
 async def generate_enhanced_forecast(request: ForecastRequest):
