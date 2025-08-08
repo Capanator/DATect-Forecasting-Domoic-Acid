@@ -131,7 +131,7 @@ class DATectLauncher:
         
         # Start backend process
         self.backend_process = subprocess.Popen([
-            sys.executable, 'backend/main.py'
+            sys.executable, 'backend/api.py'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.project_root)
         
         print(f"Backend PID: {self.backend_process.pid}")
