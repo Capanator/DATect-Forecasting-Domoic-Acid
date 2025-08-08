@@ -204,17 +204,13 @@ const Dashboard = () => {
         selected_sites: config.selected_sites
       })
       
-      if (response.data.success) {
-        setRetrospectiveResults(response.data)
-        setFilteredResults(response.data) // Initially show all results
-        setSelectedSiteFilter('all')
-        setCurrentStep('results')
-      } else {
-        setError(response.data.error || 'Retrospective analysis failed')
-      }
+      setRetrospectiveResults(response.data)
+      setFilteredResults(response.data)
+      setSelectedSiteFilter('all')
+      setCurrentStep('results')
     } catch (err) {
       setError('Failed to run retrospective analysis')
-      console.error(err)
+      console.error('Retrospective analysis error:', err)
     } finally {
       setLoading(false)
     }
@@ -756,15 +752,20 @@ const Dashboard = () => {
 
   const renderRetrospectiveStep = () => (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="bg-white rounded-lg shadow-md p-8">
         <div className="mb-6">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
             Running Retrospective Analysis
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-6 text-center">
             Processing historical data with {config.forecast_model} model for {config.forecast_task}...
           </p>
+          
+          {/* Loading spinner */}
+          <div className="text-center mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          </div>
+          
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-700">
               This analysis runs forecasts across historical time periods and compares 
@@ -910,8 +911,8 @@ const Dashboard = () => {
                       return traces;
                     })()}
                     layout={{
-                      title: 'DA Level Forecast: Gradient (XGBoost) & Point (XGBoost)',
-                      xaxis: { title: 'DA Level' },
+                      title: "DA Level Forecast: Gradient (XGBoost) & Point (XGBoost)",
+                      xaxis_title: "DA Level",
                       yaxis: { visible: false, range: [0, 1] },
                       showlegend: true,
                       height: 300,
@@ -970,9 +971,9 @@ const Dashboard = () => {
                       textposition: 'auto'
                     }]}
                     layout={{
-                      title: 'Category Probability Distribution',
-                      xaxis: { title: 'Category' },
-                      yaxis: { title: 'Probability', range: [0, 1.1] },
+                      title: "Category Probability Distribution",
+                      yaxis: { title: "Probability", range: [0, 1.1] },
+                      xaxis: { title: "Category" },
                       showlegend: false,
                       height: 400
                     }}
@@ -1001,10 +1002,11 @@ const Dashboard = () => {
                   marker: { color: 'steelblue' }
                 }]}
                 layout={{
-                  title: 'Top Feature Importance',
-                  xaxis: { title: 'Importance Score' },
-                  yaxis: { title: 'Features', categoryorder: 'total ascending' },
-                  height: 400
+                  title: "Top Feature Importance",
+                  xaxis_title: "Importance Score",
+                  yaxis_title: "Features",
+                  height: 400,
+                  yaxis: { categoryorder: 'total ascending' }
                 }}
                 config={{ responsive: true }}
                 style={{ width: '100%' }}

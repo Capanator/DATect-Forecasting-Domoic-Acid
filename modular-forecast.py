@@ -145,7 +145,7 @@ class LeakFreeForecastApp:
             logger.info("Using XGBoost model for real-time forecasting")
             
             print(f"\n[INFO] Launching real-time forecasting dashboard...")
-            print(f"[INFO] Model: XGBoost (fixed for realtime)")
+            print(f"[INFO] Model: XGBoost (from config)")
             print(f"[INFO] Tasks: Both regression (primary) & classification displayed")
             
             dashboard = RealtimeDashboard(self.data_path)

@@ -153,7 +153,9 @@ if SALIB_AVAILABLE and len(X) > 200:  # Need sufficient data for Sobol analysis
         }
 
         # Generate samples using Saltelli's sampling scheme (reduced for stability)
-        param_values = saltelli.sample(problem, 64, calc_second_order=False)
+        N = 64  # Base sample size
+        param_values = saltelli.sample(problem, N, calc_second_order=False)
+        print(f"Generated {len(param_values)} parameter combinations for Sobol analysis")
 
         # Define a model wrapper function to use the trained regression model
         def model_wrapper(X_input):
@@ -161,9 +163,14 @@ if SALIB_AVAILABLE and len(X) > 200:  # Need sufficient data for Sobol analysis
 
         # Evaluate the model for all generated samples
         Y = model_wrapper(param_values)
+        print(f"Model evaluated on {len(Y)} samples")
+        
+        # Ensure Y is the correct shape
+        if Y.ndim > 1:
+            Y = Y.flatten()
 
         # Compute Sobol sensitivity indices
-        sobol_indices = sobol.analyze(problem, Y, print_to_console=False)
+        sobol_indices = sobol.analyze(problem, Y, calc_second_order=False, print_to_console=False)
         first_order = sobol_indices['S1']
 
         plt.figure(figsize=(10, 6))

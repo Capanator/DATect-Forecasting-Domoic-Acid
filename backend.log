@@ -1,0 +1,15 @@
+INFO:     Started server process [53473]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8000): [errno 48] address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+[INFO] Starting comprehensive system validation...
+[INFO] Validating system configuration...
+[INFO] Configuration validation passed
+[INFO] Validating site configuration...
+[INFO] Site validation passed: 10 sites configured
+[INFO] Validating data files...
+[INFO] Main data file validated: 10950 records, 620,796 bytes
+[INFO] Data files validation passed
+[INFO] ✅ All system validation checks passed - ready for forecasting

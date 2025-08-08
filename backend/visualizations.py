@@ -171,7 +171,7 @@ def generate_correlation_heatmap(data, site=None):
 
 
 def generate_sensitivity_analysis(data):
-    """Generate sensitivity analysis plots matching the original implementation."""
+    """Generate sensitivity analysis plots including Sobol indices if possible."""
     
     # Apply sophisticated NaN handling
     df_processed = data.copy()
@@ -223,6 +223,8 @@ def generate_sensitivity_analysis(data):
         }
     }
     
+    plots = [plot1]
+    
     # Prepare data for model-based methods
     X = df_clean[feature_cols]
     y = df_clean['da']
@@ -234,6 +236,69 @@ def generate_sensitivity_analysis(data):
     model = LinearRegression()
     model.fit(X_train, y_train)
     
+    # Try Sobol analysis if we have SALib and enough data
+    try:
+        from SALib.sample import saltelli
+        from SALib.analyze import sobol
+        
+        if len(X) > 200:  # Need sufficient data for Sobol
+            # Define the problem for SALib
+            problem = {
+                'num_vars': len(feature_cols),
+                'names': feature_cols,
+                'bounds': [[float(X[col].min()), float(X[col].max())] for col in feature_cols]
+            }
+            
+            # Generate samples using Saltelli's sampling scheme
+            N = 64  # Base sample size
+            param_values = saltelli.sample(problem, N, calc_second_order=False)
+            
+            # Evaluate the model for all generated samples
+            Y = model.predict(param_values)
+            
+            # Ensure Y is the correct shape
+            if Y.ndim > 1:
+                Y = Y.flatten()
+            
+            # Compute Sobol sensitivity indices
+            sobol_indices = sobol.analyze(problem, Y, calc_second_order=False, print_to_console=False)
+            first_order = sobol_indices['S1']
+            
+            # Sort by importance
+            sorted_idx = np.argsort(first_order)[::-1]
+            sorted_features_sobol = [feature_cols[i] for i in sorted_idx]
+            sorted_sobol = first_order[sorted_idx]
+            
+            # Plot: Sobol First Order Sensitivity
+            plot_sobol = {
+                "data": [{
+                    "type": "bar",
+                    "x": sorted_features_sobol[:10],  # Top 10 for clarity
+                    "y": sorted_sobol[:10].tolist(),
+                    "marker": {"color": "green"}
+                }],
+                "layout": {
+                    "title": {
+                        "text": "Sobol First Order Sensitivity Indices (Top 10)",
+                        "font": {"size": 16}
+                    },
+                    "xaxis": {
+                        "title": "Input Variables",
+                        "tickangle": -45,
+                        "tickfont": {"size": 12}
+                    },
+                    "yaxis": {
+                        "title": "First Order Sobol Index",
+                        "titlefont": {"size": 14}
+                    },
+                    "height": 500
+                }
+            }
+            plots.append(plot_sobol)
+    except Exception as e:
+        # Sobol analysis failed, skip it
+        pass
+    
     # Compute permutation feature importance
     perm_result = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42)
     perm_importances = perm_result.importances_mean
@@ -243,7 +308,7 @@ def generate_sensitivity_analysis(data):
     sorted_features = [feature_cols[i] for i in sorted_idx]
     sorted_importances = perm_importances[sorted_idx]
     
-    # Plot 2: Permutation Feature Importance
+    # Plot: Permutation Feature Importance
     plot2 = {
         "data": [{
             "type": "bar",
@@ -268,8 +333,9 @@ def generate_sensitivity_analysis(data):
             "height": 500
         }
     }
+    plots.append(plot2)
     
-    return [plot1, plot2]
+    return plots
 
 
 def generate_time_series_comparison(data, site=None):
@@ -494,13 +560,49 @@ def generate_spectral_analysis(data, site=None):
     if len(da_values) < 20:
         return []
     
-    # For now, simulate XGBoost predictions with slightly modified actual values
-    # This provides a visual comparison without running expensive retrospective evaluation
-    # In production, this would be replaced with actual XGBoost predictions
-    np.random.seed(42)  # For reproducibility
-    noise = np.random.normal(0, np.std(da_values) * 0.2, len(da_values))
-    xgb_predictions = np.maximum(0, da_values + noise)  # Add noise but keep positive
-    actual_for_comparison = da_values
+    # Run actual XGBoost retrospective evaluation for comparison
+    try:
+        # Import forecast engine
+        from forecasting.core.forecast_engine import ForecastEngine
+        
+        # Run minimal retrospective evaluation
+        engine = ForecastEngine()
+        
+        # Run retrospective evaluation with enough samples for meaningful R²
+        # User mentioned R² ≈ 0.529 at ~200 forecasts per site, so use more anchors
+        if site:
+            # For single site, use more anchors to get meaningful statistics
+            n_anchors = 20  # Should give ~20 forecasts for the site
+        else:
+            # For all sites, use fewer anchors but still meaningful
+            n_anchors = 10  # Should give ~100 total forecasts across sites
+            
+        results_df = engine.run_retrospective_evaluation(
+            task="regression",
+            model_type="xgboost",
+            n_anchors=n_anchors
+        )
+        
+        # Filter by site if specified
+        if site and results_df is not None and not results_df.empty:
+            results_df = results_df[results_df['site'] == site]
+        
+        # Extract predicted values aligned with actual
+        if results_df is not None and not results_df.empty:
+            # Sort by date for temporal alignment
+            results_df = results_df.sort_values('date')
+            xgb_predictions = results_df['Predicted_da'].dropna().values
+            actual_for_comparison = results_df['da'].dropna().values
+        else:
+            # Fallback to None if no results
+            xgb_predictions = None
+            actual_for_comparison = da_values
+            
+    except Exception as e:
+        # If XGBoost fails, don't show comparison
+        print(f"XGBoost retrospective evaluation failed: {e}")
+        xgb_predictions = None
+        actual_for_comparison = da_values
     
     plots = []
     

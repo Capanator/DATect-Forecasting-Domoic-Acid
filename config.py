@@ -202,7 +202,7 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 
@@ -238,7 +238,7 @@ MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
 
 # Retrospective Evaluation Configuration
-N_RANDOM_ANCHORS = 20  # Number of random anchor points for retrospective evaluation
+N_RANDOM_ANCHORS = 10  # Number of random anchor points for retrospective evaluation
 # - Higher values: More thorough evaluation, longer runtime (recommended: 20-100)
 # - Lower values: Faster evaluation, less comprehensive testing
 

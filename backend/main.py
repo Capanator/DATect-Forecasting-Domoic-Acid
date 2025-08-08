@@ -9,6 +9,7 @@ Provides REST API endpoints for forecasting, data management, and user operation
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
@@ -16,6 +17,8 @@ import sys
 import os
 import pandas as pd
 import numpy as np
+import json
+import asyncio
 
 # Add parent directory to path to import forecasting modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -508,6 +511,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             regression_model
         )
         
+        
         # For classification, use the mapped model
         classification_model = get_actual_model_name(request.model, "classification")
         classification_result = forecast_engine.generate_single_forecast(
@@ -568,14 +572,20 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "graphs": {}
         }
         
-        # Add level range graph data for regression
+        # Add level range graph data using old working approach (RF-style)
         if regression_result and 'predicted_da' in regression_result:
-            predicted_da = float(regression_result['predicted_da'])  # Convert numpy float to Python float
+            predicted_da = float(regression_result['predicted_da'])
+            
+            # Use old working approach - simpler quartile estimation around main prediction
+            q05_pred = predicted_da * 0.7  # Use main prediction for quartiles
+            q50_pred = predicted_da        # Main prediction as median
+            q95_pred = predicted_da * 1.3  # Simple multiplier approach
+            
             response_data["graphs"]["level_range"] = {
                 "predicted_da": predicted_da,
-                "q05": predicted_da * 0.7,
-                "q50": predicted_da,
-                "q95": predicted_da * 1.3,
+                "q05": float(q05_pred),
+                "q50": float(q50_pred), 
+                "q95": float(q95_pred),
                 "type": "level_range"
             }
         
@@ -606,9 +616,11 @@ async def generate_enhanced_forecast(request: ForecastRequest):
 class RetrospectiveRequest(BaseModel):
     selected_sites: List[str] = []  # Empty list means all sites
 
+# Removed streaming progress functionality
+
 @app.post("/api/retrospective")
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
-    """Run complete retrospective analysis based on current config."""
+    """Run complete retrospective analysis based on current config (legacy endpoint)."""
     try:
         # Run retrospective analysis using forecast engine directly
         # This avoids launching the dashboard but still gets the results

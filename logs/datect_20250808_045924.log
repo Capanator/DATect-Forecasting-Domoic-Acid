@@ -1,0 +1,37 @@
+2025-08-08 04:59:24 - root - INFO - File logging enabled: logs/datect_20250808_045924.log
+2025-08-08 04:59:24 - __main__ - INFO - Starting Domoic Acid Forecasting System
+2025-08-08 04:59:24 - __main__ - INFO - System started in realtime mode
+2025-08-08 04:59:24 - __main__ - INFO - Initializing forecast application
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Initializing ForecastEngine
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Using data file: ./data/processed/final_output.parquet
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Validating system startup configuration
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - System startup validation completed successfully
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Initializing data processor and model factory
+2025-08-08 04:59:24 - forecasting.core.data_processor - INFO - Initializing DataProcessor
+2025-08-08 04:59:24 - forecasting.core.data_processor - INFO - DA category configuration loaded: 4 categories
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Configuration: buffer_days=1, min_samples=5, seed=42
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - ForecastEngine initialization completed successfully
+2025-08-08 04:59:24 - __main__ - INFO - Running realtime forecasting mode
+2025-08-08 04:59:24 - __main__ - INFO - Starting real-time forecasting dashboard
+2025-08-08 04:59:24 - __main__ - INFO - Using XGBoost model for real-time forecasting
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Initializing ForecastEngine
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Using data file: ./data/processed/final_output.parquet
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Validating system startup configuration
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - System startup validation completed successfully
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Initializing data processor and model factory
+2025-08-08 04:59:24 - forecasting.core.data_processor - INFO - Initializing DataProcessor
+2025-08-08 04:59:24 - forecasting.core.data_processor - INFO - DA category configuration loaded: 4 categories
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - Configuration: buffer_days=1, min_samples=5, seed=42
+2025-08-08 04:59:24 - forecasting.core.forecast_engine - INFO - ForecastEngine initialization completed successfully
+2025-08-08 04:59:24 - forecasting.dashboard.realtime - INFO - Setting up dashboard layout
+2025-08-08 04:59:24 - forecasting.dashboard.realtime - INFO - Dashboard setup: 10 sites, date range 2003-01-06 to 2023-12-25
+2025-08-08 04:59:24 - __main__ - INFO - Launching dashboard on port 8066
+2025-08-08 04:59:24 - forecasting.dashboard.realtime - INFO - Starting RealtimeDashboard server on port 8066
+2025-08-08 04:59:24 - forecasting.dashboard.realtime - INFO - Debug mode: False
+2025-08-08 04:59:24 - dash.dash - INFO - Dash is running on http://0.0.0.0:8066/
+
+2025-08-08 04:59:24 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8066
+ * Running on http://192.168.0.242:8066
+2025-08-08 04:59:24 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
