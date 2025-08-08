@@ -47,8 +47,8 @@ cd frontend && npm install && cd ..
 # 2. Generate dataset (first time only, 30-60 min)
 python dataset-creation.py
 
-# 3. Run forecasting system
-python run_datect.py        # Complete web interface
+# 3. Run forecasting system  
+python run_datect.py        # Complete web interface (auto-installs additional dependencies)
 ```
 
 ## 📊 System Architecture
