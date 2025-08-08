@@ -1,0 +1,23 @@
+# Vercel Python Runtime Requirements
+# Optimized for serverless deployment
+
+# Core API Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Data Processing
+pandas==2.0.3
+numpy==1.24.3
+pyarrow==14.0.1
+
+# Machine Learning
+scikit-learn==1.3.2
+xgboost==2.0.2
+
+# HTTP & Async
+httpx==0.25.1
+pydantic==2.5.0
+
+# Data Handling
+python-multipart==0.0.6
+python-dateutil==2.8.2

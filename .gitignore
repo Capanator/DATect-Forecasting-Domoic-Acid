@@ -58,3 +58,11 @@ analysis/*/outputs/
 *.temp
 *.bak
 *.backup
+
+# Vercel
+.vercel
+.env*.local
+
+# Frontend build
+frontend/dist/
+frontend/build/
