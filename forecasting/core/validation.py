@@ -38,7 +38,7 @@ def validate_configuration():
     if config.FORECAST_MODE not in valid_modes:
         raise ValueError(f"Invalid FORECAST_MODE: {config.FORECAST_MODE}. Must be one of: {valid_modes}")
         
-    valid_models = ["xgboost", "ridge"]
+    valid_models = ["xgboost", "linear"]
     if config.FORECAST_MODEL not in valid_models:
         raise ValueError(f"Invalid FORECAST_MODEL: {config.FORECAST_MODEL}. Must be one of: {valid_models}")
         
