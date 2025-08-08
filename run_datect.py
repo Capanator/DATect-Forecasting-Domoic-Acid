@@ -12,6 +12,8 @@ import signal
 import webbrowser
 import requests
 from pathlib import Path
+import pandas as pd
+import importlib.util
 
 class DATectLauncher:
     def __init__(self):
@@ -68,16 +70,28 @@ class DATectLauncher:
         return False
     
     def check_prerequisites(self):
-        """Check all prerequisites"""
-        self.print_colored("📋 Checking prerequisites...", 'blue')
+        """Check all prerequisites including scientific data validation"""
+        self.print_colored("📋 Checking prerequisites and scientific validity...", 'blue')
         
-        # Check data file
+        # Check data file existence
         data_file = self.project_root / "data/processed/final_output.parquet"
         if not data_file.exists():
             self.print_colored("❌ Data file not found at data/processed/final_output.parquet", 'red')
             print("Please run 'python3 dataset-creation.py' first to generate the data")
             return False
         self.print_colored("✅ Data file found", 'green')
+        
+        # SCIENTIFIC VALIDATION: Check data integrity
+        if not self._validate_scientific_data(data_file):
+            return False
+        
+        # SCIENTIFIC VALIDATION: Check temporal integrity
+        if not self._validate_temporal_integrity():
+            return False
+            
+        # SCIENTIFIC VALIDATION: Check model configuration
+        if not self._validate_model_config():
+            return False
         
         # Check Python
         self.print_colored("✅ Python 3 available", 'green')
@@ -93,6 +107,131 @@ class DATectLauncher:
             
         return True
     
+    def _validate_scientific_data(self, data_file):
+        """Validate scientific integrity of the dataset"""
+        self.print_colored("🔬 Validating scientific data integrity...", 'blue')
+        
+        try:
+            # Load and validate data structure
+            data = pd.read_parquet(data_file)
+            
+            # Check required columns for scientific validity
+            required_columns = ['date', 'site', 'da', 'da-category']
+            missing_cols = [col for col in required_columns if col not in data.columns]
+            if missing_cols:
+                self.print_colored(f"❌ Missing required columns: {missing_cols}", 'red')
+                print("Data must contain 'date', 'site', 'da', and 'da-category' columns")
+                return False
+            
+            # Check data quality
+            if data.empty:
+                self.print_colored("❌ Dataset is empty", 'red')
+                return False
+            
+            if data['da'].isna().all():
+                self.print_colored("❌ All DA values are missing", 'red')
+                return False
+            
+            # Check temporal coverage
+            date_range = data['date'].max() - data['date'].min()
+            if date_range.days < 365:
+                self.print_colored("⚠️  Warning: Less than 1 year of data - may affect model performance", 'yellow')
+            
+            # Check site coverage
+            sites = data['site'].nunique()
+            if sites < 3:
+                self.print_colored("⚠️  Warning: Less than 3 sites - limited spatial coverage", 'yellow')
+            
+            self.print_colored(f"✅ Data validation passed: {len(data):,} records, {sites} sites", 'green')
+            return True
+            
+        except Exception as e:
+            self.print_colored(f"❌ Data validation failed: {e}", 'red')
+            return False
+    
+    def _validate_temporal_integrity(self):
+        """Validate temporal integrity settings to prevent data leakage"""
+        self.print_colored("⏱️  Validating temporal integrity safeguards...", 'blue')
+        
+        try:
+            # Load config file dynamically
+            config_path = self.project_root / "config.py"
+            spec = importlib.util.spec_from_file_location("config", config_path)
+            config = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config)
+            
+            # Check critical temporal safeguards
+            if not hasattr(config, 'TEMPORAL_BUFFER_DAYS'):
+                self.print_colored("❌ TEMPORAL_BUFFER_DAYS not configured", 'red')
+                return False
+            
+            if config.TEMPORAL_BUFFER_DAYS < 1:
+                self.print_colored("❌ TEMPORAL_BUFFER_DAYS must be ≥ 1 to prevent data leakage", 'red')
+                return False
+                
+            if not hasattr(config, 'SATELLITE_BUFFER_DAYS'):
+                self.print_colored("❌ SATELLITE_BUFFER_DAYS not configured", 'red')
+                return False
+                
+            if config.SATELLITE_BUFFER_DAYS < 7:
+                self.print_colored("❌ SATELLITE_BUFFER_DAYS should be ≥ 7 days for realistic data availability", 'red')
+                return False
+            
+            self.print_colored("✅ Temporal integrity safeguards validated", 'green')
+            return True
+            
+        except Exception as e:
+            self.print_colored(f"❌ Temporal integrity validation failed: {e}", 'red')
+            return False
+    
+    def _validate_model_config(self):
+        """Validate model configuration for scientific validity"""
+        self.print_colored("⚙️  Validating model configuration...", 'blue')
+        
+        try:
+            # Load config file dynamically
+            config_path = self.project_root / "config.py"
+            spec = importlib.util.spec_from_file_location("config", config_path)
+            config = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config)
+            
+            # Validate model/task combinations
+            valid_models = ['xgboost', 'ridge']
+            if not hasattr(config, 'FORECAST_MODEL') or config.FORECAST_MODEL not in valid_models:
+                self.print_colored(f"❌ Invalid FORECAST_MODEL. Must be one of: {valid_models}", 'red')
+                return False
+            
+            valid_tasks = ['regression', 'classification']
+            if not hasattr(config, 'FORECAST_TASK') or config.FORECAST_TASK not in valid_tasks:
+                self.print_colored(f"❌ Invalid FORECAST_TASK. Must be one of: {valid_tasks}", 'red')
+                return False
+            
+            # Check minimum training samples
+            if not hasattr(config, 'MIN_TRAINING_SAMPLES') or config.MIN_TRAINING_SAMPLES < 3:
+                self.print_colored("❌ MIN_TRAINING_SAMPLES must be ≥ 3 for reliable model training", 'red')
+                return False
+            
+            # Check random seed for reproducibility
+            if not hasattr(config, 'RANDOM_SEED'):
+                self.print_colored("⚠️  Warning: RANDOM_SEED not set - results may not be reproducible", 'yellow')
+            
+            # Check lag features
+            if hasattr(config, 'LAG_FEATURES'):
+                if not isinstance(config.LAG_FEATURES, list) or len(config.LAG_FEATURES) == 0:
+                    self.print_colored("❌ LAG_FEATURES must be a non-empty list", 'red')
+                    return False
+                
+                if any(lag < 1 for lag in config.LAG_FEATURES):
+                    self.print_colored("❌ All LAG_FEATURES must be ≥ 1", 'red')
+                    return False
+            
+            self.print_colored("✅ Model configuration validated", 'green')
+            return True
+            
+        except Exception as e:
+            self.print_colored(f"❌ Model configuration validation failed: {e}", 'red')
+            return False
+    
     def install_dependencies(self):
         """Install Python and Node.js dependencies"""
         self.print_colored("📦 Installing dependencies...", 'blue')
@@ -101,7 +240,7 @@ class DATectLauncher:
         print("Installing Python dependencies...")
         python_packages = [
             'fastapi', 'uvicorn', 'pydantic', 'pandas', 'numpy', 
-            'scikit-learn', 'plotly', 'requests'
+            'scikit-learn', 'plotly', 'requests', 'xgboost', 'dash'
         ]
         
         try:
