@@ -15,7 +15,7 @@ DATect is a state-of-the-art machine learning system for forecasting harmful alg
 - **Advanced ML Forecasting**: XGBoost-based predictions with proven R² ≈ 0.529 performance
 - **Zero Data Leakage**: Bulletproof temporal safeguards validated through comprehensive testing
 - **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
-- **Dual Interface**: Modern web application + scientific Dash dashboards
+- **Modern Web Interface**: React frontend with FastAPI backend
 - **Real-time & Retrospective Analysis**: Support for both operational and research use
 - **10 Monitoring Sites**: Complete Pacific Coast coverage from California to Washington
 - **21+ Years of Data**: Temporal coverage from 2002-2023
@@ -48,9 +48,7 @@ cd frontend && npm install && cd ..
 python dataset-creation.py
 
 # 3. Run forecasting system
-python modular-forecast.py  # For Dash interface
-# OR
-python run_datect.py        # For web interface
+python run_datect.py        # Complete web interface
 ```
 
 ## 📊 System Architecture
@@ -61,29 +59,20 @@ DATect-Forecasting-Domoic-Acid/
 │   ├── api.py                  # REST API endpoints
 │   └── visualizations.py       # Scientific visualizations
 ├── 📁 frontend/                # React web interface
-│   └── src/
-│       └── pages/
-│           ├── Dashboard.jsx   # Forecasting interface
-│           └── Historical.jsx  # Data visualizations
-├── 📁 forecasting/             # Core ML system
-│   ├── core/
-│   │   ├── forecast_engine.py  # Main forecasting logic
-│   │   ├── data_processor.py   # Temporal-safe processing
-│   │   └── model_factory.py    # ML model management
-│   └── dashboard/
-│       ├── realtime.py         # Real-time Dash interface
-│       └── retrospective.py    # Historical analysis
-├── 📁 data/
-│   ├── raw/                    # Original CSV data
+│   └── src/pages/              # Dashboard and visualization pages
+├── 📁 forecasting/core/        # Core ML system
+│   ├── forecast_engine.py      # Main forecasting logic
+│   ├── data_processor.py       # Temporal-safe processing
+│   └── model_factory.py        # ML model management
+├── 📁 data/                    # Dataset storage
+│   ├── raw/                    # Original CSV files
 │   ├── intermediate/           # Cached satellite data
 │   └── processed/              # ML-ready datasets
-├── 📁 analysis/
-│   ├── data-visualization/     # Visualization scripts
-│   └── scientific-validation/  # Validation & testing
+├── 📁 docs/                    # Documentation
 ├── config.py                   # System configuration
-├── dataset-creation.py         # Data pipeline
-├── modular-forecast.py         # Main application
-└── run_datect.py              # System launcher
+├── dataset-creation.py         # Data processing pipeline
+├── requirements.txt            # Python dependencies
+└── run_datect.py              # One-command launcher
 ```
 
 ## 🔬 Scientific Validation
@@ -97,11 +86,11 @@ The system implements **rigorous temporal safeguards** to prevent data leakage:
 - **Lag Feature Cutoffs**: Future values physically set to NaN
 - **Per-Forecast Validation**: Each prediction validated independently
 
-### Validation Results
+### Built-in Validation
 
 ```
-✅ 7/7 Temporal integrity tests PASSED
-✅ 21/21 Scientific validation components PASSED
+✅ Scientific data integrity validation
+✅ Temporal safeguard validation  
 ✅ Zero data leakage confirmed
 ✅ 89,708 samples/second processing speed
 ✅ <250MB memory usage for full dataset
@@ -161,28 +150,26 @@ MIN_TRAINING_SAMPLES = 3        # Minimum training size
 - **In-situ Measurements**: DA toxin concentrations
 - **Pseudo-nitzschia**: Cell count data
 
-## 🧪 Testing
+## 🧪 Built-in Validation
+
+The system includes comprehensive validation that runs automatically:
 
 ```bash
-# Run all tests
-python tools/testing/test_complete_pipeline.py
+# Complete validation (runs automatically on startup)
+python run_datect.py
 
-# Temporal integrity tests (CRITICAL)
-python analysis/scientific-validation/test_temporal_integrity.py
-
-# Scientific validation
-python analysis/scientific-validation/run_scientific_validation.py
-
-# Performance profiling
-python analysis/scientific-validation/performance_profiler.py
+# Data pipeline validation
+python dataset-creation.py
 ```
 
 ## 📚 Documentation
 
-- [QUICK_START.md](QUICK_START.md) - Getting started guide
-- [CLAUDE.md](CLAUDE.md) - Development guidelines for AI assistants
-- [SECURITY_VALIDATION.md](tools/documentation/SECURITY_VALIDATION.md) - Security analysis
-- [TESTING_DOCUMENTATION.md](tools/documentation/TESTING_DOCUMENTATION.md) - Test documentation
+- [Quick Start Guide](docs/QUICK_START.md) - One-command setup instructions
+- [Development Guidelines](docs/CLAUDE.md) - For AI assistants and developers
+- [API Documentation](docs/API_DOCUMENTATION.md) - Complete REST API reference
+- [Scientific Validation](docs/SCIENTIFIC_VALIDATION.md) - Temporal safeguards and peer-review standards
+- [Security Framework](docs/SECURITY_VALIDATION.md) - Data leakage prevention
+- [Testing Documentation](docs/TESTING_DOCUMENTATION.md) - Validation framework
 
 ## 🏆 Scientific Publications
 
