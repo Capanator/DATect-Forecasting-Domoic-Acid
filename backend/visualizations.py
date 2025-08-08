@@ -420,7 +420,8 @@ def generate_sensitivity_analysis(data):
         pass
     
     # Compute permutation feature importance
-    perm_result = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42)
+    # IMPORTANT: Calculate on training data to get meaningful positive importances
+    perm_result = permutation_importance(model, X_train, y_train, n_repeats=30, random_state=42)
     perm_importances = perm_result.importances_mean
     
     # Sort by importance

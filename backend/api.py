@@ -770,6 +770,51 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
             }
+        else:
+            # Fallback: Create category graph from regression prediction if classification failed
+            if regression_result and 'predicted_da' in regression_result:
+                try:
+                    from forecasting.core.data_processor import DataProcessor
+                    
+                    predicted_da = float(regression_result['predicted_da'])
+                    data_processor = DataProcessor()
+                    
+                    # Create categories from the predicted DA value  
+                    predicted_category_series = data_processor.create_da_categories_safe(pd.Series([predicted_da]))
+                    if not predicted_category_series.isna().iloc[0]:
+                        predicted_category = int(predicted_category_series.iloc[0])
+                        
+                        # Create fallback probabilities (high confidence for predicted category)
+                        fallback_probs = [0.1, 0.1, 0.1, 0.1]  
+                        fallback_probs[predicted_category] = 0.7
+                        
+                        response_data["graphs"]["category_range"] = {
+                            "predicted_category": predicted_category,
+                            "class_probabilities": fallback_probs,
+                            "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
+                            "type": "category_range_fallback"
+                        }
+                except Exception as fallback_error:
+                    # If fallback fails, at least provide basic category info
+                    predicted_da = float(regression_result['predicted_da'])
+                    if predicted_da <= 5:
+                        predicted_category = 0
+                    elif predicted_da <= 20:
+                        predicted_category = 1
+                    elif predicted_da <= 40:
+                        predicted_category = 2
+                    else:
+                        predicted_category = 3
+                        
+                    fallback_probs = [0.25, 0.25, 0.25, 0.25]
+                    fallback_probs[predicted_category] = 0.7
+                    
+                    response_data["graphs"]["category_range"] = {
+                        "predicted_category": predicted_category,
+                        "class_probabilities": fallback_probs,
+                        "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
+                        "type": "category_range_manual"
+                    }
         
         return response_data
         

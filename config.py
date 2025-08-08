@@ -208,13 +208,13 @@ FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "classification"  # Options: "regression", "classification"
+FORECAST_TASK = "regression"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "xgboost"  # Options: "xgboost", "ridge" 
+FORECAST_MODEL = "ridge"  # Options: "xgboost", "ridge" 
 # - "xgboost": XGBoost (primary model - uses XGBoost for both regression & classification)
 # - "ridge": Linear Models (uses Ridge for regression, Logistic for classification)
 # Note: XGBoost is recommended fosr best performance, ridge/logistic for interpretability
