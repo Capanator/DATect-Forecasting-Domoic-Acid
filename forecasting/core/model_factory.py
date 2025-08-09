@@ -6,7 +6,7 @@ Creates and configures machine learning models for DA forecasting.
 Supports both regression and classification tasks with multiple algorithms.
 """
 
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 # sklearn.ensemble models deprecated in favor of XGBoost
 try:
     import xgboost as xgb
@@ -70,15 +70,17 @@ class ModelFactory:
             # RF deprecated in favor of XGBoost
             raise ValueError("Random Forest deprecated. Use 'xgboost' or 'linear' instead.")
         elif model_type == "ridge":
-            # Ridge deprecated in favor of LinearRegression
-            raise ValueError("Ridge deprecated. Use 'linear' for Linear Regression instead.")
+            return Ridge(
+                alpha=1.0,  # Default regularization strength
+                random_state=self.random_seed
+            )
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
             )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'linear')")
+                           f"Supported: 'xgboost', 'linear', 'ridge')")
             
     def _get_classification_model(self, model_type):
         """Get classification model.""" 
