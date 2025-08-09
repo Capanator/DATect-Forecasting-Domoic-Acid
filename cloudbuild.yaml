@@ -10,8 +10,6 @@ steps:
       - '-f'
       - 'Dockerfile.production'
       - '-t'
-      - 'gcr.io/${PROJECT_ID}/datect:${SHORT_SHA}'
-      - '-t'
       - 'gcr.io/${PROJECT_ID}/datect:latest'
       - '.'
     timeout: '1800s'  # 30 minutes for cache pre-computation
@@ -21,8 +19,7 @@ steps:
     id: 'push-image'
     args:
       - 'push'
-      - '--all-tags'
-      - 'gcr.io/${PROJECT_ID}/datect'
+      - 'gcr.io/${PROJECT_ID}/datect:latest'
 
   # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -32,7 +29,7 @@ steps:
       - 'deploy'
       - 'datect-api'
       - '--image'
-      - 'gcr.io/${PROJECT_ID}/datect:${SHORT_SHA}'
+      - 'gcr.io/${PROJECT_ID}/datect:latest'
       - '--platform'
       - 'managed'
       - '--region'

@@ -53,13 +53,77 @@ if os.getenv("NODE_ENV") != "production" and os.getenv("CACHE_DIR") != "/app/cac
     if 'SPECTRAL_ENABLE_XGB' in os.environ:
         del os.environ['SPECTRAL_ENABLE_XGB']
 
+# Simple on-disk cache for heavy computations (ephemeral per instance)
+# Use /tmp by default for Cloud Run writeable filesystem
+CACHE_DIR = os.getenv("CACHE_DIR", "/tmp/datect-cache")
+
+# Disable legacy cache for local development
+LEGACY_CACHE_ENABLED = os.getenv("NODE_ENV") == "production" or os.getenv("CACHE_DIR") == "/app/cache"
+
+if LEGACY_CACHE_ENABLED:
+    os.makedirs(CACHE_DIR, exist_ok=True)
+
+def _cache_path(*parts: str) -> str:
+    if not LEGACY_CACHE_ENABLED:
+        return "/dev/null"  # Disabled for local development
+    safe_parts = [p.replace("/", "-") for p in parts]
+    return os.path.join(CACHE_DIR, "_".join(safe_parts)) + ".json"
+
+def _read_cache(path: str):
+    if not LEGACY_CACHE_ENABLED:
+        return None  # Always miss for local development
+    try:
+        if os.path.isfile(path):
+            with open(path, "r") as f:
+                return json.load(f)
+    except Exception:
+        return None
+    return None
+
+def _write_cache(path: str, obj: dict):
+    if not LEGACY_CACHE_ENABLED:
+        return  # No-op for local development
+    try:
+        with open(path, "w") as f:
+            json.dump(obj, f)
+    except Exception:
+        pass
+
 def _list_cache():
-    """Legacy cache removed - use precomputed cache status instead."""
-    return {"dir": "legacy cache removed", "files": [], "total_size": 0, "writable": False}
+    summary = {"dir": CACHE_DIR, "files": [], "total_size": 0, "writable": os.access(CACHE_DIR, os.W_OK)}
+    try:
+        if os.path.isdir(CACHE_DIR):
+            for root, _, files in os.walk(CACHE_DIR):
+                for name in files:
+                    fp = os.path.join(root, name)
+                    try:
+                        size = os.path.getsize(fp)
+                    except Exception:
+                        size = 0
+                    summary["files"].append({"path": fp.replace(project_root + os.sep, ""), "size": size})
+                    summary["total_size"] += size
+    except Exception:
+        pass
+    return summary
 
 def _clear_cache_internal():
-    """Legacy cache removed - use precomputed cache status instead."""
-    return {"dir": "legacy cache removed", "deleted_files": 0, "freed_bytes": 0, "writable": False}
+    result = {"dir": CACHE_DIR, "deleted_files": 0, "freed_bytes": 0, "writable": os.access(CACHE_DIR, os.W_OK)}
+    if not os.path.isdir(CACHE_DIR):
+        return result
+    if not result["writable"]:
+        # Cannot delete read-only baked cache (e.g., inside container image)
+        return result
+    for root, _, files in os.walk(CACHE_DIR):
+        for name in files:
+            fp = os.path.join(root, name)
+            try:
+                size = os.path.getsize(fp)
+                os.remove(fp)
+                result["deleted_files"] += 1
+                result["freed_bytes"] += size
+            except Exception:
+                pass
+    return result
 
 app = FastAPI(
     title="DATect API",
@@ -116,10 +180,6 @@ def get_actual_model_name(ui_model: str, task: str) -> str:
             return "logistic"  # Logistic regression for classification
     else:
         return ui_model  # Fallback to original name
-
-def get_realtime_model_name(task: str) -> str:
-    """Force XGBoost for all realtime forecasting regardless of user selection."""
-    return "xgboost"  # Always use XGBoost for realtime forecasting
 
 def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
     """Generate quantile predictions using Gradient Boosting and point prediction using XGBoost."""
@@ -326,8 +386,8 @@ async def generate_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
-        actual_model = get_realtime_model_name(request.task)
+        # Generate forecast using the existing engine with proper model mapping
+        actual_model = get_actual_model_name(request.model, request.task)
         result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
@@ -616,11 +676,18 @@ async def get_spectral_analysis_all():
         
         if plots is not None:
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
+            
+        # Fallback to legacy cache
+        cache_file = _cache_path("spectral", "all")
+        cached = _read_cache(cache_file)
+        if cached and isinstance(cached.get("plots"), list):
+            return {"success": True, "plots": cached["plots"], "cached": True, "source": "legacy"}
 
-        # Compute on server (expensive - only for local development)
+        # Last resort: compute on server (expensive)
         print("⚠️ WARNING: Computing spectral analysis on server - this is very expensive!")
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         plots = generate_spectral_analysis(data, site=None)
+        _write_cache(cache_file, {"plots": plots})
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
@@ -640,9 +707,17 @@ async def get_spectral_analysis_single(site: str):
         if plots is not None:
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
 
-        # Compute on server (expensive - only for local development)
+        # Fallback to legacy cache
+        cache_key = actual_site.lower().replace(" ", "-")
+        cache_file = _cache_path("spectral", cache_key)
+        cached = _read_cache(cache_file)
+        if cached and isinstance(cached.get("plots"), list):
+            return {"success": True, "plots": cached["plots"], "cached": True, "source": "legacy"}
+
+        # Last resort: compute on server (expensive)
         print(f"⚠️ WARNING: Computing spectral analysis for {actual_site} on server - this is very expensive!")
         plots = generate_spectral_analysis(data, actual_site)
+        _write_cache(cache_file, {"plots": plots})
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
@@ -670,21 +745,37 @@ async def clear_cache():
 
 @app.delete("/api/cache/retrospective", response_model=CacheDeleteOneResponse)
 async def delete_retrospective_cache(task: str, model: str):
-    """Legacy cache removed - precomputed cache is read-only."""
-    return CacheDeleteOneResponse(
-        success=False, 
-        message="Legacy cache removed. Precomputed cache is read-only and baked into deployment.", 
-        target={"file": "legacy cache removed"}
-    )
+    """Delete cached retrospective results for a specific (task, model)."""
+    actual_model = get_actual_model_name(model, task)
+    target_file = _cache_path("retrospective", task, actual_model)
+    writable = os.access(CACHE_DIR, os.W_OK)
+    if not writable:
+        return CacheDeleteOneResponse(success=False, message="Cache directory is read-only; cannot delete.", target={"file": target_file})
+    if os.path.isfile(target_file):
+        try:
+            os.remove(target_file)
+            return CacheDeleteOneResponse(success=True, message="Retrospective cache deleted.", target={"file": target_file})
+        except Exception as e:
+            return CacheDeleteOneResponse(success=False, message=f"Failed to delete: {e}", target={"file": target_file})
+    else:
+        return CacheDeleteOneResponse(success=False, message="Cache file not found.", target={"file": target_file})
 
 @app.delete("/api/cache/spectral", response_model=CacheDeleteOneResponse)
 async def delete_spectral_cache(site: str = "all"):
-    """Legacy cache removed - precomputed cache is read-only."""
-    return CacheDeleteOneResponse(
-        success=False, 
-        message="Legacy cache removed. Precomputed cache is read-only and baked into deployment.", 
-        target={"file": "legacy cache removed"}
-    )
+    """Delete cached spectral analysis for a specific site or all-sites."""
+    key = "all" if site.lower() in ("all", "*") else site.lower().replace(" ", "-")
+    target_file = _cache_path("spectral", key)
+    writable = os.access(CACHE_DIR, os.W_OK)
+    if not writable:
+        return CacheDeleteOneResponse(success=False, message="Cache directory is read-only; cannot delete.", target={"file": target_file})
+    if os.path.isfile(target_file):
+        try:
+            os.remove(target_file)
+            return CacheDeleteOneResponse(success=True, message="Spectral cache deleted.", target={"file": target_file})
+        except Exception as e:
+            return CacheDeleteOneResponse(success=False, message=f"Failed to delete: {e}", target={"file": target_file})
+    else:
+        return CacheDeleteOneResponse(success=False, message="Cache file not found.", target={"file": target_file})
 
 @app.post("/api/visualizations/spectral/warm")
 async def warm_spectral_caches_disabled():
@@ -704,12 +795,12 @@ async def get_gradient_uncertainty_visualization(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Generate quantile predictions - always use XGBoost for realtime
+        # Generate quantile predictions
         quantile_result = generate_quantile_predictions(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
-            "xgboost"  # Force XGBoost for realtime forecasting
+            get_actual_model_name(request.model, "regression")
         )
         
         if not quantile_result:
@@ -748,23 +839,25 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
+        # Generate both regression and classification forecasts with proper model mapping
+        regression_model = get_actual_model_name(request.model, "regression")
         regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            "xgboost"  # Force XGBoost for realtime
+            regression_model
         )
         
         
-        # For classification, also force XGBoost
+        # For classification, use the mapped model
+        classification_model = get_actual_model_name(request.model, "classification")
         classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "classification",
-            "xgboost"  # Force XGBoost for realtime
+            classification_model
         )
         
         # Helper function to make results JSON serializable
@@ -819,12 +912,12 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         # Add advanced quantile-based uncertainty using Gradient Boosting + XGBoost
         if regression_result and 'predicted_da' in regression_result:
-            # Generate quantile predictions - always use XGBoost for realtime
+            # Generate quantile predictions using dual-model approach
             quantile_result = generate_quantile_predictions(
                 config.FINAL_OUTPUT_PATH,
                 pd.to_datetime(request.date),
                 actual_site,
-                "xgboost"  # Force XGBoost for realtime forecasting
+                get_actual_model_name(request.model, "regression")
             )
             
             if quantile_result:
@@ -952,34 +1045,50 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         base_results = cache_manager.get_retrospective_forecast(config.FORECAST_TASK, actual_model)
         
         if base_results is None:
-            # Compute on server (expensive - only for local development)
-            print(f"⚠️ WARNING: Computing retrospective analysis on server - this is expensive!")
-            engine = get_forecast_engine()
-            engine.data_file = config.FINAL_OUTPUT_PATH
+            # Fallback to old caching system and compute on-demand (for development)
+            cache_file = _cache_path("retrospective", config.FORECAST_TASK, actual_model)
+            cached = _read_cache(cache_file)
             
-            results_df = engine.run_retrospective_evaluation(
-                task=config.FORECAST_TASK,
-                model_type=actual_model,
-                n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
-            )
+            if cached and isinstance(cached.get("results"), list):
+                base_results = cached["results"]
+            else:
+                # Last resort: compute on server (expensive - not recommended for production)
+                print(f"⚠️ WARNING: Computing retrospective analysis on server - this is expensive!")
+                engine = get_forecast_engine()
+                engine.data_file = config.FINAL_OUTPUT_PATH
+                
+                results_df = engine.run_retrospective_evaluation(
+                    task=config.FORECAST_TASK,
+                    model_type=actual_model,
+                    n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
+                )
 
-            if results_df is None or results_df.empty:
-                return {"success": False, "error": "No results generated from retrospective analysis"}
+                if results_df is None or results_df.empty:
+                    return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format
-            base_results = []
-            for _, row in results_df.iterrows():
-                record = {
-                    "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
-                    "site": row['site'],
-                    "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
-                    "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                    "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                    "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
-                }
-                base_results.append(record)
+                # Convert results to JSON format
+                base_results = []
+                for _, row in results_df.iterrows():
+                    record = {
+                        "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
+                        "site": row['site'],
+                        "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
+                        "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                        "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                        "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                    }
+                    base_results.append(record)
 
-            # Results computed on-demand for local development
+                # Cache for future requests
+                full_summary = _compute_summary(base_results)
+                _write_cache(cache_file, {
+                    "results": base_results,
+                    "summary": full_summary,
+                    "config": {
+                        "forecast_task": config.FORECAST_TASK,
+                        "forecast_model": config.FORECAST_MODEL
+                    }
+                })
         else:
             print(f"✅ Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 

@@ -49,7 +49,7 @@ echo "=================================================="
 print_status "📊 Pre-computing cache locally..."
 if [ ! -d "./cache" ] || [ -z "$(ls -A ./cache)" ]; then
     print_status "Cache not found, generating..."
-    python precompute_cache.py
+    python3 precompute_cache.py
     print_success "Cache pre-computation complete"
 else
     print_warning "Cache directory exists, skipping pre-computation"
@@ -57,7 +57,7 @@ else
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -rf ./cache
-        python precompute_cache.py
+        python3 precompute_cache.py
         print_success "Cache regenerated"
     fi
 fi
