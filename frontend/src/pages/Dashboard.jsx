@@ -707,7 +707,8 @@ const Dashboard = () => {
               selected={selectedDate}
               onChange={setSelectedDate}
               minDate={dateRange.min ? new Date(dateRange.min) : null}
-              maxDate={dateRange.max ? new Date(dateRange.max) : null}
+              /* Allow forecasting beyond dataset end; no hard max */
+              maxDate={null}
               className="w-full p-2 border border-gray-300 rounded-md"
               dateFormat="yyyy-MM-dd"
             />

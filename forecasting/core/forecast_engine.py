@@ -62,7 +62,11 @@ class ForecastEngine:
             
             # Configuration matching original
             self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
-            self.min_training_samples = 5  # Restore original minimum
+            # Honor configurable minimum training samples
+            try:
+                self.min_training_samples = max(1, int(getattr(config, 'MIN_TRAINING_SAMPLES', 5)))
+            except Exception:
+                self.min_training_samples = 5
             self.random_seed = config.RANDOM_SEED
             
             logger.info(f"Configuration: buffer_days={self.temporal_buffer_days}, min_samples={self.min_training_samples}, seed={self.random_seed}")
@@ -100,25 +104,45 @@ class ForecastEngine:
         self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
         min_target_date = pd.Timestamp(min_test_date)
         
+        # Diagnostics
+        self.last_diagnostics = {
+            "task": task,
+            "model_type": model_type,
+            "min_test_date": str(min_test_date),
+            "per_site": {}
+        }
+
         # Generate anchor points using original algorithm
         anchor_infos = []
         for site in self.data["site"].unique():
+            self.last_diagnostics["per_site"][site] = {
+                "candidate_dates": 0,
+                "valid_future": 0,
+                "selected": 0,
+                "earliest_selected_date": None
+            }
             site_dates = self.data[self.data["site"] == site]["date"].sort_values().unique()
             if len(site_dates) > self.temporal_buffer_days:  # Need enough history
                 # Only use dates that have sufficient history and future data
                 valid_anchors = []
                 for i, date in enumerate(site_dates[:-1]):  # Exclude last date
+                    self.last_diagnostics["per_site"][site]["candidate_dates"] += 1
                     if date >= min_target_date:
                         # Check if there's a future date with sufficient buffer
                         future_dates = site_dates[i+1:]
                         valid_future = [d for d in future_dates if (d - date).days >= self.temporal_buffer_days]
                         if valid_future:
+                            self.last_diagnostics["per_site"][site]["valid_future"] += 1
                             valid_anchors.append(date)
                 
                 if valid_anchors:
                     n_sample = min(len(valid_anchors), n_anchors)
+                    # Restore random sampling of anchors to avoid selection bias
                     selected_anchors = random.sample(list(valid_anchors), n_sample)
                     anchor_infos.extend([(site, pd.Timestamp(d)) for d in selected_anchors])
+                    sel_sorted = sorted(selected_anchors)
+                    self.last_diagnostics["per_site"][site]["selected"] = len(selected_anchors)
+                    self.last_diagnostics["per_site"][site]["earliest_selected_date"] = str(sel_sorted[0].date()) if sel_sorted else None
         
         if not anchor_infos:
             print("[ERROR] No valid anchor points generated")

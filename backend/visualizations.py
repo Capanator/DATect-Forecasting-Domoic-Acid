@@ -14,6 +14,7 @@ from scipy import signal
 from scipy.stats import pearsonr
 import warnings
 import os
+import os
 import sys
 import plotly.graph_objs as go
 import plotly.io as pio
@@ -681,44 +682,38 @@ def generate_spectral_analysis(data, site=None):
     if len(da_values) < 20:
         return []
     
-    # Run actual XGBoost retrospective evaluation for comparison
-    try:
-        # Import forecast engine and config
-        from forecasting.core.forecast_engine import ForecastEngine
-        import config
-        
-        # Run retrospective evaluation
-        engine = ForecastEngine()
-        
-        # Use N_RANDOM_ANCHORS from config to match other evaluations
-        n_anchors = config.N_RANDOM_ANCHORS
-            
-        results_df = engine.run_retrospective_evaluation(
-            task="regression",
-            model_type="xgboost",
-            n_anchors=n_anchors
-        )
-        
-        # Filter by site if specified
-        if site and results_df is not None and not results_df.empty:
-            results_df = results_df[results_df['site'] == site]
-        
-        # Extract predicted values aligned with actual
-        if results_df is not None and not results_df.empty:
-            # Sort by date for temporal alignment
-            results_df = results_df.sort_values('date')
-            xgb_predictions = results_df['Predicted_da'].dropna().values
-            actual_for_comparison = results_df['da'].dropna().values
-        else:
-            # Fallback to None if no results
-            xgb_predictions = None
-            actual_for_comparison = da_values
-            
-    except Exception as e:
-        # If XGBoost fails, don't show comparison
-        print(f"XGBoost retrospective evaluation failed: {e}")
+    # Optionally disable XGBoost comparison for performance (set SPECTRAL_ENABLE_XGB=0)
+    if os.getenv('SPECTRAL_ENABLE_XGB', '1') not in ('1', 'true', 'TRUE'):
         xgb_predictions = None
         actual_for_comparison = da_values
+    else:
+        # Run actual XGBoost retrospective evaluation for comparison
+        try:
+            from forecasting.core.forecast_engine import ForecastEngine
+            import config
+
+            engine = ForecastEngine()
+            n_anchors = int(os.getenv('SPECTRAL_N_ANCHORS', getattr(config, 'N_RANDOM_ANCHORS', 200)))
+            results_df = engine.run_retrospective_evaluation(
+                task="regression",
+                model_type="xgboost",
+                n_anchors=n_anchors
+            )
+
+            if site and results_df is not None and not results_df.empty:
+                results_df = results_df[results_df['site'] == site]
+
+            if results_df is not None and not results_df.empty:
+                results_df = results_df.sort_values('date')
+                xgb_predictions = results_df['Predicted_da'].dropna().values
+                actual_for_comparison = results_df['da'].dropna().values
+            else:
+                xgb_predictions = None
+                actual_for_comparison = da_values
+        except Exception as e:
+            print(f"XGBoost retrospective evaluation failed: {e}")
+            xgb_predictions = None
+            actual_for_comparison = da_values
     
     plots = []
     

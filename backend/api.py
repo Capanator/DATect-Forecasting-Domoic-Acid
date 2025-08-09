@@ -292,6 +292,8 @@ class CacheDeleteOneResponse(BaseModel):
     message: str
     target: Dict[str, Any]
 
+    
+
 @app.get("/api")
 async def root():
     """Root endpoint with API information."""
@@ -732,6 +734,10 @@ async def delete_spectral_cache(site: str = "all"):
     else:
         return CacheDeleteOneResponse(success=False, message="Cache file not found.", target={"file": target_file})
 
+@app.post("/api/visualizations/spectral/warm")
+async def warm_spectral_caches_disabled():
+    raise HTTPException(status_code=405, detail="Server-side spectral warm disabled. Precompute locally and bake into image.")
+
 @app.post("/api/visualizations/gradient")
 async def get_gradient_uncertainty_visualization(request: ForecastRequest):
     """Generate gradient uncertainty visualization with quantile regression."""
@@ -1000,6 +1006,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             # Run retrospective analysis using forecast engine directly
             engine = get_forecast_engine()
             engine.data_file = config.FINAL_OUTPUT_PATH
+            # Run per configured task only (remove previous both-task behavior)
             results_df = engine.run_retrospective_evaluation(
                 task=config.FORECAST_TASK,
                 model_type=actual_model,
@@ -1009,7 +1016,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             if results_df is None or results_df.empty:
                 return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format (all sites)
+            # Convert results to JSON format (all sites) WITHOUT any fallback mapping
             base_results = []
             for _, row in results_df.iterrows():
                 record = {
