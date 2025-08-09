@@ -1,19 +1,59 @@
+# Docker ignore file for DATect production builds
+
+# Python cache
 __pycache__
 *.pyc
 *.pyo
 *.pyd
-*.swp
-*.DS_Store
-.venv
-node_modules
-frontend/node_modules
-frontend/dist
-outputs
-.data
-.env
-.git
+.Python
+*.so
+
+# Development files
+.git/
+.github/
+.vscode/
+.cursor/
+*.md
+docs/
+.env*
 .gitignore
+
+# Cache directories (will be built in container)
+cache/
+*.cache
 **/.pytest_cache
 **/.mypy_cache
 **/.ruff_cache
+
+# Node modules (will be installed in container)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Temporary and log files
+*.tmp
+*.log
+outputs/
+logs/
+.data/
+
+# IDE and OS files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter notebooks
+*.ipynb
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+
+# Backup files
+*.bak
+*.backup
 

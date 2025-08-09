@@ -1,0 +1,92 @@
+# Multi-stage Dockerfile for DATect Google Cloud deployment
+# Stage 1: Pre-compute cache locally
+# Stage 2: Production deployment with baked cache
+
+FROM python:3.11-slim as cache-builder
+
+LABEL maintainer="DATect Team"
+LABEL description="DATect - Domoic Acid Forecasting System (Cache Builder Stage)"
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for scientific computing
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY . .
+
+# Pre-compute all expensive operations
+RUN echo "📊 Pre-computing DATect cache..." && \
+    python precompute_cache.py && \
+    echo "✅ Cache generation complete"
+
+# Verify cache was created
+RUN ls -la ./cache/ && \
+    echo "📋 Cache manifest:" && \
+    cat ./cache/manifest.json
+
+# Stage 2: Production runtime with baked cache
+FROM python:3.11-slim as production
+
+LABEL maintainer="DATect Team"
+LABEL description="DATect - Domoic Acid Forecasting System (Production)"
+
+# Set working directory
+WORKDIR /app
+
+# Install only runtime dependencies (lighter)
+RUN apt-get update && apt-get install -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code (excluding development files)
+COPY --from=cache-builder /app/backend ./backend
+COPY --from=cache-builder /app/forecasting ./forecasting
+COPY --from=cache-builder /app/data ./data
+COPY --from=cache-builder /app/config.py .
+
+# Copy pre-computed cache (READ-ONLY)
+COPY --from=cache-builder /app/cache ./cache
+RUN chmod -R 555 ./cache && \
+    echo "🔒 Cache directory made read-only"
+
+# Build frontend
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm install
+
+COPY frontend ./frontend
+RUN cd frontend && \
+    npm run build && \
+    echo "✅ Frontend built successfully"
+
+# Create non-root user for security
+RUN groupadd -r datect && useradd -r -g datect datect
+RUN chown -R datect:datect /app
+USER datect
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)"
+
+# Expose port
+EXPOSE 8000
+
+# Environment variables
+ENV PORT=8000
+ENV PYTHONPATH=/app
+ENV CACHE_DIR=/app/cache
+ENV NODE_ENV=production
+
+# Start command - serve frontend via FastAPI
+CMD ["python", "-m", "uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -40,11 +40,18 @@ from backend.visualizations import (
     generate_spectral_analysis,
     generate_gradient_uncertainty_plot
 )
+from backend.cache_manager import cache_manager
 
 # Fix path resolution - ensure we use absolute paths relative to project root
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not os.path.isabs(config.FINAL_OUTPUT_PATH):
     config.FINAL_OUTPUT_PATH = os.path.join(project_root, config.FINAL_OUTPUT_PATH)
+
+# Ensure spectral analysis XGBoost is enabled for local development
+if os.getenv("NODE_ENV") != "production" and os.getenv("CACHE_DIR") != "/app/cache":
+    # Clear any disabling flag from cache precomputation for local development
+    if 'SPECTRAL_ENABLE_XGB' in os.environ:
+        del os.environ['SPECTRAL_ENABLE_XGB']
 
 # Simple on-disk cache for heavy computations (ephemeral per instance)
 # Use /tmp by default for Cloud Run writeable filesystem
@@ -651,46 +658,71 @@ async def get_waterfall_plot():
 
 @app.get("/api/visualizations/spectral/all")
 async def get_spectral_analysis_all():
-    """Generate spectral analysis for all sites combined."""
+    """Generate spectral analysis for all sites combined (uses pre-computed cache)."""
     try:
+        # First try pre-computed cache
+        plots = cache_manager.get_spectral_analysis(site=None)
+        
+        if plots is not None:
+            return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
+            
+        # Fallback to legacy cache
         cache_file = _cache_path("spectral", "all")
         cached = _read_cache(cache_file)
         if cached and isinstance(cached.get("plots"), list):
-            return {"success": True, "plots": cached["plots"], "cached": True}
+            return {"success": True, "plots": cached["plots"], "cached": True, "source": "legacy"}
 
+        # Last resort: compute on server (expensive)
+        print("⚠️ WARNING: Computing spectral analysis on server - this is very expensive!")
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         plots = generate_spectral_analysis(data, site=None)
         _write_cache(cache_file, {"plots": plots})
-        return {"success": True, "plots": plots, "cached": False}
+        return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
 @app.get("/api/visualizations/spectral/{site}")
 async def get_spectral_analysis_single(site: str):
-    """Generate spectral analysis for a single site."""
+    """Generate spectral analysis for a single site (uses pre-computed cache)."""
     try:
+        # Handle site name mapping first
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-
-        # Handle site name mapping
         site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
         actual_site = site_mapping.get(site.lower(), site)
 
+        # First try pre-computed cache
+        plots = cache_manager.get_spectral_analysis(site=actual_site)
+        
+        if plots is not None:
+            return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
+
+        # Fallback to legacy cache
         cache_key = actual_site.lower().replace(" ", "-")
         cache_file = _cache_path("spectral", cache_key)
         cached = _read_cache(cache_file)
         if cached and isinstance(cached.get("plots"), list):
-            return {"success": True, "plots": cached["plots"], "cached": True}
+            return {"success": True, "plots": cached["plots"], "cached": True, "source": "legacy"}
 
+        # Last resort: compute on server (expensive)
+        print(f"⚠️ WARNING: Computing spectral analysis for {actual_site} on server - this is very expensive!")
         plots = generate_spectral_analysis(data, actual_site)
         _write_cache(cache_file, {"plots": plots})
-        return {"success": True, "plots": plots, "cached": False}
+        return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
 @app.get("/api/cache")
 async def get_cache_status():
     """Return cache directory, file list, size, and writability."""
-    return _list_cache()
+    legacy_cache = _list_cache()
+    precomputed_cache = cache_manager.get_cache_status()
+    
+    return {
+        "legacy_cache": legacy_cache,
+        "precomputed_cache": precomputed_cache,
+        "available_forecasts": cache_manager.list_available_forecasts(),
+        "available_spectral": cache_manager.list_available_spectral()
+    }
 
 @app.delete("/api/cache", response_model=CacheClearResponse)
 async def clear_cache():
@@ -993,52 +1025,61 @@ class RetrospectiveRequest(BaseModel):
 
 @app.post("/api/retrospective")
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
-    """Run complete retrospective analysis based on current config (legacy endpoint)."""
+    """Run complete retrospective analysis based on current config (uses pre-computed cache for production)."""
     try:
-        # Cache key for combination (task, model). We cache full results then filter by site.
+        # Get actual model name for caching
         actual_model = get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
-        cache_file = _cache_path("retrospective", config.FORECAST_TASK, actual_model)
+        
+        # First try to get from pre-computed cache (for production)
+        base_results = cache_manager.get_retrospective_forecast(config.FORECAST_TASK, actual_model)
+        
+        if base_results is None:
+            # Fallback to old caching system and compute on-demand (for development)
+            cache_file = _cache_path("retrospective", config.FORECAST_TASK, actual_model)
+            cached = _read_cache(cache_file)
+            
+            if cached and isinstance(cached.get("results"), list):
+                base_results = cached["results"]
+            else:
+                # Last resort: compute on server (expensive - not recommended for production)
+                print(f"⚠️ WARNING: Computing retrospective analysis on server - this is expensive!")
+                engine = get_forecast_engine()
+                engine.data_file = config.FINAL_OUTPUT_PATH
+                
+                results_df = engine.run_retrospective_evaluation(
+                    task=config.FORECAST_TASK,
+                    model_type=actual_model,
+                    n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
+                )
 
-        cached = _read_cache(cache_file)
-        if cached and isinstance(cached.get("results"), list):
-            base_results = cached["results"]
+                if results_df is None or results_df.empty:
+                    return {"success": False, "error": "No results generated from retrospective analysis"}
+
+                # Convert results to JSON format
+                base_results = []
+                for _, row in results_df.iterrows():
+                    record = {
+                        "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
+                        "site": row['site'],
+                        "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
+                        "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                        "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                        "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                    }
+                    base_results.append(record)
+
+                # Cache for future requests
+                full_summary = _compute_summary(base_results)
+                _write_cache(cache_file, {
+                    "results": base_results,
+                    "summary": full_summary,
+                    "config": {
+                        "forecast_task": config.FORECAST_TASK,
+                        "forecast_model": config.FORECAST_MODEL
+                    }
+                })
         else:
-            # Run retrospective analysis using forecast engine directly
-            engine = get_forecast_engine()
-            engine.data_file = config.FINAL_OUTPUT_PATH
-            # Run per configured task only (remove previous both-task behavior)
-            results_df = engine.run_retrospective_evaluation(
-                task=config.FORECAST_TASK,
-                model_type=actual_model,
-                n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
-            )
-
-            if results_df is None or results_df.empty:
-                return {"success": False, "error": "No results generated from retrospective analysis"}
-
-            # Convert results to JSON format (all sites) WITHOUT any fallback mapping
-            base_results = []
-            for _, row in results_df.iterrows():
-                record = {
-                    "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
-                    "site": row['site'],
-                    "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
-                    "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                    "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                    "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
-                }
-                base_results.append(record)
-
-            # Compute and cache summary for full dataset
-            full_summary = _compute_summary(base_results)
-            _write_cache(cache_file, {
-                "results": base_results,
-                "summary": full_summary,
-                "config": {
-                    "forecast_task": config.FORECAST_TASK,
-                    "forecast_model": config.FORECAST_MODEL
-                }
-            })
+            print(f"✅ Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
         # Filter by selected sites if provided
         if request.selected_sites:

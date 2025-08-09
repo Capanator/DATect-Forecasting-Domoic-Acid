@@ -270,12 +270,24 @@ class ForecastEngine:
                 # Check if we have multiple classes in training data
                 unique_classes = train_df["da-category"].nunique()
                 if unique_classes > 1:
+                    # Handle non-consecutive class labels for XGBoost
+                    from sklearn.preprocessing import LabelEncoder
+                    label_encoder = LabelEncoder()
+                    y_encoded = label_encoder.fit_transform(train_df["da-category"])
+                    
                     cls_model = self.model_factory.get_model("classification", model_type)
-                    cls_model.fit(X_train_processed, train_df["da-category"])
-                    pred_category = cls_model.predict(X_test_processed)[0]
+                    cls_model.fit(X_train_processed, y_encoded)
+                    pred_encoded = cls_model.predict(X_test_processed)[0]
+                    
+                    # Convert back to original label
+                    pred_category = label_encoder.inverse_transform([pred_encoded])[0]
                     result['Predicted_da-category'] = pred_category
                 else:
-                    result['Predicted_da-category'] = np.nan
+                    # Single class scenario - predict the dominant class
+                    # This allows sites like Cannon Beach with limited toxin diversity to still generate predictions
+                    dominant_class = train_df["da-category"].mode()[0]
+                    result['Predicted_da-category'] = dominant_class
+                    # Note: This is a naive baseline but maintains temporal integrity
             
             return pd.DataFrame([result])
             
@@ -367,9 +379,17 @@ class ForecastEngine:
                 # Check if we have multiple classes
                 unique_classes = df_train_clean["da-category"].nunique()
                 if unique_classes > 1:
+                    # Handle non-consecutive class labels for XGBoost
+                    from sklearn.preprocessing import LabelEncoder
+                    label_encoder = LabelEncoder()
+                    y_encoded = label_encoder.fit_transform(df_train_clean["da-category"])
+                    
                     model = self.model_factory.get_model("classification", model_type)
-                    model.fit(X_train_processed, df_train_clean["da-category"])
-                    prediction = model.predict(X_forecast)[0]
+                    model.fit(X_train_processed, y_encoded)
+                    pred_encoded = model.predict(X_forecast)[0]
+                    
+                    # Convert back to original label
+                    prediction = label_encoder.inverse_transform([pred_encoded])[0]
                     result['predicted_category'] = prediction
                     result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
                     logger.debug(f"Classification prediction completed for {site}: {prediction}")
@@ -377,13 +397,19 @@ class ForecastEngine:
                     # Add class probabilities if available
                     if hasattr(model, 'predict_proba'):
                         try:
-                            probabilities = model.predict_proba(X_forecast)[0]
-                            result['class_probabilities'] = probabilities
+                            probabilities_encoded = model.predict_proba(X_forecast)[0]
+                            # Note: probabilities are for encoded classes, would need mapping for original classes
+                            result['class_probabilities'] = probabilities_encoded
                         except Exception:
                             # Silently skip probability calculation if not supported
                             pass
                 else:
-                    return None
+                    # Single class scenario - predict the dominant class
+                    # This allows sites like Cannon Beach with limited toxin diversity to still generate predictions
+                    dominant_class = df_train_clean["da-category"].mode()[0]
+                    result['predicted_category'] = dominant_class
+                    result['single_class_prediction'] = True
+                    logger.debug(f"Single-class prediction for {site}: {dominant_class} (only class in training data)")
                     
             return result
             

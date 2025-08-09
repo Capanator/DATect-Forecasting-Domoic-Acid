@@ -1,0 +1,51 @@
+# Google App Engine configuration for DATect
+# Alternative to Cloud Run for easier deployment
+
+runtime: python311
+service: default
+
+# Configure for scientific computing
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.6
+
+# Larger instance for scientific computing
+instance_class: F4_1G
+
+# Environment variables
+env_variables:
+  PYTHONPATH: /srv
+  CACHE_DIR: /srv/cache
+  NODE_ENV: production
+
+# Health check
+readiness_check:
+  path: "/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 4
+  success_threshold: 2
+
+# Handlers for static files (frontend)
+handlers:
+- url: /static
+  static_dir: frontend/dist/assets
+  secure: always
+
+- url: /(.+\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))$
+  static_files: frontend/dist/\1
+  upload: frontend/dist/(.+\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))$
+  secure: always
+
+- url: /.*
+  script: auto
+  secure: always
