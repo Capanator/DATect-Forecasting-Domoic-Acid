@@ -46,6 +46,67 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not os.path.isabs(config.FINAL_OUTPUT_PATH):
     config.FINAL_OUTPUT_PATH = os.path.join(project_root, config.FINAL_OUTPUT_PATH)
 
+# Simple on-disk cache for heavy computations (ephemeral per instance)
+# Use /tmp by default for Cloud Run writeable filesystem
+CACHE_DIR = os.getenv("CACHE_DIR", "/tmp/datect-cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def _cache_path(*parts: str) -> str:
+    safe_parts = [p.replace("/", "-") for p in parts]
+    return os.path.join(CACHE_DIR, "_".join(safe_parts)) + ".json"
+
+def _read_cache(path: str):
+    try:
+        if os.path.isfile(path):
+            with open(path, "r") as f:
+                return json.load(f)
+    except Exception:
+        return None
+    return None
+
+def _write_cache(path: str, obj: dict):
+    try:
+        with open(path, "w") as f:
+            json.dump(obj, f)
+    except Exception:
+        pass
+
+def _list_cache():
+    summary = {"dir": CACHE_DIR, "files": [], "total_size": 0, "writable": os.access(CACHE_DIR, os.W_OK)}
+    try:
+        if os.path.isdir(CACHE_DIR):
+            for root, _, files in os.walk(CACHE_DIR):
+                for name in files:
+                    fp = os.path.join(root, name)
+                    try:
+                        size = os.path.getsize(fp)
+                    except Exception:
+                        size = 0
+                    summary["files"].append({"path": fp.replace(project_root + os.sep, ""), "size": size})
+                    summary["total_size"] += size
+    except Exception:
+        pass
+    return summary
+
+def _clear_cache_internal():
+    result = {"dir": CACHE_DIR, "deleted_files": 0, "freed_bytes": 0, "writable": os.access(CACHE_DIR, os.W_OK)}
+    if not os.path.isdir(CACHE_DIR):
+        return result
+    if not result["writable"]:
+        # Cannot delete read-only baked cache (e.g., inside container image)
+        return result
+    for root, _, files in os.walk(CACHE_DIR):
+        for name in files:
+            fp = os.path.join(root, name)
+            try:
+                size = os.path.getsize(fp)
+                os.remove(fp)
+                result["deleted_files"] += 1
+                result["freed_bytes"] += size
+            except Exception:
+                pass
+    return result
+
 app = FastAPI(
     title="DATect API",
     description="Domoic Acid Forecasting System REST API",
@@ -220,6 +281,16 @@ class SiteInfo(BaseModel):
 class ModelInfo(BaseModel):
     available_models: Dict[str, List[str]]
     descriptions: Dict[str, str]
+
+class CacheClearResponse(BaseModel):
+    success: bool
+    message: str
+    details: Dict[str, Any]
+
+class CacheDeleteOneResponse(BaseModel):
+    success: bool
+    message: str
+    target: Dict[str, Any]
 
 @app.get("/api")
 async def root():
@@ -580,9 +651,15 @@ async def get_waterfall_plot():
 async def get_spectral_analysis_all():
     """Generate spectral analysis for all sites combined."""
     try:
+        cache_file = _cache_path("spectral", "all")
+        cached = _read_cache(cache_file)
+        if cached and isinstance(cached.get("plots"), list):
+            return {"success": True, "plots": cached["plots"], "cached": True}
+
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         plots = generate_spectral_analysis(data, site=None)
-        return {"success": True, "plots": plots}
+        _write_cache(cache_file, {"plots": plots})
+        return {"success": True, "plots": plots, "cached": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
@@ -591,15 +668,69 @@ async def get_spectral_analysis_single(site: str):
     """Generate spectral analysis for a single site."""
     try:
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        
+
         # Handle site name mapping
         site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
         actual_site = site_mapping.get(site.lower(), site)
-        
+
+        cache_key = actual_site.lower().replace(" ", "-")
+        cache_file = _cache_path("spectral", cache_key)
+        cached = _read_cache(cache_file)
+        if cached and isinstance(cached.get("plots"), list):
+            return {"success": True, "plots": cached["plots"], "cached": True}
+
         plots = generate_spectral_analysis(data, actual_site)
-        return {"success": True, "plots": plots}
+        _write_cache(cache_file, {"plots": plots})
+        return {"success": True, "plots": plots, "cached": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
+
+@app.get("/api/cache")
+async def get_cache_status():
+    """Return cache directory, file list, size, and writability."""
+    return _list_cache()
+
+@app.delete("/api/cache", response_model=CacheClearResponse)
+async def clear_cache():
+    """Clear writable cache files (no-op if cache is read-only)."""
+    details = _clear_cache_internal()
+    if not details.get("writable", False):
+        return CacheClearResponse(success=False, message="Cache directory is read-only; cannot clear.", details=details)
+    return CacheClearResponse(success=True, message="Cache cleared.", details=details)
+
+@app.delete("/api/cache/retrospective", response_model=CacheDeleteOneResponse)
+async def delete_retrospective_cache(task: str, model: str):
+    """Delete cached retrospective results for a specific (task, model)."""
+    actual_model = get_actual_model_name(model, task)
+    target_file = _cache_path("retrospective", task, actual_model)
+    writable = os.access(CACHE_DIR, os.W_OK)
+    if not writable:
+        return CacheDeleteOneResponse(success=False, message="Cache directory is read-only; cannot delete.", target={"file": target_file})
+    if os.path.isfile(target_file):
+        try:
+            os.remove(target_file)
+            return CacheDeleteOneResponse(success=True, message="Retrospective cache deleted.", target={"file": target_file})
+        except Exception as e:
+            return CacheDeleteOneResponse(success=False, message=f"Failed to delete: {e}", target={"file": target_file})
+    else:
+        return CacheDeleteOneResponse(success=False, message="Cache file not found.", target={"file": target_file})
+
+@app.delete("/api/cache/spectral", response_model=CacheDeleteOneResponse)
+async def delete_spectral_cache(site: str = "all"):
+    """Delete cached spectral analysis for a specific site or all-sites."""
+    key = "all" if site.lower() in ("all", "*") else site.lower().replace(" ", "-")
+    target_file = _cache_path("spectral", key)
+    writable = os.access(CACHE_DIR, os.W_OK)
+    if not writable:
+        return CacheDeleteOneResponse(success=False, message="Cache directory is read-only; cannot delete.", target={"file": target_file})
+    if os.path.isfile(target_file):
+        try:
+            os.remove(target_file)
+            return CacheDeleteOneResponse(success=True, message="Spectral cache deleted.", target={"file": target_file})
+        except Exception as e:
+            return CacheDeleteOneResponse(success=False, message=f"Failed to delete: {e}", target={"file": target_file})
+    else:
+        return CacheDeleteOneResponse(success=False, message="Cache file not found.", target={"file": target_file})
 
 @app.post("/api/visualizations/gradient")
 async def get_gradient_uncertainty_visualization(request: ForecastRequest):
@@ -858,67 +989,57 @@ class RetrospectiveRequest(BaseModel):
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
     """Run complete retrospective analysis based on current config (legacy endpoint)."""
     try:
-        # Run retrospective analysis using forecast engine directly
-        # This avoids launching the dashboard but still gets the results
+        # Cache key for combination (task, model). We cache full results then filter by site.
         actual_model = get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
-        engine = get_forecast_engine()
-        engine.data_file = config.FINAL_OUTPUT_PATH
-        results_df = engine.run_retrospective_evaluation(
-            task=config.FORECAST_TASK,
-            model_type=actual_model,
-            n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)  # Use smaller number for faster API response
-        )
-        
-        if results_df is None or results_df.empty:
-            return {
-                "success": False,
-                "error": "No results generated from retrospective analysis"
-            }
-        
-        # Convert results to JSON format with optional site filtering
-        results_json = []
-        for _, row in results_df.iterrows():
-            # Filter by selected sites if provided
-            if request.selected_sites and row['site'] not in request.selected_sites:
-                continue
-                
-            record = {
-                "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
-                "site": row['site'],
-                "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
-                "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
-            }
-            results_json.append(record)
-        
-        # Calculate summary statistics
-        valid_regression = [(r['actual_da'], r['predicted_da']) for r in results_json 
-                          if r['actual_da'] is not None and r['predicted_da'] is not None]
-        valid_classification = [(r['actual_category'], r['predicted_category']) for r in results_json 
-                              if r['actual_category'] is not None and r['predicted_category'] is not None]
-        
-        summary = {
-            "total_forecasts": len(results_json),
-            "regression_forecasts": len(valid_regression),
-            "classification_forecasts": len(valid_classification)
-        }
-        
-        # Calculate R² and MAE if we have regression results
-        if valid_regression:
-            from sklearn.metrics import r2_score, mean_absolute_error
-            actual_vals = [r[0] for r in valid_regression]
-            pred_vals = [r[1] for r in valid_regression]
-            summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
-            summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
-        
-        # Calculate accuracy if we have classification results
-        if valid_classification:
-            from sklearn.metrics import accuracy_score
-            actual_cats = [r[0] for r in valid_classification]
-            pred_cats = [r[1] for r in valid_classification]
-            summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
-        
+        cache_file = _cache_path("retrospective", config.FORECAST_TASK, actual_model)
+
+        cached = _read_cache(cache_file)
+        if cached and isinstance(cached.get("results"), list):
+            base_results = cached["results"]
+        else:
+            # Run retrospective analysis using forecast engine directly
+            engine = get_forecast_engine()
+            engine.data_file = config.FINAL_OUTPUT_PATH
+            results_df = engine.run_retrospective_evaluation(
+                task=config.FORECAST_TASK,
+                model_type=actual_model,
+                n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
+            )
+
+            if results_df is None or results_df.empty:
+                return {"success": False, "error": "No results generated from retrospective analysis"}
+
+            # Convert results to JSON format (all sites)
+            base_results = []
+            for _, row in results_df.iterrows():
+                record = {
+                    "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
+                    "site": row['site'],
+                    "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
+                    "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                    "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                    "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                }
+                base_results.append(record)
+
+            # Compute and cache summary for full dataset
+            full_summary = _compute_summary(base_results)
+            _write_cache(cache_file, {
+                "results": base_results,
+                "summary": full_summary,
+                "config": {
+                    "forecast_task": config.FORECAST_TASK,
+                    "forecast_model": config.FORECAST_MODEL
+                }
+            })
+
+        # Filter by selected sites if provided
+        if request.selected_sites:
+            filtered = [r for r in base_results if r['site'] in request.selected_sites]
+        else:
+            filtered = base_results
+
+        summary = _compute_summary(filtered)
         return {
             "success": True,
             "config": {
@@ -927,7 +1048,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
                 "forecast_model": config.FORECAST_MODEL
             },
             "summary": summary,
-            "results": results_json
+            "results": filtered
         }
         
     except Exception as e:
@@ -935,6 +1056,34 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             "success": False,
             "error": str(e)
         }
+
+def _compute_summary(results_json: list) -> dict:
+    """Compute summary metrics for retrospective results list."""
+    summary = {"total_forecasts": len(results_json)}
+    valid_regression = [(r['actual_da'], r['predicted_da']) for r in results_json 
+                        if r.get('actual_da') is not None and r.get('predicted_da') is not None]
+    valid_classification = [(r['actual_category'], r['predicted_category']) for r in results_json 
+                            if r.get('actual_category') is not None and r.get('predicted_category') is not None]
+    summary["regression_forecasts"] = len(valid_regression)
+    summary["classification_forecasts"] = len(valid_classification)
+    if valid_regression:
+        from sklearn.metrics import r2_score, mean_absolute_error
+        actual_vals = [r[0] for r in valid_regression]
+        pred_vals = [r[1] for r in valid_regression]
+        try:
+            summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
+            summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
+        except Exception:
+            pass
+    if valid_classification:
+        from sklearn.metrics import accuracy_score
+        actual_cats = [r[0] for r in valid_classification]
+        pred_cats = [r[1] for r in valid_classification]
+        try:
+            summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
+        except Exception:
+            pass
+    return summary
 
 # Serve built frontend if present (single-origin deploy) even when running via `uvicorn backend.api:app`
 try:

@@ -34,6 +34,10 @@ COPY --from=ui /app/frontend/dist ./frontend/dist
 ENV PORT=8000 \
     DATECT_ENV=production
 
+# If a local precomputed cache exists, copy it and default CACHE_DIR to it
+COPY precomputed-cache ./precomputed-cache
+ENV CACHE_DIR=/app/precomputed-cache
+
 # Expose port
 EXPOSE 8000
 

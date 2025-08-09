@@ -222,6 +222,8 @@ const Historical = () => {
   const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType)
   // DA vs Pseudo-nitzschia only supports single site
   const forceSingleSite = visualizationType === 'comparison'
+  // Waterfall plot is all-sites only; hide site controls
+  const hideSiteControls = visualizationType === 'waterfall'
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -265,7 +267,7 @@ const Historical = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Site Scope Selector */}
-          {supportsSiteScope && (
+          {supportsSiteScope && !hideSiteControls && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <BarChart3 className="w-4 h-4 inline mr-1" />
@@ -281,7 +283,7 @@ const Historical = () => {
           )}
 
           {/* Site Selector - show for single site scope or when forced */}
-          {(siteScope === 'single' || forceSingleSite) && (
+          {(siteScope === 'single' || forceSingleSite) && !hideSiteControls && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <MapPin className="w-4 h-4 inline mr-1" />
