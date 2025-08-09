@@ -134,9 +134,9 @@ class DATectCacheGenerator:
             self.print_status(f"  Computing spectral analysis for {site_name}...", 'yellow')
             
             try:
-                # Set environment to disable XGBoost comparison in spectral analysis
-                # since we're pre-computing that separately
-                os.environ['SPECTRAL_ENABLE_XGB'] = '0'
+                # Enable XGBoost comparison in spectral analysis for complete precomputation
+                if 'SPECTRAL_ENABLE_XGB' in os.environ:
+                    del os.environ['SPECTRAL_ENABLE_XGB']
                 
                 spectral_plots = generate_spectral_analysis(data, site=site)
                 

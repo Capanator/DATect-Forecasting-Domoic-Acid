@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 import json
 import asyncio
+import math
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.impute import SimpleImputer
@@ -41,6 +42,24 @@ from backend.visualizations import (
     generate_gradient_uncertainty_plot
 )
 from backend.cache_manager import cache_manager
+
+def clean_float_for_json(value):
+    """Clean float values for JSON serialization by handling inf/nan."""
+    if value is None:
+        return None
+    if isinstance(value, (int, bool)):
+        return value
+    if isinstance(value, (float, np.floating)):
+        if math.isinf(value) or math.isnan(value):
+            return None  # Convert inf/nan to null
+        return float(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, (list, tuple)):
+        return [clean_float_for_json(item) for item in value]
+    if isinstance(value, dict):
+        return {k: clean_float_for_json(v) for k, v in value.items()}
+    return value
 
 # Fix path resolution - ensure we use absolute paths relative to project root
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -517,21 +536,24 @@ async def get_all_sites_historical(
         if limit:
             data = data.head(limit)
         
-        # Convert to dict for JSON response
+        # Convert to dict for JSON response with proper float cleaning
         result = []
         for _, row in data.iterrows():
+            da_val = row['da'] if pd.notna(row['da']) else None
+            da_category = row['da-category'] if 'da-category' in row and pd.notna(row['da-category']) else None
+            
             result.append({
                 'date': row['date'].strftime('%Y-%m-%d') if pd.notna(row['date']) else None,
-                'da': float(row['da']) if pd.notna(row['da']) else None,
+                'da': clean_float_for_json(da_val),
                 'site': row['site'],
-                'da-category': int(row['da-category']) if 'da-category' in row and pd.notna(row['da-category']) else None
+                'da-category': clean_float_for_json(da_category)
             })
         
-        return {
+        return JSONResponse(content={
             "success": True,
             "data": result,
             "count": len(result)
-        }
+        })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve historical data: {str(e)}")
 
@@ -966,22 +988,35 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             if results_df is None or results_df.empty:
                 return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format
+            # Convert results to JSON format with proper float cleaning
             base_results = []
             for _, row in results_df.iterrows():
                 record = {
                     "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
                     "site": row['site'],
-                    "actual_da": float(row['da']) if pd.notnull(row['da']) else None,
-                    "predicted_da": float(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                    "actual_category": int(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                    "predicted_category": int(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                    "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
+                    "predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                    "actual_category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                    "predicted_category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
                 }
                 base_results.append(record)
 
             # Results computed on-demand for local development
         else:
             print(f"✅ Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
+
+        # Normalize cached data format to match expected API format
+        if base_results and isinstance(base_results, list):
+            for result in base_results:
+                # Handle different field name formats from cache vs live computation
+                if 'da' in result and 'actual_da' not in result:
+                    result['actual_da'] = result.get('da')
+                if 'Predicted_da' in result and 'predicted_da' not in result:
+                    result['predicted_da'] = result.get('Predicted_da')
+                if 'da-category' in result and 'actual_category' not in result:
+                    result['actual_category'] = result.get('da-category')
+                if 'Predicted_da-category' in result and 'predicted_category' not in result:
+                    result['predicted_category'] = result.get('Predicted_da-category')
 
         # Filter by selected sites if provided
         if request.selected_sites:
@@ -1038,9 +1073,19 @@ def _compute_summary(results_json: list) -> dict:
 # Serve built frontend if present (single-origin deploy) even when running via `uvicorn backend.api:app`
 try:
     frontend_dist = os.path.join(project_root, "frontend", "dist")
+    print(f"🔍 Looking for frontend dist at: {frontend_dist}")
     if os.path.isdir(frontend_dist):
+        print(f"✅ Frontend dist found, mounting static files")
+        print(f"📁 Contents: {os.listdir(frontend_dist)[:10]}")
         app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
-except Exception:
+    else:
+        print(f"❌ Frontend dist not found at: {frontend_dist}")
+        print(f"📁 Project root contents: {os.listdir(project_root)[:10]}")
+        if os.path.exists(os.path.join(project_root, "frontend")):
+            frontend_contents = os.listdir(os.path.join(project_root, "frontend"))
+            print(f"📁 Frontend directory contents: {frontend_contents[:10]}")
+except Exception as e:
+    print(f"❌ Error setting up static files: {e}")
     pass
 
 if __name__ == "__main__":

@@ -45,7 +45,16 @@ echo "Project ID: $PROJECT_ID"
 echo "Region: $REGION"
 echo "=================================================="
 
-# Step 1: Pre-compute cache locally (this takes time but saves server resources)
+# Step 1: Build frontend locally
+print_status "🏗️ Building frontend locally..."
+if [ -f "./build_frontend.sh" ]; then
+    ./build_frontend.sh
+    print_success "Frontend built successfully"
+else
+    print_warning "Frontend build script not found, continuing..."
+fi
+
+# Step 2: Pre-compute cache locally (this takes time but saves server resources)
 print_status "📊 Pre-computing cache locally..."
 if [ ! -d "./cache" ] || [ -z "$(ls -A ./cache)" ]; then
     print_status "Cache not found, generating..."
@@ -67,7 +76,7 @@ CACHE_SIZE=$(du -sh ./cache | cut -f1)
 CACHE_FILES=$(find ./cache -type f | wc -l)
 print_success "Cache ready: $CACHE_SIZE ($CACHE_FILES files)"
 
-# Step 2: Configure Google Cloud
+# Step 3: Configure Google Cloud
 print_status "🔧 Configuring Google Cloud..."
 gcloud config set project $PROJECT_ID
 gcloud config set compute/region $REGION
@@ -78,14 +87,14 @@ gcloud services enable cloudbuild.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable containerregistry.googleapis.com
 
-# Step 3: Build and deploy using Cloud Build
+# Step 4: Build and deploy using Cloud Build
 print_status "🏗️  Building and deploying with Cloud Build..."
 gcloud builds submit \
     --config=cloudbuild.yaml \
     --substitutions=_REGION=$REGION \
     --timeout=2400s
 
-# Step 4: Get service URL
+# Step 5: Get service URL
 print_status "🌐 Getting service URL..."
 SERVICE_URL=$(gcloud run services describe datect-api --platform=managed --region=$REGION --format="value(status.url)")
 
@@ -94,7 +103,7 @@ if [ -z "$SERVICE_URL" ]; then
     exit 1
 fi
 
-# Step 5: Test deployment
+# Step 6: Test deployment
 print_status "🧪 Testing deployment..."
 HEALTH_CHECK="${SERVICE_URL}/health"
 if curl -sf "$HEALTH_CHECK" > /dev/null; then

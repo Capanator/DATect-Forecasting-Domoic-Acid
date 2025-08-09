@@ -208,7 +208,7 @@ FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "classification"  # Options: "regression", "classification"
+FORECAST_TASK = "regression"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 

@@ -79,8 +79,26 @@ class CacheManager:
             try:
                 with open(cache_file, 'r') as f:
                     data = json.load(f)
-                logger.info(f"Served cached retrospective forecast: {task}+{model_type} ({len(data)} records)")
-                return data
+                
+                # Clean any inf/nan values from cached data
+                import math
+                def clean_cached_data(item):
+                    if isinstance(item, dict):
+                        cleaned = {}
+                        for k, v in item.items():
+                            if isinstance(v, float):
+                                if math.isinf(v) or math.isnan(v):
+                                    cleaned[k] = None
+                                else:
+                                    cleaned[k] = v
+                            else:
+                                cleaned[k] = v
+                        return cleaned
+                    return item
+                
+                cleaned_data = [clean_cached_data(item) for item in data]
+                logger.info(f"Served cached retrospective forecast: {task}+{model_type} ({len(cleaned_data)} records)")
+                return cleaned_data
             except Exception as e:
                 logger.error(f"Failed to load cached retrospective forecast: {e}")
                 

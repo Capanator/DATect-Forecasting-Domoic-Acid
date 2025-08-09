@@ -26,10 +26,8 @@ COPY forecasting ./forecasting
 COPY data ./data
 COPY config.py .
 
-# Copy locally pre-computed cache (READ-ONLY)
+# Copy locally pre-computed cache
 COPY cache ./cache
-RUN chmod -R 555 ./cache && \
-    echo "🔒 Local cache directory made read-only"
 
 # Verify cache was copied
 RUN ls -la ./cache/ && \
@@ -47,7 +45,12 @@ RUN cd frontend && \
 
 # Create non-root user for security
 RUN groupadd -r datect && useradd -r -g datect datect
+
+# Set ownership and permissions
 RUN chown -R datect:datect /app
+RUN chmod -R 555 ./cache && \
+    echo "🔒 Cache directory made read-only"
+
 USER datect
 
 # Health check
