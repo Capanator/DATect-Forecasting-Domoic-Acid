@@ -8,6 +8,7 @@ Provides REST API endpoints for forecasting, data visualization, and analysis.
 
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -52,10 +53,18 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend connections
+# CORS middleware for frontend connections (configurable for production)
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+else:
+    # Default allows common local dev servers; for production when serving same-origin, CORS won't be used
+    origins = ["http://localhost:3000", "http://localhost:5173", "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React dev servers
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=False if "*" in origins else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -63,9 +72,22 @@ app.add_middleware(
 # Security
 security = HTTPBearer()
 
-# Global instances
-forecast_engine = ForecastEngine()
-model_factory = ModelFactory()
+# Lazy singletons to avoid heavy validation at startup on Cloud Run
+forecast_engine = None
+model_factory = None
+
+def get_forecast_engine() -> ForecastEngine:
+    global forecast_engine
+    if forecast_engine is None:
+        # Skip heavy validation on init; endpoints will validate as needed
+        forecast_engine = ForecastEngine(validate_on_init=False)
+    return forecast_engine
+
+def get_model_factory() -> ModelFactory:
+    global model_factory
+    if model_factory is None:
+        model_factory = ModelFactory()
+    return model_factory
 
 # Model mapping function
 def get_actual_model_name(ui_model: str, task: str) -> str:
@@ -149,7 +171,7 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
             gb_predictions[name] = float(gb_model.predict(X_forecast_processed)[0])
         
         # Generate point prediction using existing XGBoost engine
-        xgb_result = forecast_engine.generate_single_forecast(
+        xgb_result = get_forecast_engine().generate_single_forecast(
             data_file, forecast_date, site, "regression", model_type
         )
         
@@ -199,13 +221,13 @@ class ModelInfo(BaseModel):
     available_models: Dict[str, List[str]]
     descriptions: Dict[str, str]
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """Root endpoint with API information."""
     return {
         "message": "DATect API - Domoic Acid Forecasting System",
         "version": "1.0.0",
-        "docs": "/docs"
+            "docs": "/docs"
     }
 
 @app.get("/health")
@@ -238,16 +260,17 @@ async def get_sites():
 async def get_models():
     """Get available models and their descriptions."""
     try:
+        mf = get_model_factory()
         available_models = {
-            "regression": model_factory.get_supported_models('regression')['regression'],
-            "classification": model_factory.get_supported_models('classification')['classification']
+            "regression": mf.get_supported_models('regression')['regression'],
+            "classification": mf.get_supported_models('classification')['classification']
         }
         
         # Get descriptions for all models
         descriptions = {}
         all_models = set(available_models["regression"] + available_models["classification"])
         for model in all_models:
-            descriptions[model] = model_factory.get_model_description(model)
+            descriptions[model] = mf.get_model_description(model)
         
         return ModelInfo(available_models=available_models, descriptions=descriptions)
         
@@ -274,7 +297,7 @@ async def generate_forecast(request: ForecastRequest):
         
         # Generate forecast using the existing engine with proper model mapping
         actual_model = get_actual_model_name(request.model, request.task)
-        result = forecast_engine.generate_single_forecast(
+        result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
@@ -638,7 +661,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         # Generate both regression and classification forecasts with proper model mapping
         regression_model = get_actual_model_name(request.model, "regression")
-        regression_result = forecast_engine.generate_single_forecast(
+        regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
@@ -649,7 +672,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         # For classification, use the mapped model
         classification_model = get_actual_model_name(request.model, "classification")
-        classification_result = forecast_engine.generate_single_forecast(
+        classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
@@ -838,7 +861,8 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         # Run retrospective analysis using forecast engine directly
         # This avoids launching the dashboard but still gets the results
         actual_model = get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
-        engine = ForecastEngine(data_file=config.FINAL_OUTPUT_PATH)
+        engine = get_forecast_engine()
+        engine.data_file = config.FINAL_OUTPUT_PATH
         results_df = engine.run_retrospective_evaluation(
             task=config.FORECAST_TASK,
             model_type=actual_model,
@@ -912,6 +936,14 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             "error": str(e)
         }
 
+# Serve built frontend if present (single-origin deploy) even when running via `uvicorn backend.api:app`
+try:
+    frontend_dist = os.path.join(project_root, "frontend", "dist")
+    if os.path.isdir(frontend_dist):
+        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
+except Exception:
+    pass
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))

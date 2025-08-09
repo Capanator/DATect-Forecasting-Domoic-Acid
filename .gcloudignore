@@ -1,0 +1,12 @@
+.git/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+frontend/node_modules/
+node_modules/
+.DS_Store
+outputs/
+

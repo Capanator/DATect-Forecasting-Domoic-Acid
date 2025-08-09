@@ -51,6 +51,30 @@ python dataset-creation.py
 python run_datect.py        # Complete web interface (auto-installs additional dependencies)
 ```
 
+### Deploy to a URL (Docker)
+
+```bash
+# 1) Build the image
+docker build -t datect:latest .
+
+# 2) Generate dataset locally if you haven't yet (mount it into the container)
+python dataset-creation.py
+
+# 3) Run the container, mounting the processed data so the API can read it
+docker run -d --name datect -p 8000:8000 \
+  -e PORT=8000 \
+  -e DATECT_ENV=production \
+  -v $(pwd)/data/processed:/app/data/processed:ro \
+  datect:latest
+
+# Open in browser (served by FastAPI):
+# http://localhost:8000
+# API docs:
+# http://localhost:8000/docs
+```
+
+For cloud (Render, Fly.io, GCP, AWS, Azure), use this Docker image and point traffic to port 8000. When front-end is built, it is served by the same FastAPI container at the root path, and the API is under `/api/*`.
+
 ## 📊 System Architecture
 
 ```

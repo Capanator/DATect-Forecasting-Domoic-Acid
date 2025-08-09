@@ -1,0 +1,1643 @@
+[
+  {
+    "textPayload": "Starting new instance. Reason: MANUAL_OR_CUSTOMER_MIN_INSTANCE - Instance started because of customer-configured min-instances or manual scaling.",
+    "insertId": "6896a158000544ddcbc9601d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:08.345309Z",
+    "severity": "INFO",
+    "labels": {
+      "scaling_reason": "MANUAL_OR_CUSTOMER_MIN_INSTANCE"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:08.348969716Z"
+  },
+  {
+    "textPayload": "[INFO] Starting comprehensive system validation...",
+    "insertId": "6896a1610000745fa88db0b2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "service_name": "datect",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.029791Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.037000518Z"
+  },
+  {
+    "textPayload": "[INFO] Validating system configuration...",
+    "insertId": "6896a16100007473c129dc5f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.029811Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.037000518Z"
+  },
+  {
+    "textPayload": "[INFO] Configuration validation passed",
+    "insertId": "6896a16100007b7eb63b19c0",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.031614Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.368045136Z"
+  },
+  {
+    "textPayload": "[INFO] Validating site configuration...",
+    "insertId": "6896a16100007b87bb28bd3a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.031623Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.368045136Z"
+  },
+  {
+    "textPayload": "[INFO] Site validation passed: 10 sites configured",
+    "insertId": "6896a16100007b8a6d054f0a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.031626Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.368045136Z"
+  },
+  {
+    "textPayload": "[INFO] Validating data files...",
+    "insertId": "6896a16100007b8e8dd69d2c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.031630Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.368045136Z"
+  },
+  {
+    "textPayload": "[ERROR] ❌ System validation failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16100007cbfe1ef56de",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.031935Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:17.368045136Z"
+  },
+  {
+    "textPayload": "Failed to initialize ForecastEngine: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16100007e3fc51a8dd2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.032319Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:17.036713545Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/app/forecasting/core/forecast_engine.py\", line 55, in __init__\n    validate_system_startup()\n  File \"/app/forecasting/core/validation.py\", line 183, in validate_system_startup\n    validate_data_files()\n  File \"/app/forecasting/core/validation.py\", line 101, in validate_data_files\n    raise FileNotFoundError(f\"Main data file not found: {config.FINAL_OUTPUT_PATH}\")\nFileNotFoundError: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a1610000cbc8d875843e",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.052168Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:17.370362438Z",
+    "errorGroups": [
+      {
+        "id": "CKrdiYmvuYD-hQE"
+      }
+    ]
+  },
+  {
+    "textPayload": "During handling of the above exception, another exception occurred:",
+    "insertId": "6896a1610000cbd2d66a188c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.052178Z",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:17.370362438Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/usr/local/bin/uvicorn\", line 8, in <module>\n    sys.exit(main())\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1442, in __call__\n    return self.main(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1363, in main\n    rv = self.invoke(ctx)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1226, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 794, in invoke\n    return callback(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 413, in main\n    run(\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 580, in run\n    server.run()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 67, in run\n    return asyncio.run(self.serve(sockets=sockets))\n  File \"/usr/local/lib/python3.10/asyncio/runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"uvloop/loop.pyx\", line 1518, in uvloop.loop.Loop.run_until_complete\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 71, in serve\n    await self._serve(sockets)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 78, in _serve\n    config.load()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/config.py\", line 436, in load\n    self.loaded_app = import_from_string(self.app)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/importer.py\", line 19, in import_from_string\n    module = importlib.import_module(module_str)\n  File \"/usr/local/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 883, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/app/backend/api.py\", line 76, in <module>\n    forecast_engine = ForecastEngine()\n  File \"/app/forecasting/core/forecast_engine.py\", line 78, in __init__\n    raise ScientificValidationError(f\"ForecastEngine initialization failed: {str(e)}\")\nforecasting.core.exception_handling.ScientificValidationError: ForecastEngine initialization failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a1610000cbf4ab92bb50",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.052212Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:17.370362438Z",
+    "errorGroups": [
+      {
+        "id": "COHC45v8hf_Ocg"
+      }
+    ]
+  },
+  {
+    "textPayload": "Container called exit(1).",
+    "insertId": "6896a161000740ceaca8cf39",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.475335106Z",
+    "severity": "WARNING",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d",
+      "container_name": "datect-1"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:17.672805991Z"
+  },
+  {
+    "textPayload": "Default STARTUP TCP probe failed 1 time consecutively for container \"datect-1\" on port 8000. The instance was not started.\nConnection failed with status CANCELLED.",
+    "insertId": "6896a161000a0e0414bf053c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:17.658948Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9883fa02e87d076dbb506d2fc1b3dfcb2157458af92282d5b297e820f759b653c5a6f8455c6dca017ccc5c0d625afbea9a2626cee44571f20ff179f3971c8db3ca9a6aef9e7629b1c2d6f8d"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:17.672805991Z"
+  },
+  {
+    "textPayload": "Starting new instance. Reason: MANUAL_OR_CUSTOMER_MIN_INSTANCE - Instance started because of customer-configured min-instances or manual scaling.",
+    "insertId": "6896a16200052065f6b27413",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:18.335973Z",
+    "severity": "INFO",
+    "labels": {
+      "scaling_reason": "MANUAL_OR_CUSTOMER_MIN_INSTANCE"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:18.340620013Z"
+  },
+  {
+    "textPayload": "Starting new instance. Reason: DEPLOYMENT_ROLLOUT - Instance started due to traffic shifting between revisions due to deployment, traffic split adjustment, or deployment health check.",
+    "insertId": "6896a162000dbc7f369cdfa2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:18.900223Z",
+    "severity": "INFO",
+    "labels": {
+      "scaling_reason": "DEPLOYMENT_ROLLOUT"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:18.904322680Z"
+  },
+  {
+    "textPayload": "[INFO] Starting comprehensive system validation...",
+    "insertId": "6896a1670004fbfc41024e93",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.326652Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[INFO] Validating system configuration...",
+    "insertId": "6896a1670004fc08264fc904",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.326664Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[INFO] Configuration validation passed",
+    "insertId": "6896a167000501c0fbd6e466",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328128Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[INFO] Validating site configuration...",
+    "insertId": "6896a167000501ca31bacb0d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328138Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[INFO] Site validation passed: 10 sites configured",
+    "insertId": "6896a1670005022b238e865a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328235Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[INFO] Validating data files...",
+    "insertId": "6896a1670005023f5c5b969f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328255Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "[ERROR] ❌ System validation failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a167000503369a647f77",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328502Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:23.362504194Z"
+  },
+  {
+    "textPayload": "Failed to initialize ForecastEngine: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a167000503f4284c9c0b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.328692Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:23.361581255Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/app/forecasting/core/forecast_engine.py\", line 55, in __init__\n    validate_system_startup()\n  File \"/app/forecasting/core/validation.py\", line 183, in validate_system_startup\n    validate_data_files()\n  File \"/app/forecasting/core/validation.py\", line 101, in validate_data_files\n    raise FileNotFoundError(f\"Main data file not found: {config.FINAL_OUTPUT_PATH}\")\nFileNotFoundError: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16700053732b1beaebd",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.341810Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:23.361581255Z",
+    "errorGroups": [
+      {
+        "id": "CKrdiYmvuYD-hQE"
+      }
+    ]
+  },
+  {
+    "textPayload": "During handling of the above exception, another exception occurred:",
+    "insertId": "6896a1670005374188037d5d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.341825Z",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:23.361581255Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/usr/local/bin/uvicorn\", line 8, in <module>\n    sys.exit(main())\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1442, in __call__\n    return self.main(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1363, in main\n    rv = self.invoke(ctx)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1226, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 794, in invoke\n    return callback(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 413, in main\n    run(\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 580, in run\n    server.run()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 67, in run\n    return asyncio.run(self.serve(sockets=sockets))\n  File \"/usr/local/lib/python3.10/asyncio/runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"uvloop/loop.pyx\", line 1518, in uvloop.loop.Loop.run_until_complete\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 71, in serve\n    await self._serve(sockets)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 78, in _serve\n    config.load()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/config.py\", line 436, in load\n    self.loaded_app = import_from_string(self.app)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/importer.py\", line 19, in import_from_string\n    module = importlib.import_module(module_str)\n  File \"/usr/local/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 883, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/app/backend/api.py\", line 76, in <module>\n    forecast_engine = ForecastEngine()\n  File \"/app/forecasting/core/forecast_engine.py\", line 78, in __init__\n    raise ScientificValidationError(f\"ForecastEngine initialization failed: {str(e)}\")\nforecasting.core.exception_handling.ScientificValidationError: ForecastEngine initialization failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a1670005376352d9ee0a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:23.341859Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:23.361581255Z",
+    "errorGroups": [
+      {
+        "id": "COHC45v8hf_Ocg"
+      }
+    ]
+  },
+  {
+    "textPayload": "Container called exit(1).",
+    "insertId": "6896a1680006bdedb975c120",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:24.441804110Z",
+    "severity": "WARNING",
+    "labels": {
+      "container_name": "datect-1",
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:24.667553215Z"
+  },
+  {
+    "textPayload": "Default STARTUP TCP probe failed 1 time consecutively for container \"datect-1\" on port 8000. The instance was not started.\nConnection failed with status CANCELLED.",
+    "insertId": "6896a1680009401c31d6d047",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:24.606236Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988ee136920a96a55a27a04371a0d67ad0664a340b3fd32f26640ff7f0df9f4287a7bd45244b4aa18f806c2bf465ac8a3e7646e2b17e60487aa00c84897bafe5b90b493425e48ed2f866471"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:24.667553215Z"
+  },
+  {
+    "textPayload": "Starting new instance. Reason: MANUAL_OR_CUSTOMER_MIN_INSTANCE - Instance started because of customer-configured min-instances or manual scaling.",
+    "insertId": "6896a169000521050f94480d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:25.336133Z",
+    "severity": "INFO",
+    "labels": {
+      "scaling_reason": "MANUAL_OR_CUSTOMER_MIN_INSTANCE"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:25.666227955Z"
+  },
+  {
+    "textPayload": "[INFO] Starting comprehensive system validation...",
+    "insertId": "6896a16b00049ad5f5a1a2f5",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.301781Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.305165402Z"
+  },
+  {
+    "textPayload": "[INFO] Validating system configuration...",
+    "insertId": "6896a16b00049ae558f1332d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.301797Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.305165402Z"
+  },
+  {
+    "textPayload": "[INFO] Configuration validation passed",
+    "insertId": "6896a16b0004a0e8af336b18",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303336Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.637570571Z"
+  },
+  {
+    "textPayload": "[INFO] Validating site configuration...",
+    "insertId": "6896a16b0004a0f857b7e208",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303352Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.637570571Z"
+  },
+  {
+    "textPayload": "[INFO] Site validation passed: 10 sites configured",
+    "insertId": "6896a16b0004a12964562082",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303401Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.637570571Z"
+  },
+  {
+    "textPayload": "[INFO] Validating data files...",
+    "insertId": "6896a16b0004a148c7ab4690",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303432Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.637570571Z"
+  },
+  {
+    "textPayload": "[ERROR] ❌ System validation failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16b0004a25e68dc27e0",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303710Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:27.637570571Z"
+  },
+  {
+    "textPayload": "Failed to initialize ForecastEngine: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16b0004a3168c5afb0b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.303894Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:27.308027693Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/app/forecasting/core/forecast_engine.py\", line 55, in __init__\n    validate_system_startup()\n  File \"/app/forecasting/core/validation.py\", line 183, in validate_system_startup\n    validate_data_files()\n  File \"/app/forecasting/core/validation.py\", line 101, in validate_data_files\n    raise FileNotFoundError(f\"Main data file not found: {config.FINAL_OUTPUT_PATH}\")\nFileNotFoundError: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16b0004e811c2ee7c84",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.321553Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:27.640936459Z",
+    "errorGroups": [
+      {
+        "id": "CKrdiYmvuYD-hQE"
+      }
+    ]
+  },
+  {
+    "textPayload": "During handling of the above exception, another exception occurred:",
+    "insertId": "6896a16b0004e820097bee83",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.321568Z",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:27.640936459Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/usr/local/bin/uvicorn\", line 8, in <module>\n    sys.exit(main())\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1442, in __call__\n    return self.main(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1363, in main\n    rv = self.invoke(ctx)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1226, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 794, in invoke\n    return callback(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 413, in main\n    run(\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 580, in run\n    server.run()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 67, in run\n    return asyncio.run(self.serve(sockets=sockets))\n  File \"/usr/local/lib/python3.10/asyncio/runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"uvloop/loop.pyx\", line 1518, in uvloop.loop.Loop.run_until_complete\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 71, in serve\n    await self._serve(sockets)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 78, in _serve\n    config.load()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/config.py\", line 436, in load\n    self.loaded_app = import_from_string(self.app)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/importer.py\", line 19, in import_from_string\n    module = importlib.import_module(module_str)\n  File \"/usr/local/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 883, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/app/backend/api.py\", line 76, in <module>\n    forecast_engine = ForecastEngine()\n  File \"/app/forecasting/core/forecast_engine.py\", line 78, in __init__\n    raise ScientificValidationError(f\"ForecastEngine initialization failed: {str(e)}\")\nforecasting.core.exception_handling.ScientificValidationError: ForecastEngine initialization failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16b0004e84232cd49af",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:27.321602Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:27.640936459Z",
+    "errorGroups": [
+      {
+        "id": "COHC45v8hf_Ocg"
+      }
+    ]
+  },
+  {
+    "textPayload": "Container called exit(1).",
+    "insertId": "6896a16c000060c6c84d27ec",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:28.024768313Z",
+    "severity": "WARNING",
+    "labels": {
+      "container_name": "datect-1",
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:28.228743889Z"
+  },
+  {
+    "textPayload": "Default STARTUP TCP probe failed 1 time consecutively for container \"datect-1\" on port 8000. The instance was not started.\nConnection failed with status CANCELLED.",
+    "insertId": "6896a16c0002917d9bd6f32c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:28.168317Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a988fd75ef4bbee4dccde4f5089af62c2ab817158f7b36b8306018281d39509c3ae28ba84fd3e2bcec59d2bc09342d2e6f7588a9bfe70ea8a0c7073331047f570b352c248e13e5dfdf9312"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:28.228743889Z"
+  },
+  {
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "status": {
+        "code": 9,
+        "message": "Ready condition status changed to False for Revision datect-00001-9fd with message: The user-provided container failed to start and listen on the port defined provided by the PORT=8000 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.\n\nLogs URL: https://console.cloud.google.com/logs/viewer?project=datect-forecasting-domoic-acid&resource=cloud_run_revision/service_name/datect/revision_name/datect-00001-9fd&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22datect%22%0Aresource.labels.revision_name%3D%22datect-00001-9fd%22 \nFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start"
+      },
+      "serviceName": "run.googleapis.com",
+      "methodName": "/Services.CreateService",
+      "resourceName": "namespaces/datect-forecasting-domoic-acid/revisions/datect-00001-9fd",
+      "response": {
+        "metadata": {
+          "name": "datect-00001-9fd",
+          "namespace": "291222917199",
+          "selfLink": "/apis/serving.knative.dev/v1/namespaces/291222917199/revisions/datect-00001-9fd",
+          "uid": "f7c352a4-6758-4233-aa93-8dbce3a9b54d",
+          "resourceVersion": "AAY75HCcxvU",
+          "generation": 1,
+          "creationTimestamp": "2025-08-09T01:13:21.758351Z",
+          "labels": {
+            "client.knative.dev/nonce": "qjyowggeek",
+            "serving.knative.dev/configuration": "datect",
+            "serving.knative.dev/configurationGeneration": "1",
+            "serving.knative.dev/service": "datect",
+            "serving.knative.dev/serviceUid": "6ffa90f4-a716-41d0-82a6-504d0acbc1ae",
+            "serving.knative.dev/route": "datect",
+            "cloud.googleapis.com/location": "us-west1",
+            "run.googleapis.com/startupProbeType": "Default"
+          },
+          "annotations": {
+            "autoscaling.knative.dev/minScale": "1",
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "533.0.0",
+            "autoscaling.knative.dev/maxScale": "3",
+            "serving.knative.dev/creator": "anson.ch.chen@gmail.com",
+            "run.googleapis.com/operation-id": "e9387b34-b2e3-4445-8678-9c681d00643a",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          },
+          "ownerReferences": [
+            {
+              "kind": "Configuration",
+              "name": "datect",
+              "uid": "369641d9-586c-4c42-810c-514eb4cd622e",
+              "apiVersion": "serving.knative.dev/v1",
+              "controller": true,
+              "blockOwnerDeletion": true
+            }
+          ]
+        },
+        "apiVersion": "serving.knative.dev/v1",
+        "kind": "Revision",
+        "spec": {
+          "containerConcurrency": 2,
+          "timeoutSeconds": 900,
+          "serviceAccountName": "291222917199-compute@developer.gserviceaccount.com",
+          "containers": [
+            {
+              "name": "datect-1",
+              "image": "us-west1-docker.pkg.dev/datect-forecasting-domoic-acid/datect/datect@sha256:5b61590677be8576252c8f888fdb138377f757633929ea701a58c603c046664b",
+              "ports": [
+                {
+                  "name": "http1",
+                  "containerPort": 8000
+                }
+              ],
+              "env": [
+                {
+                  "name": "DATECT_ENV",
+                  "value": "production"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "2",
+                  "memory": "4Gi"
+                }
+              },
+              "startupProbe": {
+                "timeoutSeconds": 240,
+                "periodSeconds": 240,
+                "failureThreshold": 1,
+                "tcpSocket": {
+                  "port": 8000
+                }
+              }
+            }
+          ]
+        },
+        "status": {
+          "observedGeneration": 1,
+          "conditions": [
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "HealthCheckContainerError",
+              "message": "The user-provided container failed to start and listen on the port defined provided by the PORT=8000 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.\n\nLogs URL: https://console.cloud.google.com/logs/viewer?project=datect-forecasting-domoic-acid&resource=cloud_run_revision/service_name/datect/revision_name/datect-00001-9fd&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22datect%22%0Aresource.labels.revision_name%3D%22datect-00001-9fd%22 \nFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start",
+              "lastTransitionTime": "2025-08-09T01:16:28.168949Z"
+            },
+            {
+              "type": "ContainerHealthy",
+              "status": "False",
+              "reason": "HealthCheckContainerError",
+              "message": "The user-provided container failed to start and listen on the port defined provided by the PORT=8000 environment variable within the allocated timeout. This can happen when the container port is misconfigured or if the timeout is too short. The health check timeout can be extended. Logs for this revision might contain more information.\n\nLogs URL: https://console.cloud.google.com/logs/viewer?project=datect-forecasting-domoic-acid&resource=cloud_run_revision/service_name/datect/revision_name/datect-00001-9fd&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22datect%22%0Aresource.labels.revision_name%3D%22datect-00001-9fd%22 \nFor more troubleshooting guidance, see https://cloud.google.com/run/docs/troubleshooting#container-failed-to-start",
+              "lastTransitionTime": "2025-08-09T01:16:28.168949Z"
+            },
+            {
+              "type": "ContainerReady",
+              "status": "True",
+              "message": "Container image import completed in 32.28s.",
+              "lastTransitionTime": "2025-08-09T01:16:02.977753Z"
+            },
+            {
+              "type": "MinInstancesProvisioned",
+              "status": "Unknown",
+              "reason": "MinInstancesWarming",
+              "lastTransitionTime": "2025-08-09T01:16:08.823615Z"
+            },
+            {
+              "type": "ResourcesAvailable",
+              "status": "True",
+              "message": "Provisioning imported containers completed in 5.84s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+              "lastTransitionTime": "2025-08-09T01:16:08.823615Z"
+            },
+            {
+              "type": "Retry",
+              "status": "True",
+              "reason": "ImmediateRetry",
+              "message": "System will retry after 0:00:00 from lastTransitionTime for attempt 0.",
+              "lastTransitionTime": "2025-08-09T01:16:08.823615Z",
+              "severity": "Info"
+            }
+          ],
+          "logUrl": "https://console.cloud.google.com/logs/viewer?project=datect-forecasting-domoic-acid&resource=cloud_run_revision/service_name/datect/revision_name/datect-00001-9fd&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22datect%22%0Aresource.labels.revision_name%3D%22datect-00001-9fd%22",
+          "imageDigest": "us-west1-docker.pkg.dev/datect-forecasting-domoic-acid/datect/datect@sha256:5b61590677be8576252c8f888fdb138377f757633929ea701a58c603c046664b",
+          "containerStatuses": [
+            {
+              "name": "datect-1",
+              "imageDigest": "us-west1-docker.pkg.dev/datect-forecasting-domoic-acid/datect/datect@sha256:5b61590677be8576252c8f888fdb138377f757633929ea701a58c603c046664b"
+            }
+          ],
+          "desiredReplicas": 1
+        },
+        "@type": "type.googleapis.com/google.cloud.run.v1.Revision"
+      }
+    },
+    "insertId": "7t5nqldyd8q",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:28.178479Z",
+    "severity": "ERROR",
+    "logName": "projects/datect-forecasting-domoic-acid/logs/cloudaudit.googleapis.com%2Fsystem_event",
+    "receiveTimestamp": "2025-08-09T01:16:28.383655093Z"
+  },
+  {
+    "textPayload": "[INFO] Starting comprehensive system validation...",
+    "insertId": "6896a16e00028a24f2177771",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.166436Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[INFO] Validating system configuration...",
+    "insertId": "6896a16e00028a301348050a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.166448Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[INFO] Configuration validation passed",
+    "insertId": "6896a16e00028eb9057c56f2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.167609Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[INFO] Validating site configuration...",
+    "insertId": "6896a16e00028ecf9ce38f46",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.167631Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[INFO] Site validation passed: 10 sites configured",
+    "insertId": "6896a16e00028f661cf62d08",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.167782Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[INFO] Validating data files...",
+    "insertId": "6896a16e00028f6a169dfc9d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.167786Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "[ERROR] ❌ System validation failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16e00028fa75dffe321",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.167847Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:30.354538515Z"
+  },
+  {
+    "textPayload": "Failed to initialize ForecastEngine: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16e0002905a21831f76",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.168026Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:30.358762529Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/app/forecasting/core/forecast_engine.py\", line 55, in __init__\n    validate_system_startup()\n  File \"/app/forecasting/core/validation.py\", line 183, in validate_system_startup\n    validate_data_files()\n  File \"/app/forecasting/core/validation.py\", line 101, in validate_data_files\n    raise FileNotFoundError(f\"Main data file not found: {config.FINAL_OUTPUT_PATH}\")\nFileNotFoundError: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16e0002b8686fb982ce",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.178280Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:30.358762529Z",
+    "errorGroups": [
+      {
+        "id": "CKrdiYmvuYD-hQE"
+      }
+    ]
+  },
+  {
+    "textPayload": "During handling of the above exception, another exception occurred:",
+    "insertId": "6896a16e0002b8761aeb567c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.178294Z",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:30.358762529Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/usr/local/bin/uvicorn\", line 8, in <module>\n    sys.exit(main())\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1442, in __call__\n    return self.main(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1363, in main\n    rv = self.invoke(ctx)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1226, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 794, in invoke\n    return callback(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 413, in main\n    run(\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 580, in run\n    server.run()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 67, in run\n    return asyncio.run(self.serve(sockets=sockets))\n  File \"/usr/local/lib/python3.10/asyncio/runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"uvloop/loop.pyx\", line 1518, in uvloop.loop.Loop.run_until_complete\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 71, in serve\n    await self._serve(sockets)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 78, in _serve\n    config.load()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/config.py\", line 436, in load\n    self.loaded_app = import_from_string(self.app)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/importer.py\", line 19, in import_from_string\n    module = importlib.import_module(module_str)\n  File \"/usr/local/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 883, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/app/backend/api.py\", line 76, in <module>\n    forecast_engine = ForecastEngine()\n  File \"/app/forecasting/core/forecast_engine.py\", line 78, in __init__\n    raise ScientificValidationError(f\"ForecastEngine initialization failed: {str(e)}\")\nforecasting.core.exception_handling.ScientificValidationError: ForecastEngine initialization failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a16e0002b8a0d99906e4",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:30.178336Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:30.358762529Z",
+    "errorGroups": [
+      {
+        "id": "COHC45v8hf_Ocg"
+      }
+    ]
+  },
+  {
+    "textPayload": "Container called exit(1).",
+    "insertId": "6896a16f0006bccaf356f716",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:31.441539108Z",
+    "severity": "WARNING",
+    "labels": {
+      "container_name": "datect-1",
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:31.666070623Z"
+  },
+  {
+    "textPayload": "Default STARTUP TCP probe failed 1 time consecutively for container \"datect-1\" on port 8000. The instance was not started.\nConnection failed with status CANCELLED.",
+    "insertId": "6896a16f0009a7a8ac828aea",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:31.632744Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a9885adce0f9b47847b586bc24cb9b7ceb9e8edcf1879b2c7f6a4235931ffcd8d5d3a1f9e5087bb2653878200fa6fad713fcd54d59cb26c7c0190ad35892303ceb4a7a6b622bd7c389ad9e5b"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:31.666070623Z"
+  },
+  {
+    "textPayload": "Starting new instance. Reason: MANUAL_OR_CUSTOMER_MIN_INSTANCE - Instance started because of customer-configured min-instances or manual scaling.",
+    "insertId": "6896a170000522e526667b01",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:32.336613Z",
+    "severity": "INFO",
+    "labels": {
+      "scaling_reason": "MANUAL_OR_CUSTOMER_MIN_INSTANCE"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:32.660887254Z"
+  },
+  {
+    "textPayload": "[INFO] Starting comprehensive system validation...",
+    "insertId": "6896a17500031d03662d09bf",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.204035Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[INFO] Validating system configuration...",
+    "insertId": "6896a17500031d0d3f1c323a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "service_name": "datect",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.204045Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[INFO] Configuration validation passed",
+    "insertId": "6896a17500032309c3f26099",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.205577Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[INFO] Validating site configuration...",
+    "insertId": "6896a1750003231a11ff752d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.205594Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[INFO] Site validation passed: 10 sites configured",
+    "insertId": "6896a1750003235fafd3b99d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "revision_name": "datect-00001-9fd"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.205663Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[INFO] Validating data files...",
+    "insertId": "6896a175000323b28b2c882e",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "location": "us-west1",
+        "service_name": "datect",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.205746Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "[ERROR] ❌ System validation failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a175000324a53946f608",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.205989Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-08-09T01:16:37.348054489Z"
+  },
+  {
+    "textPayload": "Failed to initialize ForecastEngine: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a17500032556af1879f8",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "configuration_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.206166Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:37.351351791Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/app/forecasting/core/forecast_engine.py\", line 55, in __init__\n    validate_system_startup()\n  File \"/app/forecasting/core/validation.py\", line 183, in validate_system_startup\n    validate_data_files()\n  File \"/app/forecasting/core/validation.py\", line 101, in validate_data_files\n    raise FileNotFoundError(f\"Main data file not found: {config.FINAL_OUTPUT_PATH}\")\nFileNotFoundError: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a1750003523d21b44e37",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "service_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.217661Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:37.351351791Z",
+    "errorGroups": [
+      {
+        "id": "CKrdiYmvuYD-hQE"
+      }
+    ]
+  },
+  {
+    "textPayload": "During handling of the above exception, another exception occurred:",
+    "insertId": "6896a175000352488ce961e0",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "location": "us-west1",
+        "revision_name": "datect-00001-9fd",
+        "project_id": "datect-forecasting-domoic-acid"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.217672Z",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:37.351351791Z"
+  },
+  {
+    "textPayload": "Traceback (most recent call last):\n  File \"/usr/local/bin/uvicorn\", line 8, in <module>\n    sys.exit(main())\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1442, in __call__\n    return self.main(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1363, in main\n    rv = self.invoke(ctx)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 1226, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"/usr/local/lib/python3.10/site-packages/click/core.py\", line 794, in invoke\n    return callback(*args, **kwargs)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 413, in main\n    run(\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/main.py\", line 580, in run\n    server.run()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 67, in run\n    return asyncio.run(self.serve(sockets=sockets))\n  File \"/usr/local/lib/python3.10/asyncio/runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"uvloop/loop.pyx\", line 1518, in uvloop.loop.Loop.run_until_complete\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 71, in serve\n    await self._serve(sockets)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/server.py\", line 78, in _serve\n    config.load()\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/config.py\", line 436, in load\n    self.loaded_app = import_from_string(self.app)\n  File \"/usr/local/lib/python3.10/site-packages/uvicorn/importer.py\", line 19, in import_from_string\n    module = importlib.import_module(module_str)\n  File \"/usr/local/lib/python3.10/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n  File \"<frozen importlib._bootstrap>\", line 1050, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1027, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1006, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 688, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 883, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/app/backend/api.py\", line 76, in <module>\n    forecast_engine = ForecastEngine()\n  File \"/app/forecasting/core/forecast_engine.py\", line 78, in __init__\n    raise ScientificValidationError(f\"ForecastEngine initialization failed: {str(e)}\")\nforecasting.core.exception_handling.ScientificValidationError: ForecastEngine initialization failed: Main data file not found: /app/./data/processed/final_output.parquet",
+    "insertId": "6896a175000352798c6048f8",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1",
+        "configuration_name": "datect",
+        "service_name": "datect"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:37.217721Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-08-09T01:16:37.351351791Z",
+    "errorGroups": [
+      {
+        "id": "COHC45v8hf_Ocg"
+      }
+    ]
+  },
+  {
+    "textPayload": "Container called exit(1).",
+    "insertId": "6896a1760006d5cc600e8b11",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "project_id": "datect-forecasting-domoic-acid",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:38.447941385Z",
+    "severity": "WARNING",
+    "labels": {
+      "container_name": "datect-1",
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:38.655186762Z"
+  },
+  {
+    "textPayload": "Default STARTUP TCP probe failed 1 time consecutively for container \"datect-1\" on port 8000. The instance was not started.\nConnection failed with status CANCELLED.",
+    "insertId": "6896a176000977218120a730",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "datect-forecasting-domoic-acid",
+        "service_name": "datect",
+        "configuration_name": "datect",
+        "revision_name": "datect-00001-9fd",
+        "location": "us-west1"
+      }
+    },
+    "timestamp": "2025-08-09T01:16:38.620321Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "0069c7a98819d7201815c23093933967653780303174d9fe0b934d1ffef4cd86958ccb35a5719b6348901077daf7645894abd020be712d7313cbfd759084a21295e5dc4b8fbdb08b2f9bb5b644e356"
+    },
+    "logName": "projects/datect-forecasting-domoic-acid/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-08-09T01:16:38.655186762Z"
+  }
+]
