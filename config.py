@@ -208,13 +208,13 @@ FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "regression"  # Options: "regression", "classification"
+FORECAST_TASK = "classification"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "xgboost"  # Options: "xgboost", "linear" 
+FORECAST_MODEL = "linear"  # Options: "xgboost", "linear" 
 # - "xgboost": XGBoost (primary model - uses XGBoost for both regression & classification)
 # - "linear": Linear Models (uses Linear Regression for regression, Logistic for classification)
 # Note: XGBoost is recommended for best performance, linear/logistic for interpretability
@@ -265,7 +265,7 @@ LAG_FEATURES = [1, 3]  # Optimized lag selection based on statistical validation
 # =============================================================================
 
 # DA Category Thresholds (μg/g)
-# Used for classification tasks and risk level assignment
+# Used for classification tasks and risk level assignment (you can modify these threseholds and number of categories)
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]  # Bin edges matching original system
 DA_CATEGORY_LABELS = [0, 1, 2, 3]  # Numeric labels for compatibility with ML models
 # Category meanings:

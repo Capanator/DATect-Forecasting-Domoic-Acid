@@ -3,6 +3,7 @@ import { MapPin, BarChart3, Activity } from 'lucide-react'
 import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import api from '../services/api'
+import { plotConfig, plotConfigSquare, getPlotFilename } from '../utils/plotConfig'
 
 const Historical = () => {
   const [sites, setSites] = useState([])
@@ -190,27 +191,57 @@ const Historical = () => {
       // Handle both single plot and multiple plots
       if (visualizationData.plot) {
         // Single plot visualization
+        // Center heatmaps which tend to be square
+        const isHeatmap = visualizationType === 'correlation'
+        const config = isHeatmap ? {
+          ...plotConfigSquare,
+          toImageButtonOptions: {
+            ...plotConfigSquare.toImageButtonOptions,
+            filename: getPlotFilename(`${visualizationType}_${siteScope === 'all' ? 'all-sites' : selectedSite?.value || 'plot'}`)
+          }
+        } : {
+          ...plotConfig,
+          toImageButtonOptions: {
+            ...plotConfig.toImageButtonOptions,
+            filename: getPlotFilename(`${visualizationType}_${siteScope === 'all' ? 'all-sites' : selectedSite?.value || 'plot'}`)
+          }
+        }
+        
         return (
-          <Plot
-            data={visualizationData.plot.data}
-            layout={visualizationData.plot.layout}
-            config={{ responsive: true }}
-            className="w-full"
-          />
+          <div className={isHeatmap ? "flex justify-center" : ""}>
+            <Plot
+              data={visualizationData.plot.data}
+              layout={visualizationData.plot.layout}
+              config={config}
+              className={isHeatmap ? "" : "w-full"}
+              style={isHeatmap ? { maxWidth: '800px' } : {}}
+            />
+          </div>
         )
       } else if (visualizationData.plots && Array.isArray(visualizationData.plots)) {
         // Multiple plots visualization
         return (
           <div className="space-y-4">
-            {visualizationData.plots.map((plot, index) => (
-              <Plot
-                key={index}
-                data={plot.data}
-                layout={plot.layout}
-                config={{ responsive: true }}
-                className="w-full"
-              />
-            ))}
+            {visualizationData.plots.map((plot, index) => {
+              const plotConfigWithFilename = {
+                ...plotConfig,
+                toImageButtonOptions: {
+                  ...plotConfig.toImageButtonOptions,
+                  filename: getPlotFilename(`${visualizationType}_plot${index + 1}`)
+                }
+              }
+              return (
+                <div key={index} className="flex justify-center">
+                  <Plot
+                    data={plot.data}
+                    layout={plot.layout}
+                    config={plotConfigWithFilename}
+                    className="w-full"
+                    style={{ maxWidth: '1000px' }}
+                  />
+                </div>
+              )
+            })}
           </div>
         )
       }

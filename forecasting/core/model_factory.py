@@ -85,16 +85,22 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
+            # Optimized for balanced classification performance
             return xgb.XGBClassifier(
-                n_estimators=200,
-                max_depth=8,
-                learning_rate=0.1,
-                subsample=0.8,
-                colsample_bytree=0.8,
+                n_estimators=300,
+                max_depth=5,
+                learning_rate=0.05,
+                min_child_weight=5,
+                subsample=0.6,
+                colsample_bytree=0.6,
+                gamma=1,
+                reg_alpha=0.1,
+                reg_lambda=1,
                 random_state=self.random_seed,
                 n_jobs=-1,
                 use_label_encoder=False,
-                eval_metric='logloss'
+                eval_metric='mlogloss'
+                # Note: scale_pos_weight will be set dynamically based on class distribution
             )
         elif model_type == "rf":
             # RF deprecated in favor of XGBoost

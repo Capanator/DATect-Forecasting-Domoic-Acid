@@ -272,11 +272,21 @@ class ForecastEngine:
                 if unique_classes > 1:
                     # Handle non-consecutive class labels for XGBoost
                     from sklearn.preprocessing import LabelEncoder
+                    from sklearn.utils.class_weight import compute_sample_weight
                     label_encoder = LabelEncoder()
                     y_encoded = label_encoder.fit_transform(train_df["da-category"])
                     
+                    # Calculate sample weights for balanced classification
+                    sample_weights = compute_sample_weight('balanced', y_encoded)
+                    
                     cls_model = self.model_factory.get_model("classification", model_type)
-                    cls_model.fit(X_train_processed, y_encoded)
+                    
+                    # Use sample weights for XGBoost to handle class imbalance
+                    if model_type == "xgboost" or model_type == "xgb":
+                        cls_model.fit(X_train_processed, y_encoded, sample_weight=sample_weights)
+                    else:
+                        cls_model.fit(X_train_processed, y_encoded)
+                    
                     pred_encoded = cls_model.predict(X_test_processed)[0]
                     
                     # Convert back to original label

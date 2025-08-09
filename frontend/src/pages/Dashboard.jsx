@@ -5,6 +5,7 @@ import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import { format, subDays } from 'date-fns'
 import api from '../services/api'
+import { plotConfig, getPlotFilename } from '../utils/plotConfig'
 import 'react-datepicker/dist/react-datepicker.css'
 
 const Dashboard = () => {
@@ -151,11 +152,46 @@ const Dashboard = () => {
           ).length
           const accuracy = correctPredictions / validClassification.length
           
+          // Calculate balanced accuracy and per-class metrics
+          const classes = [0, 1, 2, 3] // Low, Moderate, High, Extreme
+          const classNames = ['Low', 'Moderate', 'High', 'Extreme']
+          let balancedAccSum = 0
+          let validClasses = 0
+          const perClassMetrics = {}
+          
+          classes.forEach((cls, idx) => {
+            const actualInClass = validClassification.filter(r => r.actual_category === cls)
+            const predictedInClass = validClassification.filter(r => r.predicted_category === cls)
+            const truePositives = validClassification.filter(r => 
+              r.actual_category === cls && r.predicted_category === cls
+            ).length
+            
+            if (actualInClass.length > 0) {
+              const recall = truePositives / actualInClass.length
+              const precision = predictedInClass.length > 0 ? truePositives / predictedInClass.length : 0
+              const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0
+              
+              balancedAccSum += recall
+              validClasses += 1
+              
+              perClassMetrics[classNames[idx]] = {
+                recall: recall,
+                precision: precision,
+                f1: f1,
+                support: actualInClass.length
+              }
+            }
+          })
+          
+          const balancedAccuracy = validClasses > 0 ? balancedAccSum / validClasses : 0
+          
           filtered.summary = {
             ...filtered.summary,
             total_forecasts: filtered.results.length,
             classification_forecasts: validClassification.length,
-            accuracy: accuracy
+            accuracy: accuracy,
+            balanced_accuracy: balancedAccuracy,
+            per_class_metrics: perClassMetrics
           }
         }
       } else {
@@ -1087,13 +1123,58 @@ const Dashboard = () => {
               </div>
             )}
             {filteredResults?.summary?.accuracy !== undefined && (
-              <div className="bg-purple-50 p-4 rounded-lg text-center">
-                <div className="text-2xl font-bold text-purple-600">{(filteredResults.summary.accuracy * 100).toFixed(1)}%</div>
-                <div className="text-sm text-gray-600">Accuracy</div>
-              </div>
+              <>
+                <div className="bg-purple-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-purple-600">{(filteredResults.summary.accuracy * 100).toFixed(1)}%</div>
+                  <div className="text-sm text-gray-600">Accuracy</div>
+                </div>
+                {filteredResults?.summary?.balanced_accuracy !== undefined && (
+                  <div className="bg-indigo-50 p-4 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-indigo-600">{(filteredResults.summary.balanced_accuracy * 100).toFixed(1)}%</div>
+                    <div className="text-sm text-gray-600">Balanced Accuracy</div>
+                    <div className="text-xs text-gray-500 mt-1">Accounts for class imbalance</div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
+
+        {/* Per-class recall metrics for classification */}
+        {filteredResults?.summary?.per_class_metrics && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Per-Class Performance</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(filteredResults.summary.per_class_metrics).map(([className, metrics]) => (
+                <div key={className} className="border rounded-lg p-3">
+                  <div className="font-semibold text-sm mb-2">{className}</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Recall:</span>
+                      <span className="font-medium">{(metrics.recall * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Precision:</span>
+                      <span className="font-medium">{(metrics.precision * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">F1:</span>
+                      <span className="font-medium">{(metrics.f1 * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Samples:</span>
+                      <span className="font-medium">{metrics.support}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              <p><strong>Recall:</strong> % of actual cases correctly identified (e.g., 85% recall for High means we catch 85% of high toxin events)</p>
+              <p><strong>Precision:</strong> % of predictions that were correct (e.g., 70% precision for High means when we predict High, we're right 70% of the time)</p>
+            </div>
+          </div>
+        )}
 
         {/* Time series plot */}
         {timeSeriesData && (
@@ -1109,7 +1190,13 @@ const Dashboard = () => {
             <Plot
               data={timeSeriesData.data}
               layout={timeSeriesData.layout}
-              config={{ responsive: true }}
+              config={{
+                ...plotConfig,
+                toImageButtonOptions: {
+                  ...plotConfig.toImageButtonOptions,
+                  filename: getPlotFilename(`retrospective_timeseries_${selectedSiteFilter}`)
+                }
+              }}
               style={{ width: '100%' }}
             />
           </div>
@@ -1123,7 +1210,13 @@ const Dashboard = () => {
               <Plot
                 data={scatterData.data}
                 layout={scatterData.layout}
-                config={{ responsive: true }}
+                config={{
+                  ...plotConfig,
+                  toImageButtonOptions: {
+                    ...plotConfig.toImageButtonOptions,
+                    filename: getPlotFilename(`retrospective_scatter_${config.forecast_task}_${selectedSiteFilter}`)
+                  }
+                }}
                 style={{ width: '100%' }}
               />
               <div className="bg-gray-50 p-4 rounded-lg">

@@ -1061,12 +1061,43 @@ def _compute_summary(results_json: list) -> dict:
         except Exception:
             pass
     if valid_classification:
-        from sklearn.metrics import accuracy_score
+        from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support
         actual_cats = [r[0] for r in valid_classification]
         pred_cats = [r[1] for r in valid_classification]
         try:
+            # Regular accuracy
             summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
-        except Exception:
+            
+            # Balanced accuracy (accounts for class imbalance)
+            summary["balanced_accuracy"] = float(balanced_accuracy_score(actual_cats, pred_cats))
+            
+            # Per-class recall (how well we detect each category)
+            precision, recall, f1, support = precision_recall_fscore_support(
+                actual_cats, pred_cats, average=None, zero_division=0
+            )
+            
+            # Store per-class metrics
+            unique_classes = sorted(set(actual_cats + pred_cats))
+            per_class_metrics = {}
+            for i, cls in enumerate(unique_classes):
+                if i < len(recall):
+                    class_name = ["Low", "Moderate", "High", "Extreme"][cls] if cls < 4 else f"Class{cls}"
+                    per_class_metrics[class_name] = {
+                        "recall": float(recall[i]),
+                        "precision": float(precision[i]),
+                        "f1": float(f1[i]),
+                        "support": int(support[i]) if i < len(support) else 0
+                    }
+            
+            summary["per_class_metrics"] = per_class_metrics
+            
+            # Macro averages (treats all classes equally)
+            summary["macro_recall"] = float(recall.mean())
+            summary["macro_precision"] = float(precision.mean())
+            summary["macro_f1"] = float(f1.mean())
+            
+        except Exception as e:
+            print(f"Error calculating classification metrics: {e}")
             pass
     return summary
 
