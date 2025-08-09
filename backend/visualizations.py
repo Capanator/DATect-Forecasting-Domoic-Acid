@@ -598,7 +598,9 @@ def generate_waterfall_plot(data):
         
         for idx, da_level in enumerate(bar_da_levels):
             # Calculate x position for each bar (spread them out)
-            bar_offset_days = (idx - 1) * bar_spacing_days  # -120, 0, +120 days
+            # Shift every other row to the right to avoid overlap
+            row_offset_days = 500 if i % 2 == 1 else 0  # Odd rows shifted 500 days right
+            bar_offset_days = (idx - 1) * bar_spacing_days + row_offset_days  # -120, 0, +120 days plus row offset
             bar_date = bar_target_date + pd.Timedelta(days=bar_offset_days)
             
             # Calculate y positions
@@ -642,14 +644,21 @@ def generate_waterfall_plot(data):
             },
             "xaxis": {"title": "Date"},
             "yaxis": {
-                "title": "Latitude (°N) - Baseline represents DA=0",
+                "title": {
+                    "text": "Latitude (°N) - Baseline represents DA=0",
+                    "standoff": 30  # Add more space between title and labels
+                },
                 "tickmode": "array",
                 "tickvals": y_tick_positions,
-                "ticktext": y_tick_labels
+                "ticktext": y_tick_labels,
+                "ticksuffix": "    ",  # Add more spacing after tick labels
+                "ticklen": 10,  # Longer tick marks
+                "tickwidth": 1
             },
             "height": 700,
             "hovermode": "x unified",
-            "showlegend": True
+            "showlegend": True,
+            "margin": {"l": 120}  # Increase left margin more for y-axis labels
         }
     }
     
