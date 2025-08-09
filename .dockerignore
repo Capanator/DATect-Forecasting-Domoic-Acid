@@ -18,8 +18,7 @@ docs/
 .env*
 .gitignore
 
-# Cache directories (will be built in container)
-cache/
+# Cache directories (local cache will be uploaded)
 *.cache
 **/.pytest_cache
 **/.mypy_cache

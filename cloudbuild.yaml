@@ -12,7 +12,7 @@ steps:
       - '-t'
       - 'gcr.io/${PROJECT_ID}/datect:latest'
       - '.'
-    timeout: '1800s'  # 30 minutes for cache pre-computation
+    timeout: '900s'  # 15 minutes for build (no cache computation)
 
   # Step 2: Push the image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -42,15 +42,14 @@ steps:
       - '--concurrency'
       - '80'
       - '--max-instances'
-      - '10'
+      - '5'
       - '--timeout'
       - '300'
       - '--set-env-vars'
       - 'CACHE_DIR=/app/cache,NODE_ENV=production,PYTHONPATH=/app'
 
-# Configure build resources for heavy pre-computation
+# Configure build resources
 options:
-  machineType: 'E2_HIGHCPU_8'  # 8 vCPUs for faster cache generation
   logging: CLOUD_LOGGING_ONLY
 
 # Default values - can be overridden
@@ -58,7 +57,7 @@ substitutions:
   _REGION: us-west1
 
 # Build timeout
-timeout: '2400s'  # 40 minutes total
+timeout: '1200s'  # 20 minutes total
 
 # Tags for organization
 tags:
