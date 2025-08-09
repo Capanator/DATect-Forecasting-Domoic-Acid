@@ -5,7 +5,7 @@ import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import { format, subDays } from 'date-fns'
 import api from '../services/api'
-import { plotConfig, getPlotFilename } from '../utils/plotConfig'
+import { plotConfig, getPlotFilename, scaleLayoutForExport } from '../utils/plotConfig'
 import 'react-datepicker/dist/react-datepicker.css'
 
 const Dashboard = () => {

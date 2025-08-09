@@ -631,7 +631,7 @@ def generate_waterfall_plot(data):
     
     # Create y-axis labels for sites - handle NaN values
     y_tick_positions = [float(lat * LATITUDE_BASELINE_MULTIPLIER) if pd.notna(lat) else 0 for lat in unique_lats]
-    y_tick_labels = [f"{lat_to_site.get(lat, '')} ({lat:.2f}°N)" for lat in unique_lats]
+    y_tick_labels = [f"{lat:.2f}°N" for lat in unique_lats]  # Just show latitude, site names are in legend
     
     plot_data = {
         "data": traces,

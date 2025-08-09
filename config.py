@@ -202,19 +202,19 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "classification"  # Options: "regression", "classification"
+FORECAST_TASK = "regression"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "linear"  # Options: "xgboost", "linear" 
+FORECAST_MODEL = "xgboost"  # Options: "xgboost", "linear" 
 # - "xgboost": XGBoost (primary model - uses XGBoost for both regression & classification)
 # - "linear": Linear Models (uses Linear Regression for regression, Logistic for classification)
 # Note: XGBoost is recommended for best performance, linear/logistic for interpretability
