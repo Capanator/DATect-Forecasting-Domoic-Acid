@@ -392,6 +392,7 @@ class ForecastEngine:
                         except Exception:
                             # Silently skip probability calculation if not supported
                             pass
+                            
                 else:
                     # Single class scenario - predict the dominant class
                     # This allows sites like Cannon Beach with limited toxin diversity to still generate predictions

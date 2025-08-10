@@ -414,49 +414,14 @@ class DataProcessor:
             raise
         
     def get_feature_importance(self, model, feature_names):
-        """
-        Extract feature importance from trained model.
-        
-        Args:
-            model: Trained scikit-learn model
-            feature_names: List of feature names
-            
-        Returns:
-            DataFrame with feature importance scores
-        """
+        """Extract basic feature importance from trained model."""
         try:
-            logger.debug(f"Extracting feature importance from {type(model).__name__}")
-            
             if hasattr(model, 'feature_importances_'):
-                # XGBoost and tree-based models
-                importance_df = pd.DataFrame({
+                return pd.DataFrame({
                     'feature': feature_names,
                     'importance': model.feature_importances_
                 }).sort_values('importance', ascending=False)
-                
-                logger.debug(f"Feature importance extracted: top feature is {importance_df.iloc[0]['feature']} (importance: {importance_df.iloc[0]['importance']:.4f})")
-                return importance_df
-            elif hasattr(model, 'coef_'):
-                # Linear models - use absolute coefficients as importance
-                coefficients = model.coef_
-                if coefficients.ndim > 1:
-                    # Multi-class case - take mean of absolute coefficients
-                    importance_values = np.abs(coefficients).mean(axis=0)
-                else:
-                    # Single class - use absolute coefficients directly
-                    importance_values = np.abs(coefficients)
-                
-                importance_df = pd.DataFrame({
-                    'feature': feature_names,
-                    'importance': importance_values
-                }).sort_values('importance', ascending=False)
-                
-                logger.debug(f"Feature importance (coefficients) extracted: top feature is {importance_df.iloc[0]['feature']} (importance: {importance_df.iloc[0]['importance']:.4f})")
-                return importance_df
             else:
-                logger.debug(f"Model {type(model).__name__} does not support feature importance extraction")
                 return None
-                
-        except Exception as e:
-            logger.warning(f"Failed to extract feature importance: {str(e)}")
+        except Exception:
             return None
