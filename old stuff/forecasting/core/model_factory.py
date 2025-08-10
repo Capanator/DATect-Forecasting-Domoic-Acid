@@ -85,18 +85,16 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            # Hybrid configuration: higher capacity + old working parameters
             return xgb.XGBClassifier(
-                n_estimators=300,  # Keep higher (was 200 in old)
-                max_depth=8,       # Keep higher (was 5 in current, 8 in old)
-                learning_rate=0.1, # Revert to old (was 0.05)
-                subsample=0.8,     # Revert to old (was 0.6)
-                colsample_bytree=0.8, # Revert to old (was 0.6)
+                n_estimators=200,
+                max_depth=8,
+                learning_rate=0.1,
+                subsample=0.8,
+                colsample_bytree=0.8,
                 random_state=self.random_seed,
                 n_jobs=-1,
                 use_label_encoder=False,
-                eval_metric='logloss'  # Revert to old (was 'mlogloss')
-                # Removed: min_child_weight, gamma, reg_alpha, reg_lambda (match old)
+                eval_metric='logloss'
             )
         elif model_type == "rf":
             # RF deprecated in favor of XGBoost
@@ -107,7 +105,7 @@ class ModelFactory:
                 max_iter=1000,
                 C=1.0,
                 random_state=self.random_seed,
-                n_jobs=-1  # Use all CPU cores for fair comparison with XGBoost
+                n_jobs=1
             )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "

@@ -202,7 +202,7 @@ SATELLITE_DATA = {
 
 # Operation Mode Configuration
 # Controls which type of forecasting system to run
-FORECAST_MODE = "realtime"  # Options: "retrospective", "realtime"
+FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 # - "retrospective": Run historical validation with random anchor points
 # - "realtime": Launch interactive dashboard for specific date/site predictions
 
@@ -265,7 +265,7 @@ LAG_FEATURES = [1, 3]  # Optimized lag selection based on statistical validation
 # =============================================================================
 
 # DA Category Thresholds (μg/g)
-# Used for classification tasks and risk level assignment (you can modify these threseholds and number of categories)
+# Used for classification tasks and risk level assignment
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]  # Bin edges matching original system
 DA_CATEGORY_LABELS = [0, 1, 2, 3]  # Numeric labels for compatibility with ML models
 # Category meanings:

@@ -355,7 +355,7 @@ class DataProcessor:
             if len(numeric_cols) == 0:
                 logger.warning("No numeric columns found for feature transformation")
                 raise ScientificValidationError("No numeric features available for modeling")
-            
+                
             # Create preprocessing pipeline
             numeric_pipeline = Pipeline([
                 ("imputer", SimpleImputer(strategy="median")),
