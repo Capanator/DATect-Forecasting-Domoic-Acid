@@ -208,13 +208,13 @@ FORECAST_MODE = "retrospective"  # Options: "retrospective", "realtime"
 
 # Task Configuration  
 # Defines the prediction task type
-FORECAST_TASK = "classification"  # Options: "regression", "classification"
+FORECAST_TASK = "regression"  # Options: "regression", "classification"
 # - "regression": Predict continuous DA levels (μg/g)
 # - "classification": Predict categorical risk levels (Low/Moderate/High/Extreme)
 
 # Model Configuration
 # Specifies which machine learning algorithm to use
-FORECAST_MODEL = "linear"  # Options: "xgboost", "linear" 
+FORECAST_MODEL = "xgboost"  # Options: "xgboost", "linear" 
 # - "xgboost": XGBoost (primary model - uses XGBoost for both regression & classification)
 # - "linear": Linear Models (uses Linear Regression for regression, Logistic for classification)
 # Note: XGBoost is recommended for best performance, linear/logistic for interpretability
@@ -238,7 +238,7 @@ MIN_TRAINING_SAMPLES = 3  # Minimum samples required to train a model
 RANDOM_SEED = 42  # For reproducible results across runs
 
 # Retrospective Evaluation Configuration
-N_RANDOM_ANCHORS = 500  # Number of random anchor points for retrospective evaluation
+N_RANDOM_ANCHORS = 50  # Number of random anchor points for retrospective evaluation
 # - Higher values: More thorough evaluation, longer runtime (recommended: 20-100)
 # - Lower values: Faster evaluation, less comprehensive testing
 

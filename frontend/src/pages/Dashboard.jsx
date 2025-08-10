@@ -320,7 +320,19 @@ const Dashboard = () => {
         
         if (siteData.length === 0) return
         
-        const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        // Use comprehensive 10-color palette for all 10 sites (no duplicates)
+        const colors = [
+          '#1f77b4', // blue
+          '#ff7f0e', // orange  
+          '#2ca02c', // green
+          '#d62728', // red
+          '#9467bd', // purple
+          '#8c564b', // brown
+          '#e377c2', // pink
+          '#7f7f7f', // gray
+          '#bcbd22', // olive
+          '#17becf'  // cyan
+        ]
         const siteColor = colors[siteIndex % colors.length]
         
         // Color logic: single site = blue/red, multiple sites = site-specific colors
@@ -385,7 +397,19 @@ const Dashboard = () => {
         
         if (siteData.length === 0) return
         
-        const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        // Use comprehensive 10-color palette for all 10 sites (no duplicates)
+        const colors = [
+          '#1f77b4', // blue
+          '#ff7f0e', // orange  
+          '#2ca02c', // green
+          '#d62728', // red
+          '#9467bd', // purple
+          '#8c564b', // brown
+          '#e377c2', // pink
+          '#7f7f7f', // gray
+          '#bcbd22', // olive
+          '#17becf'  // cyan
+        ]
         const siteColor = colors[siteIndex % colors.length]
         
         // Color logic: single site = blue/red, multiple sites = site-specific colors
@@ -462,7 +486,19 @@ const Dashboard = () => {
         siteGroups[d.site].push(d)
       })
       
-      const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+      // Use comprehensive 10-color palette for all 10 sites (no duplicates)
+      const colors = [
+        '#1f77b4', // blue - Cannon Beach
+        '#ff7f0e', // orange - Clatsop Beach
+        '#2ca02c', // green - Coos Bay
+        '#d62728', // red - Copalis
+        '#9467bd', // purple - Gold Beach
+        '#8c564b', // brown - Kalaloch
+        '#e377c2', // pink - Long Beach
+        '#7f7f7f', // gray - Newport
+        '#bcbd22', // olive - Quinault
+        '#17becf'  // cyan - Twin Harbors
+      ]
       const traces = []
       
       // Add diagonal reference line for perfect predictions
@@ -550,7 +586,19 @@ const Dashboard = () => {
         siteGroups[d.site].push(d)
       })
 
-      const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+      // Use comprehensive 10-color palette for all 10 sites (no duplicates)
+      const colors = [
+        '#1f77b4', // blue - Cannon Beach
+        '#ff7f0e', // orange - Clatsop Beach
+        '#2ca02c', // green - Coos Bay
+        '#d62728', // red - Copalis
+        '#9467bd', // purple - Gold Beach
+        '#8c564b', // brown - Kalaloch
+        '#e377c2', // pink - Long Beach
+        '#7f7f7f', // gray - Newport
+        '#bcbd22', // olive - Quinault
+        '#17becf'  // cyan - Twin Harbors
+      ]
       const traces = []
 
       // Add diagonal reference line

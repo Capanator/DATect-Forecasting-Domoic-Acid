@@ -8,28 +8,26 @@
 
 ## 🎯 Overview
 
-DATect is a **publication-ready** machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. The system integrates satellite oceanographic data, environmental measurements, and **advanced temporal safeguards** to provide scientifically rigorous predictions while preventing data leakage.
-
-**Scientific Integrity Rating: 95/100** ✅ - Ready for peer-reviewed publication
+DATect is a machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. The system integrates satellite oceanographic data, environmental measurements, and **advanced temporal safeguards** to provide scientifically rigorous predictions while preventing data leakage.
 
 ### 🔬 Key Features
 
 - **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.37+ performance
-- **Zero Data Leakage**: Gold-standard temporal safeguards validated through comprehensive testing
+- **Data Leakage Prevention**: temporal safeguards validated through comprehensive testing
 - **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
 - **Modern Web Interface**: React frontend with FastAPI backend
 - **Real-time & Retrospective Analysis**: Support for both operational and research use
-- **10 Monitoring Sites**: Complete Pacific Coast coverage from California to Washington
-- **21+ Years of Data**: Temporal coverage from 2002-2023
+- **10 Monitoring Sites**: Complete Pacific Coast coverage from Oregon to Washington
+- **21 Years of Data**: Temporal coverage from 2002-2023
 
 ### 🏆 Scientific Validation
 
-The system implements **exceptional scientific rigor** with:
-- **Perfect temporal integrity** - No future data contamination
+The system implements **scientific rigor** with:
+- **Temporal integrity** - No future data contamination
 - **Per-forecast DA categorization** - No target leakage
-- **Strict train/test chronological ordering** - Bulletproof methodology
-- **Realistic operational constraints** - 7-day satellite data buffer
-- **Comprehensive edge case handling** - Single-class sites, missing data
+- **Strict train/test chronological ordering**
+- **Operational constraints** - 7-day satellite data buffer
+- **Edge case handling** - Single-class sites, missing data
 
 ## 🚀 Quick Start - Local Development
 
