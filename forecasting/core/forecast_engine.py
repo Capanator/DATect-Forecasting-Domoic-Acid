@@ -272,10 +272,20 @@ class ForecastEngine:
                 # Check if we have multiple classes in training data
                 unique_classes = train_df["da-category"].nunique()
                 if unique_classes > 1:
-                    # Use direct category values (working approach from old version)
+                    # Handle non-consecutive class labels for XGBoost
+                    unique_cats = sorted(train_df["da-category"].unique())
+                    cat_mapping = {cat: i for i, cat in enumerate(unique_cats)}
+                    reverse_mapping = {i: cat for cat, i in cat_mapping.items()}
+                    
+                    # Convert to consecutive labels for XGBoost
+                    y_train_encoded = train_df["da-category"].map(cat_mapping)
+                    
                     cls_model = self.model_factory.get_model("classification", model_type)
-                    cls_model.fit(X_train_processed, train_df["da-category"])
-                    pred_category = cls_model.predict(X_test_processed)[0]
+                    cls_model.fit(X_train_processed, y_train_encoded)
+                    pred_encoded = cls_model.predict(X_test_processed)[0]
+                    
+                    # Convert back to original category
+                    pred_category = reverse_mapping[pred_encoded]
                     result['Predicted_da-category'] = pred_category
                 else:
                     # Single class scenario - predict the dominant class
@@ -377,11 +387,21 @@ class ForecastEngine:
                 # Check if we have multiple classes
                 unique_classes = df_train_clean["da-category"].nunique()
                 if unique_classes > 1:
-                    # Use direct category values (working approach from old version)
+                    # Handle non-consecutive class labels for XGBoost
+                    unique_cats = sorted(df_train_clean["da-category"].unique())
+                    cat_mapping = {cat: i for i, cat in enumerate(unique_cats)}
+                    reverse_mapping = {i: cat for cat, i in cat_mapping.items()}
+                    
+                    # Convert to consecutive labels for XGBoost
+                    y_train_encoded = df_train_clean["da-category"].map(cat_mapping)
+                    
                     model = self.model_factory.get_model("classification", model_type)
-                    model.fit(X_train_processed, df_train_clean["da-category"])
-                    prediction = model.predict(X_forecast)[0]
-                    result['predicted_category'] = prediction
+                    model.fit(X_train_processed, y_train_encoded)
+                    pred_encoded = model.predict(X_forecast)[0]
+                    
+                    # Convert back to original category
+                    prediction = reverse_mapping[pred_encoded]
+                    result['predicted_category'] = int(prediction)
                     result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
                     logger.debug(f"Classification prediction completed for {site}: {prediction}")
                     
@@ -389,7 +409,12 @@ class ForecastEngine:
                     if hasattr(model, 'predict_proba'):
                         try:
                             probabilities = model.predict_proba(X_forecast)[0]
-                            result['class_probabilities'] = probabilities
+                            # Convert to 4-element array format [cat0, cat1, cat2, cat3] for frontend
+                            prob_array = [0.0, 0.0, 0.0, 0.0]  # Initialize all categories
+                            for i, prob in enumerate(probabilities):
+                                original_cat = reverse_mapping[i]
+                                prob_array[original_cat] = float(prob)
+                            result['class_probabilities'] = prob_array
                         except Exception:
                             # Silently skip probability calculation if not supported
                             pass
@@ -398,7 +423,7 @@ class ForecastEngine:
                     # Single class scenario - predict the dominant class
                     # This allows sites like Cannon Beach with limited toxin diversity to still generate predictions
                     dominant_class = df_train_clean["da-category"].mode()[0]
-                    result['predicted_category'] = dominant_class
+                    result['predicted_category'] = int(dominant_class)
                     result['single_class_prediction'] = True
                     logger.debug(f"Single-class prediction for {site}: {dominant_class} (only class in training data)")
                     
