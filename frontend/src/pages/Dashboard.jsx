@@ -305,7 +305,7 @@ const Dashboard = () => {
     const isClassification = config.forecast_task === 'classification'
     
     // Group by site for better visualization
-    const sites = [...new Set(results.map(r => r.site))].slice(0, 5) // Limit to 5 sites for readability
+    const sites = [...new Set(results.map(r => r.site))] // Show all sites
     const isSingleSite = sites.length === 1
     
     const traces = []

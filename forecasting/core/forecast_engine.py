@@ -264,6 +264,8 @@ class ForecastEngine:
                 reg_model = self.model_factory.get_model("regression", model_type)
                 reg_model.fit(X_train_processed, train_df["da"])
                 pred_da = reg_model.predict(X_test_processed)[0]
+                # Ensure DA predictions cannot be negative (biological constraint)
+                pred_da = max(0.0, float(pred_da))
                 result['Predicted_da'] = pred_da
             
             if task == "classification" or task == "both":
@@ -381,6 +383,8 @@ class ForecastEngine:
                 model = self.model_factory.get_model("regression", model_type)
                 model.fit(X_train_processed, df_train_clean["da"])
                 prediction = model.predict(X_forecast)[0]
+                # Ensure DA predictions cannot be negative (biological constraint)
+                prediction = max(0.0, float(prediction))
                 result['predicted_da'] = prediction
                 result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
                 logger.debug(f"Regression prediction completed for {site}: {prediction:.4f}")

@@ -206,7 +206,9 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
                 random_state=42
             )
             gb_model.fit(X_train_processed, y_train)
-            gb_predictions[name] = float(gb_model.predict(X_forecast_processed)[0])
+            pred_value = gb_model.predict(X_forecast_processed)[0]
+            # Ensure quantile predictions cannot be negative (biological constraint)
+            gb_predictions[name] = max(0.0, float(pred_value))
         
         # Generate point prediction using existing XGBoost engine
         xgb_result = get_forecast_engine().generate_single_forecast(
