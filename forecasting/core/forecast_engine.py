@@ -282,6 +282,7 @@ class ForecastEngine:
                     # This allows sites like Cannon Beach with limited toxin diversity to still generate predictions
                     dominant_class = train_df["da-category"].mode()[0]
                     result['Predicted_da-category'] = dominant_class
+                    result['single_class_prediction'] = True
                     # Note: This is a naive baseline but maintains temporal integrity
             
             return pd.DataFrame([result])
