@@ -16,8 +16,6 @@ logs/
 outputs/logs/
 
 # Data files (keep structure but not data)
-data/intermediate/*.parquet
-data/processed/*.parquet
 data/raw/*/*.parquet
 
 # Node.js (frontend)
