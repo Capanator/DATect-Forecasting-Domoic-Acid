@@ -278,12 +278,16 @@ class ForecastEngine:
                     label_encoder = LabelEncoder()
                     y_encoded = label_encoder.fit_transform(train_df["da-category"])
                     
-                    # Calculate sample weights for balanced classification
-                    sample_weights = compute_sample_weight('balanced', y_encoded)
-                    
                     cls_model = self.model_factory.get_model("classification", model_type)
                     
-                    # Use sample weights for XGBoost to handle class imbalance
+                    # Use very moderate sample weighting - balanced but dampened significantly
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    sample_weights = compute_sample_weight('balanced', y_encoded)
+                    uniform_weights = np.ones_like(sample_weights)
+                    # Mix 25% balanced weighting with 75% uniform to reduce aggressiveness
+                    sample_weights = 0.25 * sample_weights + 0.75 * uniform_weights
+                    
+                    # Use sample weights for XGBoost only to handle class imbalance moderately
                     if model_type == "xgboost" or model_type == "xgb":
                         cls_model.fit(X_train_processed, y_encoded, sample_weight=sample_weights)
                     else:
@@ -399,7 +403,19 @@ class ForecastEngine:
                     y_encoded = label_encoder.fit_transform(df_train_clean["da-category"])
                     
                     model = self.model_factory.get_model("classification", model_type)
-                    model.fit(X_train_processed, y_encoded)
+                    
+                    # Use very moderate sample weighting - balanced but dampened significantly
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    sample_weights = compute_sample_weight('balanced', y_encoded)
+                    uniform_weights = np.ones_like(sample_weights)
+                    # Mix 25% balanced weighting with 75% uniform to reduce aggressiveness
+                    sample_weights = 0.25 * sample_weights + 0.75 * uniform_weights
+                    
+                    # Use sample weights for XGBoost only to handle class imbalance moderately
+                    if model_type == "xgboost" or model_type == "xgb":
+                        model.fit(X_train_processed, y_encoded, sample_weight=sample_weights)
+                    else:
+                        model.fit(X_train_processed, y_encoded)
                     pred_encoded = model.predict(X_forecast)[0]
                     
                     # Convert back to original label

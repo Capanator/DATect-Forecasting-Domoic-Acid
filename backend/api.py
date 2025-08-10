@@ -198,14 +198,33 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
         gb_predictions = {}
         
         for name, alpha in quantiles.items():
+            # Enhanced gradient boosting configuration for domoic acid forecasting
             gb_model = GradientBoostingRegressor(
-                n_estimators=100,
-                learning_rate=0.1,
+                n_estimators=300,          # More trees for better extreme event capture
+                learning_rate=0.08,        # Balanced learning rate
+                max_depth=6,               # Deeper trees to capture complex patterns
+                min_samples_split=3,       # Allow smaller splits for rare events
+                min_samples_leaf=2,        # Smaller leaf size for extreme event sensitivity  
+                subsample=0.85,            # Stochastic gradient boosting
+                max_features='sqrt',       # Feature sampling for diversity
                 loss='quantile',
                 alpha=alpha,
                 random_state=42
             )
-            gb_model.fit(X_train_processed, y_train)
+            
+            # Apply moderate sample weighting to emphasize high DA events
+            # Use more conservative weighting to avoid overfitting to outliers
+            sample_weights = np.ones(len(y_train))
+            
+            # Only apply weighting if we have sufficient high DA samples
+            if len(y_train) > 20 and y_train.quantile(0.9) > 5.0:
+                # Moderate weight increase for high DA values
+                high_da_mask = y_train > y_train.quantile(0.8)  # Top 20% of DA values
+                sample_weights[high_da_mask] = 1.5  # Modest 50% weight increase
+                extreme_da_mask = y_train > y_train.quantile(0.95)  # Top 5% of DA values  
+                sample_weights[extreme_da_mask] = 2.0  # Double weight for truly extreme events
+            
+            gb_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
             pred_value = gb_model.predict(X_forecast_processed)[0]
             # Ensure quantile predictions cannot be negative (biological constraint)
             gb_predictions[name] = max(0.0, float(pred_value))
@@ -224,7 +243,9 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
         }
         
     except Exception as e:
+        import traceback
         print(f"Error in quantile prediction: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
         return None
 
 # Pydantic models
