@@ -452,9 +452,9 @@ This project is part of scientific research. Please cite appropriately if used i
 
 ## 🙏 Acknowledgments
 
-- **NOAA CoastWatch** for satellite data access
+- **NOAA CoastWatch and Oceanview** for satellite data access and oceanic trend data
 - **USGS** for streamflow data  
-- **Pacific Coast monitoring programs** for DA measurements
+- **Olympic Region Harmful Algal Bloom Partnership, Washington State Department of Health, and Oregon Department of Fish and Wildlife** for Domoic Acid and Pseudo-Nitzschia measurements
 - **XGBoost and scikit-learn communities** for ML frameworks
 - **FastAPI and React teams** for web technologies
 
@@ -478,10 +478,9 @@ This project is part of scientific research. Please cite appropriately if used i
 1. **Read scientific validation docs** in `docs/SCIENTIFIC_VALIDATION.md`
 2. **Understand the API** in `docs/API_DOCUMENTATION.md`  
 3. **Follow testing guidelines** in `docs/TESTING_DOCUMENTATION.md`
-4. **Check AI development guide** in `CLAUDE.md`
 
 ---
 
 **System Status**: ✅ **Production Ready** | 🔬 **Peer Review Ready** | 🚀 **Actively Maintained**
 
-**Last Updated**: January 2025 | **Scientific Integrity Rating**: 95/100
+**Last Updated**: August 2025 
