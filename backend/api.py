@@ -1,9 +1,6 @@
 """
 DATect Web Application API
-=========================
-
-FastAPI backend API for the Domoic Acid forecasting web application.
-Provides REST API endpoints for forecasting, data visualization, and analysis.
+FastAPI backend providing forecasting, visualization, and analysis endpoints
 """
 
 from fastapi import FastAPI, HTTPException, Depends, status
@@ -27,7 +24,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
-# Add parent directory to path to import forecasting modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from forecasting.core.forecast_engine import ForecastEngine
@@ -44,14 +40,14 @@ from backend.visualizations import (
 from backend.cache_manager import cache_manager
 
 def clean_float_for_json(value):
-    """Clean float values for JSON serialization by handling inf/nan."""
+    """Handle inf/nan values for JSON serialization"""
     if value is None:
         return None
     if isinstance(value, (int, bool)):
         return value
     if isinstance(value, (float, np.floating)):
         if math.isinf(value) or math.isnan(value):
-            return None  # Convert inf/nan to null
+            return None
         return float(value)
     if isinstance(value, np.integer):
         return int(value)
@@ -61,23 +57,20 @@ def clean_float_for_json(value):
         return {k: clean_float_for_json(v) for k, v in value.items()}
     return value
 
-# Fix path resolution - ensure we use absolute paths relative to project root
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not os.path.isabs(config.FINAL_OUTPUT_PATH):
     config.FINAL_OUTPUT_PATH = os.path.join(project_root, config.FINAL_OUTPUT_PATH)
 
-# Ensure spectral analysis XGBoost is enabled for local development
 if os.getenv("NODE_ENV") != "production" and os.getenv("CACHE_DIR") != "/app/cache":
-    # Clear any disabling flag from cache precomputation for local development
     if 'SPECTRAL_ENABLE_XGB' in os.environ:
         del os.environ['SPECTRAL_ENABLE_XGB']
 
 def _list_cache():
-    """Legacy cache removed - use precomputed cache status instead."""
+    """Legacy cache removed - use precomputed cache status"""
     return {"dir": "legacy cache removed", "files": [], "total_size": 0, "writable": False}
 
 def _clear_cache_internal():
-    """Legacy cache removed - use precomputed cache status instead."""
+    """Legacy cache removed - use precomputed cache status"""
     return {"dir": "legacy cache removed", "deleted_files": 0, "freed_bytes": 0, "writable": False}
 
 app = FastAPI(
@@ -86,13 +79,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for frontend connections
-# CORS middleware for frontend connections (configurable for production)
+# CORS middleware (configurable for production)
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 if allowed_origins_env:
     origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
 else:
-    # Default allows common local dev servers; for production when serving same-origin, CORS won't be used
+    # Default for local dev; production uses same-origin
     origins = ["http://localhost:3000", "http://localhost:5173", "*"]
 
 app.add_middleware(
@@ -103,17 +95,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security
 security = HTTPBearer()
 
-# Lazy singletons to avoid heavy validation at startup on Cloud Run
+# Lazy singletons for Cloud Run optimization
 forecast_engine = None
 model_factory = None
 
 def get_forecast_engine() -> ForecastEngine:
     global forecast_engine
     if forecast_engine is None:
-        # Skip heavy validation on init; endpoints will validate as needed
+        # Skip validation on init for faster startup
         forecast_engine = ForecastEngine(validate_on_init=False)
     return forecast_engine
 
@@ -123,31 +114,28 @@ def get_model_factory() -> ModelFactory:
         model_factory = ModelFactory()
     return model_factory
 
-# Model mapping function
 def get_actual_model_name(ui_model: str, task: str) -> str:
-    """Map UI model selection to actual model names based on task."""
+    """Map UI model selection to actual model names"""
     if ui_model == "xgboost":
-        return "xgboost"  # XGBoost works for both regression and classification
+        return "xgboost"
     elif ui_model == "linear":
         if task == "regression":
-            return "linear"  # Linear regression
+            return "linear"
         else:
-            return "logistic"  # Logistic regression for classification
+            return "logistic"
     else:
-        return ui_model  # Fallback to original name
+        return ui_model
 
 def get_realtime_model_name(task: str) -> str:
-    """Force XGBoost for all realtime forecasting regardless of user selection."""
-    return "xgboost"  # Always use XGBoost for realtime forecasting
+    """Force XGBoost for all realtime forecasting"""
+    return "xgboost"
 
 def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
-    """Generate quantile predictions using Gradient Boosting and point prediction using XGBoost."""
+    """Generate quantile predictions using Gradient Boosting and point predictions"""
     try:
-        # Load and prepare data
         data = pd.read_parquet(data_file)
         data['date'] = pd.to_datetime(data['date'])
         
-        # Filter for site
         site_data = data[data['site'] == site].copy()
         site_data.sort_values('date', inplace=True)
         

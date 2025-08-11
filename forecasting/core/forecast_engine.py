@@ -1,9 +1,6 @@
 """
 Leak-Free Forecasting Engine
-============================
-
-Core forecasting logic matching the original leak_free_forecast.py behavior
-while maintaining modular architecture and complete temporal integrity protection.
+Core forecasting with complete temporal integrity protection
 """
 
 import pandas as pd
@@ -30,14 +27,10 @@ logger = get_logger(__name__)
 
 class ForecastEngine:
     """
-    Leak-free domoic acid forecasting engine matching original behavior.
+    Leak-free domoic acid forecasting engine with temporal integrity.
     
-    Features:
-    - Complete temporal integrity protection
-    - Per-forecast DA category creation
-    - Strict train/test split ordering
-    - Temporal buffers for all features
-    - Original algorithm performance
+    Features: Per-forecast DA categories, strict temporal ordering,
+    temporal buffers for all features, no future data leakage.
     """
     
     def __init__(self, data_file=None, validate_on_init=True):

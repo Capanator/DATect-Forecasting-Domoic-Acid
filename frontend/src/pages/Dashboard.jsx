@@ -9,34 +9,29 @@ import { plotConfig, getPlotFilename, scaleLayoutForExport } from '../utils/plot
 import 'react-datepicker/dist/react-datepicker.css'
 
 const Dashboard = () => {
-  // Workflow state
-  const [currentStep, setCurrentStep] = useState('config') // 'config', 'realtime', 'retrospective', 'results'
+  const [currentStep, setCurrentStep] = useState('config')
   
-  // Config state
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
     forecast_model: 'xgboost',
-    selected_sites: [] // For retrospective site filtering
+    selected_sites: []
   })
   const [configLoading, setConfigLoading] = useState(false)
   
-  // Data loading state
   const [sites, setSites] = useState([])
   const [models, setModels] = useState({ regression: [], classification: [] })
   const [dateRange, setDateRange] = useState({ min: null, max: null })
   
-  // Realtime forecast state
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
   const [selectedModel, setSelectedModel] = useState('xgboost')
   const [task, setTask] = useState('regression')
   
-  // Results state
   const [forecast, setForecast] = useState(null)
   const [retrospectiveResults, setRetrospectiveResults] = useState(null)
   const [filteredResults, setFilteredResults] = useState(null)
-  const [selectedSiteFilter, setSelectedSiteFilter] = useState('all') // For filtering existing results
+  const [selectedSiteFilter, setSelectedSiteFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -56,10 +51,8 @@ const Dashboard = () => {
       setModels(modelsRes.data.available_models)
       setDateRange(sitesRes.data.date_range)
       
-      // Set defaults
       if (sitesRes.data.sites.length > 0) {
         setSelectedSite({ value: sitesRes.data.sites[0], label: sitesRes.data.sites[0] })
-        // Initialize selected_sites with all sites for retrospective analysis
         setConfig(prev => ({ ...prev, selected_sites: sitesRes.data.sites }))
       }
       

@@ -1,21 +1,15 @@
 #!/usr/bin/env python3
 """
 Domoic Acid Dataset Creation Pipeline
-====================================
 
-Comprehensive data processing pipeline that downloads and processes:
+Downloads and processes:
 - Satellite oceanographic data (MODIS)
-- Climate indices (PDO, ONI, BEUTI)
+- Climate indices (PDO, ONI, BEUTI) 
 - Streamflow data (USGS)
 - Shellfish toxin measurements (DA/PN)
 
-Combines all data sources into unified weekly time series with temporal safeguards.
-
-Usage:
-    python dataset-creation.py
-    
-Configuration:
-    See config.py for all data sources, sites, and processing parameters.
+Combines into unified weekly time series with temporal safeguards.
+Configuration in config.py. Typically takes 30-60 minutes.
 """
 
 import pandas as pd
@@ -31,39 +25,30 @@ import warnings
 import shutil
 import config
 
-# Import logging and exception handling
 from forecasting.core.logging_config import setup_logging, get_logger
 from forecasting.core.exception_handling import safe_execute, handle_data_errors, ScientificValidationError
 
-# Setup logging
 setup_logging(log_level='INFO', enable_file_logging=True)
 logger = get_logger(__name__)
-
-# Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
 warnings.filterwarnings("ignore", category=UserWarning, message="Could not infer format, so each element will be parsed individually, falling back to `dateutil`")
 warnings.filterwarnings("ignore", category=UserWarning, message="Converting non-nanosecond precision datetime values to nanosecond precision")
 
-# =============================================================================
-# CONFIGURATION AND GLOBAL VARIABLES
-# =============================================================================
+# Configuration and Global Variables
 
 # Processing flags
-FORCE_SATELLITE_REPROCESSING = False  # Set to True to always regenerate satellite data
+FORCE_SATELLITE_REPROCESSING = False
 
 # File tracking for cleanup
 downloaded_files = []
 generated_parquet_files = []
-temporary_nc_files_for_stitching = []  # Track yearly files per dataset
+temporary_nc_files_for_stitching = []
 
 
-# Load main configuration
 logger.info("Starting dataset creation pipeline")
 logger.info("Loading configuration from config.py")
 print(f"--- Loading Configuration from config.py ---")
-
-# Extract config values
 da_files = config.ORIGINAL_DA_FILES
 pn_files = config.ORIGINAL_PN_FILES
 sites = config.SITES
@@ -81,31 +66,16 @@ logger.info(f"Date range: {start_date.date()} to {end_date.date()}, Output: {fin
 print(f"Configuration loaded: {len(da_files)} DA files, {len(pn_files)} PN files, {len(sites)} sites")
 print(f"Date range: {start_date.date()} to {end_date.date()}, Output: {final_output_path}")
 
-# Load satellite configuration from main config
 satellite_metadata = config.SATELLITE_DATA
 logger.info(f"Satellite configuration loaded with {len(satellite_metadata)} data types")
 print(f"\n--- Satellite Configuration loaded from main config ---")
 print(f"Satellite configuration loaded with {len(satellite_metadata)} data types.")
 
-# =============================================================================
-# UTILITY FUNCTIONS
-# =============================================================================
+# Utility Functions
 
 @handle_data_errors
 def download_file(url, filename):
-    """
-    Download file from URL with error handling and progress tracking.
-    
-    Args:
-        url (str): URL to download from
-        filename (str): Local filename to save to
-        
-    Returns:
-        str: Path to downloaded file
-        
-    Raises:
-        requests.RequestException: If download fails
-    """
+    """Download file with error handling and progress tracking"""
     try:
         logger.info(f"Downloading file from {url}")
         logger.debug(f"Saving to: {filename}")
@@ -135,17 +105,7 @@ def download_file(url, filename):
         return filename
 
 def local_filename(url, ext, temp_dir=None):
-    """
-    Generate sanitized local filename from URL.
-    
-    Args:
-        url (str): Source URL
-        ext (str): File extension to use
-        temp_dir (str, optional): Temporary directory path
-        
-    Returns:
-        str: Sanitized local filename
-    """
+    """Generate sanitized filename from URL"""
     base = url.split('?')[0].split('/')[-1] or url.split('?')[0].split('/')[-2]
     sanitized_base = "".join(c for c in base if c.isalnum() or c in ('-', '_', '.'))
     root, existing_ext = os.path.splitext(sanitized_base or "downloaded_file")
@@ -153,15 +113,7 @@ def local_filename(url, ext, temp_dir=None):
     return os.path.join(temp_dir, base_name) if temp_dir else base_name
 
 def csv_to_parquet(csv_path):
-    """
-    Convert CSV file to Parquet format for faster I/O.
-    
-    Args:
-        csv_path (str): Path to CSV file
-        
-    Returns:
-        str: Path to generated Parquet file
-    """
+    """Convert CSV to Parquet for faster I/O"""
     parquet_path = csv_path[:-4] + '.parquet'
     df = pd.read_csv(csv_path, low_memory=False)
     df.to_parquet(parquet_path, index=False)
@@ -169,15 +121,7 @@ def csv_to_parquet(csv_path):
     return parquet_path
 
 def convert_files_to_parquet(files_dict):
-    """
-    Convert multiple CSV files to Parquet format.
-    
-    Args:
-        files_dict (dict): Dictionary mapping names to CSV file paths
-        
-    Returns:
-        dict: Dictionary mapping names to Parquet file paths
-    """
+    """Convert multiple CSV files to Parquet"""
     new_files = {}
     for name, path in files_dict.items():
         new_files[name] = csv_to_parquet(path)
@@ -185,10 +129,7 @@ def convert_files_to_parquet(files_dict):
 
 @handle_data_errors
 def process_stitched_dataset(yearly_nc_files, data_type, site):
-    """
-    Process a stitched satellite NetCDF dataset from multiple yearly files.
-    (Core logic for stitching)
-    """
+    """Process stitched satellite NetCDF from multiple files"""
     try:
         logger.info(f"Processing stitched dataset for {data_type} at site {site}")
         logger.debug(f"Processing {len(yearly_nc_files)} yearly files: {yearly_nc_files[:3]}...")
@@ -268,29 +209,22 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
     return df_final
 
 def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_path):
-    """
-    Downloads monthly satellite data, processes via stitching, combines, pivots,
-    and saves to Parquet. Includes an inner progress bar for monthly downloads.
-    """
+    """Download and process satellite data with monthly chunking"""
 
-    # --- Date Range Setup ---
     global_start_str = satellite_metadata_dict.get("satellite_start_date")
     global_anom_start_str = satellite_metadata_dict.get("satellite_anom_start_date")
     main_end_date_str = config.END_DATE
 
     main_end_dt = pd.to_datetime(main_end_date_str)
-    # Ensure the global_end_dt represents the very end of the specified day
     global_end_str = main_end_dt.strftime('%Y-%m-%dT23:59:59Z')
     global_start_dt = pd.to_datetime(global_start_str) if global_start_str else None
     global_anom_start_dt = pd.to_datetime(global_anom_start_str) if global_anom_start_str else None
     global_end_dt = pd.to_datetime(global_end_str) if global_end_str else None
 
-    # --- Temporary Directory ---
-    sat_temp_dir = tempfile.mkdtemp(prefix="sat_monthly_dl_") # Changed prefix for clarity
+    sat_temp_dir = tempfile.mkdtemp(prefix="sat_monthly_dl_")
     satellite_results_list = []
     path_to_return = None
 
-    # --- Build Task List ---
     tasks = []
     processed_site_datatype_pairs = set()
     for data_type, sat_sites_dict in satellite_metadata_dict.items():
@@ -310,7 +244,6 @@ def generate_satellite_parquet(satellite_metadata_dict, main_sites_list, output_
 
     print(f"Prepared {len(tasks)} satellite processing tasks.")
 
-    # --- Main Loop over Tasks (Outer progress bar) ---
     try:
         for task in tqdm(tasks, desc="Satellite Tasks", unit="task", position=0, leave=True):
             site = task["site"]

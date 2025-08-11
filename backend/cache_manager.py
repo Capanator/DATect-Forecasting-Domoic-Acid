@@ -1,9 +1,6 @@
 """
 Cache Manager for DATect API
-============================
-
-Manages cached pre-computed results for Google Cloud deployment.
-Serves cached data instead of running expensive computations on the server.
+Manages pre-computed results for Google Cloud deployment
 """
 
 import os
@@ -16,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class CacheManager:
-    """Manages access to pre-computed cache files."""
+    """Manages pre-computed cache file access"""
     
     def __init__(self, cache_dir: str = "./cache"):
         self.cache_dir = Path(cache_dir)
@@ -31,20 +28,18 @@ class CacheManager:
             logger.info("Cache disabled for local development")
     
     def _should_enable_cache(self) -> bool:
-        """Determine if cache should be enabled based on environment."""
-        # Enable cache only in production or when explicitly requested
-        if os.getenv("CACHE_DIR") == "/app/cache":  # Container production
+        """Check if cache should be enabled based on environment"""
+        if os.getenv("CACHE_DIR") == "/app/cache":
             return True
-        if os.getenv("ENABLE_PRECOMPUTED_CACHE", "").lower() == "true":  # Explicit enable
+        if os.getenv("ENABLE_PRECOMPUTED_CACHE", "").lower() == "true":
             return True
-        if os.getenv("NODE_ENV") == "production":  # Production environment
+        if os.getenv("NODE_ENV") == "production":
             return True
         
-        # Disable for local development
         return False
             
     def _load_manifest(self) -> Optional[Dict]:
-        """Load cache manifest file."""
+        """Load cache manifest file"""
         manifest_path = self.cache_dir / "manifest.json"
         
         if manifest_path.exists():

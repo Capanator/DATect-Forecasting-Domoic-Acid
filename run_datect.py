@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-DATect Complete System Launcher - Python Version
-Single command to start backend, frontend, and open browser
+DATect System Launcher
+Starts backend, frontend, and opens browser with scientific validation
 """
 
 import subprocess
@@ -32,9 +32,8 @@ class DATectLauncher:
         print(f"{colors.get(color, '')}{message}{colors['reset']}")
     
     def check_port(self, port):
-        """Check if port is available and kill process if needed"""
+        """Kill existing processes on port if busy"""
         try:
-            # Try to find and kill process on port
             result = subprocess.run(['lsof', '-ti', f':{port}'], 
                                   capture_output=True, text=True)
             if result.stdout.strip():
@@ -52,7 +51,7 @@ class DATectLauncher:
             pass
     
     def wait_for_service(self, url, name, max_wait=30):
-        """Wait for a service to become available"""
+        """Wait for service to respond with HTTP 200"""
         self.print_colored(f"⏳ Waiting for {name} to be ready...", 'yellow')
         for i in range(max_wait):
             try:
@@ -70,10 +69,9 @@ class DATectLauncher:
         return False
     
     def check_prerequisites(self):
-        """Check all prerequisites including scientific data validation"""
+        """Validate data files, temporal integrity, and dependencies"""
         self.print_colored("📋 Checking prerequisites and scientific validity...", 'blue')
         
-        # Check data file existence
         data_file = self.project_root / "data/processed/final_output.parquet"
         if not data_file.exists():
             self.print_colored("❌ Data file not found at data/processed/final_output.parquet", 'red')
@@ -81,22 +79,17 @@ class DATectLauncher:
             return False
         self.print_colored("✅ Data file found", 'green')
         
-        # SCIENTIFIC VALIDATION: Check data integrity
         if not self._validate_scientific_data(data_file):
             return False
-        
-        # SCIENTIFIC VALIDATION: Check temporal integrity
+
         if not self._validate_temporal_integrity():
             return False
-            
-        # SCIENTIFIC VALIDATION: Check model configuration
+
         if not self._validate_model_config():
             return False
-        
-        # Check Python
+
         self.print_colored("✅ Python 3 available", 'green')
-        
-        # Check Node.js
+
         try:
             subprocess.run(['node', '--version'], check=True, capture_output=True)
             self.print_colored("✅ Node.js available", 'green')
@@ -108,14 +101,12 @@ class DATectLauncher:
         return True
     
     def _validate_scientific_data(self, data_file):
-        """Validate scientific integrity of the dataset"""
+        """Check dataset structure and quality"""
         self.print_colored("🔬 Validating scientific data integrity...", 'blue')
         
         try:
-            # Load and validate data structure
             data = pd.read_parquet(data_file)
             
-            # Check basic required columns
             basic_columns = ['date', 'site', 'da']
             missing_cols = [col for col in basic_columns if col not in data.columns]
             if missing_cols:
@@ -123,11 +114,8 @@ class DATectLauncher:
                 print("Data must contain 'date', 'site', and 'da' columns")
                 return False
             
-            # Note: da-category should NOT be pre-created in final_output.parquet
-            # It should only be created during individual forecast operations to maintain temporal integrity
-            # The original scientific approach creates categories per-forecast to prevent data leakage
+            # DA categories created per-forecast to prevent temporal leakage
             
-            # Check data quality
             if data.empty:
                 self.print_colored("❌ Dataset is empty", 'red')
                 return False
@@ -136,7 +124,6 @@ class DATectLauncher:
                 self.print_colored("❌ All DA values are missing", 'red')
                 return False
             
-            # Check temporal coverage
             try:
                 data['date'] = pd.to_datetime(data['date'])
                 date_range = data['date'].max() - data['date'].min()
@@ -145,7 +132,6 @@ class DATectLauncher:
             except Exception:
                 self.print_colored("⚠️  Warning: Could not validate date range", 'yellow')
             
-            # Check site coverage
             sites = data['site'].nunique()
             if sites < 3:
                 self.print_colored("⚠️  Warning: Less than 3 sites - limited spatial coverage", 'yellow')
@@ -158,17 +144,14 @@ class DATectLauncher:
             return False
     
     def _validate_temporal_integrity(self):
-        """Validate temporal integrity settings to prevent data leakage"""
+        """Check temporal safeguards prevent data leakage"""
         self.print_colored("⏱️  Validating temporal integrity safeguards...", 'blue')
         
         try:
-            # Load config file dynamically
             config_path = self.project_root / "config.py"
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
-            
-            # Check critical temporal safeguards
             if not hasattr(config, 'TEMPORAL_BUFFER_DAYS'):
                 self.print_colored("❌ TEMPORAL_BUFFER_DAYS not configured", 'red')
                 return False
@@ -193,17 +176,14 @@ class DATectLauncher:
             return False
     
     def _validate_model_config(self):
-        """Validate model configuration for scientific validity"""
+        """Check model settings are scientifically valid"""
         self.print_colored("⚙️  Validating model configuration...", 'blue')
         
         try:
-            # Load config file dynamically
             config_path = self.project_root / "config.py"
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
-            
-            # Validate model/task combinations
             valid_models = ['xgboost', 'linear']
             if not hasattr(config, 'FORECAST_MODEL') or config.FORECAST_MODEL not in valid_models:
                 self.print_colored(f"❌ Invalid FORECAST_MODEL. Must be one of: {valid_models}", 'red')
@@ -214,16 +194,13 @@ class DATectLauncher:
                 self.print_colored(f"❌ Invalid FORECAST_TASK. Must be one of: {valid_tasks}", 'red')
                 return False
             
-            # Check minimum training samples
             if not hasattr(config, 'MIN_TRAINING_SAMPLES') or config.MIN_TRAINING_SAMPLES < 3:
                 self.print_colored("❌ MIN_TRAINING_SAMPLES must be ≥ 3 for reliable model training", 'red')
                 return False
             
-            # Check random seed for reproducibility
             if not hasattr(config, 'RANDOM_SEED'):
                 self.print_colored("⚠️  Warning: RANDOM_SEED not set - results may not be reproducible", 'yellow')
             
-            # Check lag features
             if hasattr(config, 'LAG_FEATURES'):
                 if not isinstance(config.LAG_FEATURES, list) or len(config.LAG_FEATURES) == 0:
                     self.print_colored("❌ LAG_FEATURES must be a non-empty list", 'red')
@@ -241,10 +218,9 @@ class DATectLauncher:
             return False
     
     def install_dependencies(self):
-        """Install Python and Node.js dependencies"""
+        """Install required Python and Node.js packages"""
         self.print_colored("📦 Installing dependencies...", 'blue')
         
-        # Python dependencies
         print("Installing Python dependencies...")
         python_packages = [
             'fastapi', 'uvicorn', 'pydantic', 'pandas', 'numpy', 
@@ -258,7 +234,6 @@ class DATectLauncher:
         except:
             self.print_colored("⚠️  Some Python packages may already be installed", 'yellow')
         
-        # Node.js dependencies
         print("Installing Node.js dependencies...")
         frontend_dir = self.project_root / "frontend"
         if not (frontend_dir / "node_modules").exists():
@@ -273,43 +248,39 @@ class DATectLauncher:
         return True
     
     def start_backend(self):
-        """Start the backend server"""
+        """Launch FastAPI backend server"""
         self.print_colored("🖥️  Starting backend API server...", 'blue')
         
-        # Start backend process
         self.backend_process = subprocess.Popen([
             sys.executable, 'backend/api.py'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.project_root)
         
         print(f"Backend PID: {self.backend_process.pid}")
         
-        # Wait for backend to be ready
         if not self.wait_for_service("http://localhost:8000/health", "Backend API"):
             return False
             
         return True
     
     def start_frontend(self):
-        """Start the frontend development server"""
+        """Launch React development server"""
         self.print_colored("🎨 Starting frontend development server...", 'blue')
         
         frontend_dir = self.project_root / "frontend"
         
-        # Start frontend process
         self.frontend_process = subprocess.Popen([
             'npm', 'run', 'dev'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=frontend_dir)
         
         print(f"Frontend PID: {self.frontend_process.pid}")
         
-        # Wait for frontend to be ready
         if not self.wait_for_service("http://localhost:3000", "Frontend", max_wait=45):
             return False
             
         return True
     
     def open_browser(self):
-        """Open the web browser to the application"""
+        """Launch browser to application URL"""
         self.print_colored("🌐 Opening http://localhost:3000 in browser...", 'green')
         time.sleep(1)
         try:
@@ -318,10 +289,9 @@ class DATectLauncher:
             self.print_colored("⚠️  Could not auto-open browser. Please visit: http://localhost:3000", 'yellow')
     
     def cleanup(self):
-        """Clean up processes"""
+        """Terminate all spawned processes"""
         self.print_colored("🛑 Shutting down DATect system...", 'yellow')
         
-        # Terminate processes
         if self.backend_process:
             self.backend_process.terminate()
             time.sleep(2)
@@ -334,7 +304,6 @@ class DATectLauncher:
             if self.frontend_process.poll() is None:
                 self.frontend_process.kill()
         
-        # Kill any remaining processes on our ports
         for port in [8000, 3000]:
             try:
                 result = subprocess.run(['lsof', '-ti', f':{port}'], 
@@ -352,39 +321,32 @@ class DATectLauncher:
         self.print_colored("✅ DATect system stopped", 'green')
     
     def run(self):
-        """Main launcher function"""
+        """Execute complete system startup sequence"""
         try:
             self.print_colored("🚀 DATect Complete System Launcher", 'blue')
             self.print_colored("====================================", 'blue')
             print(f"Working directory: {self.project_root}")
             
-            # Check ports first
             self.print_colored("🔍 Checking ports...", 'blue')
             self.check_port(8000)
             self.check_port(3000)
             
-            # Check prerequisites
             if not self.check_prerequisites():
                 return False
             
-            # Install dependencies
             if not self.install_dependencies():
                 return False
             
-            # Start backend
             if not self.start_backend():
                 self.print_colored("❌ Backend failed to start", 'red')
                 return False
             
-            # Start frontend
             if not self.start_frontend():
                 self.print_colored("❌ Frontend failed to start", 'red')
                 return False
             
-            # Open browser
             self.open_browser()
             
-            # Success message
             print()
             self.print_colored("🎉 DATect System is now running!", 'green')
             self.print_colored("====================================", 'green')
@@ -400,10 +362,9 @@ class DATectLauncher:
             print()
             self.print_colored("Press Ctrl+C to stop the entire system", 'yellow')
             
-            # Keep running until interrupted
             try:
                 while True:
-                    # Check if processes are still running
+                    # Monitor process health
                     if self.backend_process.poll() is not None:
                         self.print_colored("❌ Backend process stopped unexpectedly", 'red')
                         break

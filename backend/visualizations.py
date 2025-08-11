@@ -1,6 +1,6 @@
 """
 Backend visualization module for DATect web application.
-Implements all visualization logic from the original Python analysis scripts.
+Implements visualization logic from original analysis scripts.
 """
 
 import pandas as pd
@@ -8,7 +8,6 @@ import numpy as np
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
-# Removed: from sklearn.model_selection import train_test_split  # Use temporal splits instead
 from sklearn.inspection import permutation_importance
 from scipy import signal
 from scipy.stats import pearsonr
@@ -21,30 +20,18 @@ import plotly.io as pio
 
 warnings.filterwarnings('ignore')
 
-# Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
 def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, actual_da=None):
-    """
-    Create advanced gradient visualization for DA level forecast with quantile uncertainty.
-    
-    Args:
-        gradient_quantiles: dict with 'q05', 'q50', 'q95' keys
-        xgboost_prediction: float, XGBoost point prediction 
-        actual_da: float, optional actual DA value
-    
-    Returns:
-        dict: Plotly figure JSON data
-    """
+    """Create gradient visualization with quantile uncertainty bands"""
     q05 = gradient_quantiles['q05']
     q50 = gradient_quantiles['q50'] 
     q95 = gradient_quantiles['q95']
     
     fig = go.Figure()
     
-    # Create gradient confidence area with 30 segments
     n_segments = 30
     range_width = q95 - q05
     max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
