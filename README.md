@@ -12,8 +12,8 @@ DATect is a machine learning system for forecasting harmful algal bloom toxin co
 
 ### Key Features
 
-- **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.37+ performance
-- **Zero Data Leakage**: 7 critical temporal validation tests prevent future information contamination
+- **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.51
+- ** Data Leakage Prevention**: 7 critical temporal validation tests prevent future information contamination
 - **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
 - **Modern Web Interface**: React + Vite frontend with FastAPI backend
 - **Real-time & Retrospective Analysis**: Support for both operational and research use
@@ -114,35 +114,11 @@ cd DATect-Forecasting-Domoic-Acid
 gcloud auth login
 gcloud config set project YOUR-PROJECT-ID
 
-# 4. Deploy with one command (auto-builds Docker image)
+# 4. Deploy with one command (auto-builds container image)
 ./deploy_gcloud.sh
 
 # 5. Access your live URL (provided in output)
 # Example: https://datect-forecasting-xxxxx-uc.a.run.app
-```
-
-### Option 2: Docker Deployment (Any Platform)
-
-For deployment to **any cloud platform** (AWS, Azure, Render, Fly.io, etc.):
-
-```bash
-# 1. Generate dataset locally (if not done)
-python dataset-creation.py
-
-# 2. Build production Docker image
-docker build -f Dockerfile.production -t datect:latest .
-
-# 3. Run locally for testing
-docker run -d --name datect-test -p 8000:8000 \
-  -e PORT=8000 \
-  -e DATECT_ENV=production \
-  datect:latest
-
-# 4. Test at http://localhost:8000
-# API docs at http://localhost:8000/docs
-
-# 5. Deploy to your cloud platform
-# (Platform-specific commands - see their docs)
 ```
 
 ### Google Cloud Configuration
@@ -176,8 +152,6 @@ DATect-Forecasting-Domoic-Acid/
 │   ├── dataset-creation.py         # Data processing pipeline
 │   └── config.py                   # System configuration
 ├── Deployment
-│   ├── Dockerfile                  # Development container
-│   ├── Dockerfile.production       # Production container
 │   ├── deploy_gcloud.sh            # Google Cloud deployment
 │   └── cloudbuild.yaml             # CI/CD pipeline
 └── Documentation
@@ -370,15 +344,6 @@ python dataset-creation.py  # Takes 30-60 minutes
 python run_datect.py
 ```
 
-**Docker deployment issues:**
-```bash
-# Check logs
-docker logs datect
-
-# Rebuild with no cache
-docker build --no-cache -f Dockerfile.production -t datect:latest .
-```
-
 **Google Cloud deployment fails:**
 ```bash
 # Check authentication
@@ -388,61 +353,6 @@ gcloud config get-value project
 # Enable required APIs
 gcloud services enable run.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
-```
-
-### Performance Optimization
-
-**For large-scale analysis:**
-- Increase `N_RANDOM_ANCHORS` in config.py
-- Use Docker deployment for better resource management
-- Consider Google Cloud for automatic scaling
-
-**For development:**
-- Use `FORECAST_MODE = "realtime"` for faster startup
-- Reduce lag features to `[1]` for quicker processing
-- Cache results using built-in cache_manager.py
-
-## Scientific Publications
-
-This system is designed for **peer-reviewed publication** with:
-
-- **Rigorous temporal validation** - Zero data leakage guaranteed
-- **Comprehensive statistical analysis** - Multiple model types
-- **Reproducible results** - Fixed random seeds
-- **Complete data provenance** - Full methodology documentation
-- **Transparent edge case handling** - Single-class predictions documented
-
-**Publication Readiness Checklist:**
-- [x] Temporal integrity safeguards implemented and tested
-- [x] Scientific validation framework comprehensive
-- [x] Statistical methodology peer-review ready
-- [x] Code quality suitable for supplementary materials
-- [x] Documentation complete for methods section
-
-## Contributing
-
-### Development Guidelines
-
-1. **Never modify temporal safeguards** without comprehensive testing
-2. **Run scientific validation** before submitting changes
-3. **Document all scientific assumptions** in code comments
-4. **Maintain backward compatibility** for config.py parameters
-5. **Update tests** for any new features
-
-### Making Changes
-
-```bash
-# 1. Test locally first
-python run_datect.py
-
-# 2. Run full validation
-python dataset-creation.py
-python run_datect.py
-
-# 3. Test cloud deployment
-./deploy_gcloud.sh
-
-# 4. Submit pull request with validation output
 ```
 
 ## License
@@ -480,8 +390,6 @@ This project is part of scientific research. Please cite appropriately if used i
 
 ---
 
----
-
 ### Detailed Documentation
 
 For comprehensive technical details, see our extensive documentation:
@@ -495,4 +403,4 @@ For comprehensive technical details, see our extensive documentation:
 
 **System Status**: **Production Ready** | **Peer Review Ready** | **Actively Maintained**
 
-**Last Updated**: January 2025 
+**Last Updated**: August 2025 

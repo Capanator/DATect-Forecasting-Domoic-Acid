@@ -1,6 +1,6 @@
 #!/bin/bash
 # DATect Google Cloud Deployment Script
-# Pre-computes cache locally, builds Docker image, and deploys to Google Cloud
+# Pre-computes cache locally, builds container image, and deploys to Google Cloud
 
 set -e  # Exit on any error
 

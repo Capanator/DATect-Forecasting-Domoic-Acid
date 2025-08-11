@@ -2,13 +2,13 @@
 
 ## Overview
 
-This guide explains how to deploy DATect to Google Cloud with pre-computed caching to avoid expensive server-side computations. The system pre-computes all retrospective forecasts and spectral analyses locally, then bakes them into a Docker image for deployment.
+This guide explains how to deploy DATect to Google Cloud with pre-computed caching to avoid expensive server-side computations. The system pre-computes all retrospective forecasts and spectral analyses locally, then bakes them into a container image for deployment.
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Local Build   │    │  Docker Image    │    │  Google Cloud   │
+│   Local Build   │    │ Container Image  │    │  Google Cloud   │
 │                 │    │                  │    │                 │
 │ • Pre-compute   │───▶│ • Cached Data    │───▶│ • Cloud Run     │
 │ • All forecasts │    │ • API Server     │    │ • Auto-scaling  │
@@ -55,7 +55,7 @@ export REGION=us-west1
 
 This script will:
 1. ✅ Pre-compute all expensive operations locally (~10-30 minutes)
-2. ✅ Build optimized Docker image with baked cache
+2. ✅ Build optimized container image with baked cache
 3. ✅ Deploy to Google Cloud Run with auto-scaling
 4. ✅ Configure health checks and monitoring
 5. ✅ Provide service URL and API documentation links
@@ -73,14 +73,13 @@ ls -la ./cache/
 cat ./cache/manifest.json
 ```
 
-#### Step 2: Build Docker Image
+#### Step 2: Deploy with Google Cloud Build
 
 ```bash
-# Build production image with baked cache
-docker build -f Dockerfile.production -t datect-production .
-
-# Test locally (optional)
-docker run -p 8000:8000 datect-production
+# Deploy using Google Cloud Build (handles container build automatically)
+export PROJECT_ID=your-project-id
+export REGION=us-west1
+./deploy_gcloud.sh
 ```
 
 #### Step 3: Deploy to Google Cloud
@@ -135,7 +134,7 @@ Typical cache sizes:
 - **Visualizations**: ~5-10MB (correlation matrices)
 - **Total cache size**: ~100-200MB
 
-The cache is baked into the Docker image as read-only files, eliminating the need for persistent storage or database connections.
+The cache is baked into the container image as read-only files, eliminating the need for persistent storage or database connections.
 
 ## API Endpoints
 
@@ -168,7 +167,7 @@ curl https://YOUR_SERVICE_URL/health
 
 ### Build Optimization
 - Uses Cloud Build's high-CPU machines for fast cache generation
-- Multi-stage Docker build for minimal final image size
+- Container build optimization for minimal final image size
 - Efficient caching and layer optimization
 
 ## Updating the Deployment

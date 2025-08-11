@@ -33,7 +33,7 @@ class CacheManager:
     def _should_enable_cache(self) -> bool:
         """Determine if cache should be enabled based on environment."""
         # Enable cache only in production or when explicitly requested
-        if os.getenv("CACHE_DIR") == "/app/cache":  # Docker production
+        if os.getenv("CACHE_DIR") == "/app/cache":  # Container production
             return True
         if os.getenv("ENABLE_PRECOMPUTED_CACHE", "").lower() == "true":  # Explicit enable
             return True

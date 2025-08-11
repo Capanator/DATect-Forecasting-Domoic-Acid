@@ -1,8 +1,8 @@
 # Google Cloud Build configuration for DATect deployment
-# Builds the Docker image with pre-computed cache
+# Builds the container image with pre-computed cache
 
 steps:
-  # Step 1: Build the production Docker image with pre-computed cache
+  # Step 1: Build the production container image with pre-computed cache
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-production-image'
     args:

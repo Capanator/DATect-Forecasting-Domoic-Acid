@@ -180,6 +180,7 @@ Press Ctrl+C to stop all services...
 **Install Google Cloud CLI:**
 - **Windows**: Download from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install)
 - **macOS**: `brew install google-cloud-sdk`
+- **Linux**: Follow [official instructions](https://cloud.google.com/sdk/docs/install)
 
 **Set up Google Cloud:**
 ```bash
@@ -225,7 +226,7 @@ python dataset-creation.py
 ✅ Required APIs enabled
 ✅ Dataset present: data/processed/final_output.parquet
 
-🐳 Building Production Docker Image...
+🐳 Building Production Container Image...
 ✅ Building with Cloud Build...
 ✅ Image: gcr.io/your-datect-project/datect:latest
 
@@ -256,65 +257,6 @@ python dataset-creation.py
 Your DATect system is now live on the internet! 🚀
 ```
 
-### Step 3: Access Your Live System
-
-Your deployed system will be available at the provided URL:
-- **Web Interface**: https://your-url.a.run.app
-- **API Documentation**: https://your-url.a.run.app/docs
-- **Health Check**: https://your-url.a.run.app/health
-
-## Docker Deployment (Any Platform)
-
-For **AWS, Azure, Render, Fly.io, or any Docker-compatible platform**:
-
-### Step 1: Generate Dataset
-```bash
-# Must be done locally first
-python dataset-creation.py
-```
-
-### Step 2: Build Docker Image
-```bash
-# Production-ready image
-docker build -f Dockerfile.production -t datect:latest .
-```
-
-### Step 3: Test Locally
-```bash
-# Run container locally
-docker run -d --name datect-test -p 8000:8000 \
-  -e PORT=8000 \
-  -e DATECT_ENV=production \
-  datect:latest
-
-# Test the deployment
-curl http://localhost:8000/health
-
-# View in browser
-open http://localhost:8000
-```
-
-### Step 4: Deploy to Platform
-
-**For AWS ECS/Fargate:**
-```bash
-# Push to ECR
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin your-account.dkr.ecr.us-west-2.amazonaws.com
-docker tag datect:latest your-account.dkr.ecr.us-west-2.amazonaws.com/datect:latest
-docker push your-account.dkr.ecr.us-west-2.amazonaws.com/datect:latest
-```
-
-**For Render:**
-1. Connect your GitHub repository
-2. Set build command: `docker build -f Dockerfile.production -t datect .`
-3. Set start command: `docker run -p 8000:8000 datect`
-
-**For Fly.io:**
-```bash
-fly launch --image datect:latest
-fly deploy
-```
-
 ## Using the System
 
 ### Dashboard Features
@@ -339,24 +281,7 @@ fly deploy
 4. **Spectral Analysis**: Frequency domain analysis
 5. **Model Performance**: Retrospective validation metrics
 
-### Configuration Options
-
-Edit `config.py` for different operation modes:
-
-```python
-# Switch between modes
-FORECAST_MODE = "realtime"          # or "retrospective"
-FORECAST_TASK = "classification"    # or "regression"  
-FORECAST_MODEL = "xgboost"          # or "linear"
-
-# Performance tuning
-N_RANDOM_ANCHORS = 200              # Retrospective evaluation points
-TEMPORAL_BUFFER_DAYS = 1            # Minimum train/test gap
-```
-
 ## Troubleshooting
-
-### Common Issues
 
 **"Command not found: python"**
 ```bash
@@ -372,15 +297,6 @@ python --version
 ```bash
 # Kill existing processes (automatic in run_datect.py)
 kill $(lsof -ti:8000,3000)
-```
-
-**"Dataset generation failed"**
-```bash
-# Check internet connection (required for satellite data)
-ping earthdata.nasa.gov
-
-# Retry with verbose output
-python dataset-creation.py --verbose
 ```
 
 **"Node.js version too old"**
@@ -412,28 +328,6 @@ gcloud config set project YOUR-PROJECT-ID
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com
 ```
 
-**"Out of memory during dataset generation"**
-```bash
-# Monitor memory usage
-htop  # Linux/macOS
-taskmgr  # Windows
-
-# Reduce memory usage (edit config.py)
-SATELLITE_CACHE_SIZE = 100  # Reduce from default 500
-```
-
-### Performance Tips
-
-**For faster startup:**
-- Keep dataset file (`data/processed/final_output.parquet`)
-- Use `FORECAST_MODE = "realtime"` during development
-- Reduce `N_RANDOM_ANCHORS` for faster retrospective validation
-
-**For production:**
-- Use Docker deployment for better resource management
-- Enable caching in `cache_manager.py`
-- Consider Google Cloud for automatic scaling
-
 ## Validation Checklist
 
 After setup, verify everything works:
@@ -459,43 +353,7 @@ curl http://localhost:8000/health
 # Should generate 200 test forecasts
 ```
 
-## Next Steps
-
-### For Research:
-1. **Explore historical data** using the Historical Analysis page
-2. **Run retrospective validation** with your parameters
-3. **Generate forecasts** for your specific research questions
-4. **Export results** using the API endpoints
-
-### For Production:
-1. **Deploy to cloud** for public access
-2. **Set up monitoring** and alerting
-3. **Configure automated data updates**
-4. **Integrate with existing systems** via REST API
-
-### For Development:
-1. **Read the scientific validation docs**: `docs/SCIENTIFIC_VALIDATION.md`
-2. **Understand the forecast pipeline**: `docs/FORECAST_PIPELINE.md`
-3. **Learn visualization interpretation**: `docs/VISUALIZATIONS_GUIDE.md`
-4. **Check the development guide**: `CLAUDE.md`
-5. **Run comprehensive tests** before making changes
-
 ---
-
-## Success Indicators
-
-**Your setup is successful when you see:**
-- **Scientific Integrity Rating: 95/100**  
-- **Zero data leakage violations**
-- **All API endpoints responding**
-- **Web interface functional with forecasting**
-- **Can generate forecasts for any site/date combination**
-
-**Your system is publication-ready!** 🚀
-
----
-
-**Last Updated**: January 2025 | **System Status**: Production Ready
 
 ## Complete Dependencies Reference
 
