@@ -9,7 +9,9 @@ This guide will get you running DATect from a **fresh computer with nothing inst
 **On Windows:**
 1. **Install Python 3.8+**: Download from [python.org](https://www.python.org/downloads/)
    - ✅ Check "Add Python to PATH" during installation
+   - ✅ Recommended: Python 3.9+ for best performance
 2. **Install Node.js 16+**: Download from [nodejs.org](https://nodejs.org/)
+   - ✅ Recommended: Node.js 18+ (LTS version)
 3. **Install Git**: Download from [git-scm.com](https://git-scm.com/download/win)
 
 **On macOS:**
@@ -29,8 +31,14 @@ sudo apt update
 # Install prerequisites
 sudo apt install python3 python3-pip nodejs npm git
 
-# Verify Node.js version (needs 16+)
-node --version
+# For newer Node.js (recommended):
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Verify versions
+python3 --version  # Should be 3.8+
+node --version      # Should be 16+, recommended 18+
+git --version
 ```
 
 ### Step 2: Clone and Launch (One Command!)
@@ -46,7 +54,7 @@ python run_datect.py
 
 **That's it!** The launcher will:
 - ✅ Check all prerequisites automatically
-- ✅ Install Python packages (30+ packages)
+- ✅ Install Python packages (35+ packages)
 - ✅ Install Node.js packages (~1000 packages)
 - ✅ Generate dataset if missing (30-60 min first time)
 - ✅ Run scientific validation (temporal integrity checks)
@@ -70,7 +78,7 @@ python run_datect.py
 ✅ Installing fastapi, uvicorn, pydantic...
 ✅ Installing pandas, numpy, scikit-learn, xgboost...
 ✅ Installing plotly, matplotlib...
-✅ All Python dependencies installed (32 packages)
+✅ All Python dependencies installed (35 packages)
 
 📦 Installing Node.js Dependencies...  
 ✅ Installing react, vite, @vitejs/plugin-react...
@@ -390,9 +398,15 @@ python dataset-creation.py --verbose
 ```bash
 # Update Node.js
 # Windows/macOS: Download from nodejs.org
-# Linux: 
+# Linux (Ubuntu/Debian): 
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
+
+# macOS:
+brew install node
+
+# Verify version
+node --version  # Should be 16+
 ```
 
 **"Google Cloud deployment failed"**
@@ -472,9 +486,10 @@ curl http://localhost:8000/health
 
 ### For Development:
 1. **Read the scientific validation docs**: `docs/SCIENTIFIC_VALIDATION.md`
-2. **Understand the API**: `docs/API_DOCUMENTATION.md`
-3. **Check the development guide**: `CLAUDE.md`
-4. **Run comprehensive tests** before making changes
+2. **Understand the forecast pipeline**: `docs/FORECAST_PIPELINE.md`
+3. **Learn visualization interpretation**: `docs/VISUALIZATIONS_GUIDE.md`
+4. **Check the development guide**: `CLAUDE.md`
+5. **Run comprehensive tests** before making changes
 
 ---
 
@@ -492,3 +507,25 @@ curl http://localhost:8000/health
 ---
 
 **Last Updated**: January 2025 | **System Status**: Production Ready
+
+## 📋 Complete Dependencies Reference
+
+### Python Dependencies (35+ packages)
+Core packages automatically installed by `run_datect.py`:
+- **Scientific Computing**: pandas, numpy, scipy, scikit-learn
+- **Machine Learning**: xgboost (primary model engine)
+- **Web Framework**: fastapi, uvicorn, pydantic
+- **Data Processing**: xarray, pyarrow, netcdf4, requests
+- **Visualization**: plotly, matplotlib
+- **Analysis Tools**: SALib (Sobol analysis), tqdm (progress bars)
+
+### Node.js Dependencies (1000+ packages)  
+Frontend packages automatically installed by `run_datect.py`:
+- **Framework**: React 18.2, Vite 4.4
+- **Routing**: react-router-dom 6.11
+- **UI Components**: @headlessui/react, lucide-react
+- **Visualization**: plotly.js, react-plotly.js
+- **Styling**: tailwindcss, postcss, autoprefixer
+- **Forms**: react-datepicker, react-select
+- **Testing**: vitest, @testing-library/react
+- **Development**: eslint, @vitejs/plugin-react

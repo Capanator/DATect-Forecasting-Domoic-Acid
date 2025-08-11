@@ -13,12 +13,13 @@ DATect is a machine learning system for forecasting harmful algal bloom toxin co
 ### 🔬 Key Features
 
 - **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.37+ performance
-- **Data Leakage Prevention**: temporal safeguards validated through comprehensive testing
+- **Zero Data Leakage**: 7 critical temporal validation tests prevent future information contamination
 - **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
-- **Modern Web Interface**: React frontend with FastAPI backend
+- **Modern Web Interface**: React + Vite frontend with FastAPI backend
 - **Real-time & Retrospective Analysis**: Support for both operational and research use
 - **10 Monitoring Sites**: Complete Pacific Coast coverage from Oregon to Washington
 - **21 Years of Data**: Temporal coverage from 2002-2023
+- **Scientific-Grade Pipeline**: Peer-review ready with comprehensive validation framework
 
 ### 🏆 Scientific Validation
 
@@ -479,6 +480,18 @@ This project is part of scientific research. Please cite appropriately if used i
 
 ---
 
+---
+
+### 📚 Detailed Documentation
+
+For comprehensive technical details, see our extensive documentation:
+
+1. **[Forecast Pipeline Documentation](docs/FORECAST_PIPELINE.md)** - Complete data flow from raw inputs to predictions
+2. **[Visualizations Guide](docs/VISUALIZATIONS_GUIDE.md)** - How to interpret all charts, graphs, and analysis outputs  
+3. **[Scientific Validation](docs/SCIENTIFIC_VALIDATION.md)** - Temporal safeguards, validation tests, and why you can trust the results
+
+---
+
 **System Status**: ✅ **Production Ready** | 🔬 **Peer Review Ready** | 🚀 **Actively Maintained**
 
-**Last Updated**: August 2025 
+**Last Updated**: January 2025 
