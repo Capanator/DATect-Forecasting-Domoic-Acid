@@ -63,7 +63,7 @@ export const plotConfig = {
   toImageButtonOptions: {
     format: 'png',
     filename: 'datect_plot',
-    scale: 5  // Scale up 5x for higher resolution while maintaining aspect ratio
+    scale: 10  // Scale up 10x for higher resolution while maintaining aspect ratio
   }
 }
 
@@ -71,7 +71,7 @@ export const plotConfigSmall = {
   ...plotConfig,
   toImageButtonOptions: {
     ...plotConfig.toImageButtonOptions,
-    scale: 5  // Scale up 5x for higher resolution
+    scale: 10  // Scale up 10x for higher resolution
   }
 }
 
@@ -79,7 +79,7 @@ export const plotConfigSquare = {
   ...plotConfig,
   toImageButtonOptions: {
     ...plotConfig.toImageButtonOptions,
-    scale: 5  // Scale up 5x for higher resolution
+    scale: 10  // Scale up 10x for higher resolution
   }
 }
 
