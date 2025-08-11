@@ -21,6 +21,13 @@ import plotly.io as pio
 import pywt  # Wavelet analysis
 from statsmodels.tsa.seasonal import STL  # Seasonal decomposition
 from scipy.signal import windows  # For multitaper analysis
+import shap  # Model interpretability
+import seaborn as sns  # Statistical visualizations
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import learning_curve
+import matplotlib.pyplot as plt
+import io
+import base64
 
 warnings.filterwarnings('ignore')
 
@@ -1444,5 +1451,615 @@ def generate_multisite_spectral_comparison(data):
             }
         }
         plots.append(plot_seasonal)
+    
+    return plots
+
+
+def generate_model_performance_dashboard(results_df, model=None, X_test=None):
+    """Generate comprehensive model performance visualization dashboard."""
+    
+    plots = []
+    
+    if results_df is None or results_df.empty:
+        return plots
+    
+    # Ensure required columns exist
+    if 'da' not in results_df.columns or 'Predicted_da' not in results_df.columns:
+        return plots
+    
+    actual = results_df['da'].dropna()
+    predicted = results_df['Predicted_da'].dropna()
+    
+    # Align lengths
+    min_len = min(len(actual), len(predicted))
+    actual = actual.iloc[:min_len]
+    predicted = predicted.iloc[:min_len]
+    
+    if len(actual) < 10:
+        return plots
+    
+    # 1. Prediction vs Actual Scatter Plot
+    # Calculate metrics
+    mae = mean_absolute_error(actual, predicted)
+    mse = mean_squared_error(actual, predicted)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(actual, predicted)
+    
+    # Perfect prediction line
+    min_val = min(min(actual), min(predicted))
+    max_val = max(max(actual), max(predicted))
+    
+    plot1 = {
+        "data": [
+            {
+                "x": actual.tolist(),
+                "y": predicted.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "name": "Predictions",
+                "marker": {
+                    "color": "blue",
+                    "opacity": 0.6,
+                    "size": 5
+                },
+                "hovertemplate": "Actual: %{x:.2f}<br>Predicted: %{y:.2f}<extra></extra>"
+            },
+            {
+                "x": [min_val, max_val],
+                "y": [min_val, max_val],
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Perfect Prediction",
+                "line": {"color": "red", "dash": "dash"}
+            }
+        ],
+        "layout": {
+            "title": f"Prediction vs Actual<br><sub>R² = {r2:.3f}, RMSE = {rmse:.2f}, MAE = {mae:.2f}</sub>",
+            "xaxis": {"title": "Actual DA (μg/g)"},
+            "yaxis": {"title": "Predicted DA (μg/g)"},
+            "height": 450,
+            "showlegend": True
+        }
+    }
+    plots.append(plot1)
+    
+    # 2. Residuals Analysis
+    residuals = predicted - actual
+    
+    plot2 = {
+        "data": [
+            {
+                "x": predicted.tolist(),
+                "y": residuals.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "name": "Residuals",
+                "marker": {
+                    "color": "green",
+                    "opacity": 0.6,
+                    "size": 5
+                }
+            },
+            {
+                "x": [min(predicted), max(predicted)],
+                "y": [0, 0],
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Zero Line",
+                "line": {"color": "red", "dash": "dash"}
+            }
+        ],
+        "layout": {
+            "title": "Residual Plot<br><sub>Random scatter indicates good model fit</sub>",
+            "xaxis": {"title": "Predicted DA (μg/g)"},
+            "yaxis": {"title": "Residuals (Predicted - Actual)"},
+            "height": 400,
+            "showlegend": True
+        }
+    }
+    plots.append(plot2)
+    
+    # 3. Residual Distribution (Q-Q plot approximation)
+    sorted_residuals = np.sort(residuals)
+    theoretical_quantiles = np.linspace(0, 1, len(sorted_residuals))
+    normal_quantiles = np.percentile(np.random.normal(0, np.std(residuals), 10000), 
+                                   theoretical_quantiles * 100)
+    
+    plot3 = {
+        "data": [
+            {
+                "x": normal_quantiles.tolist(),
+                "y": sorted_residuals.tolist(),
+                "type": "scatter",
+                "mode": "markers",
+                "name": "Residuals",
+                "marker": {"color": "purple", "size": 4}
+            },
+            {
+                "x": [min(normal_quantiles), max(normal_quantiles)],
+                "y": [min(normal_quantiles), max(normal_quantiles)],
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Normal Line",
+                "line": {"color": "red", "dash": "dash"}
+            }
+        ],
+        "layout": {
+            "title": "Q-Q Plot: Residual Normality<br><sub>Points should follow red line for normal residuals</sub>",
+            "xaxis": {"title": "Theoretical Quantiles"},
+            "yaxis": {"title": "Sample Quantiles"},
+            "height": 400,
+            "showlegend": True
+        }
+    }
+    plots.append(plot3)
+    
+    # 4. Performance by Site (if site column exists)
+    if 'site' in results_df.columns:
+        site_metrics = []
+        sites = results_df['site'].unique()
+        
+        for site in sites:
+            site_data = results_df[results_df['site'] == site]
+            if len(site_data) >= 5:  # Minimum samples for meaningful metrics
+                site_actual = site_data['da'].dropna()
+                site_predicted = site_data['Predicted_da'].dropna()
+                
+                min_len = min(len(site_actual), len(site_predicted))
+                if min_len >= 5:
+                    site_actual = site_actual.iloc[:min_len]
+                    site_predicted = site_predicted.iloc[:min_len]
+                    
+                    site_mae = mean_absolute_error(site_actual, site_predicted)
+                    site_r2 = r2_score(site_actual, site_predicted)
+                    
+                    site_metrics.append({
+                        'site': site,
+                        'mae': site_mae,
+                        'r2': site_r2,
+                        'n_samples': len(site_actual)
+                    })
+        
+        if site_metrics:
+            sites_list = [m['site'] for m in site_metrics]
+            mae_list = [m['mae'] for m in site_metrics]
+            r2_list = [m['r2'] for m in site_metrics]
+            
+            plot4 = {
+                "data": [
+                    {
+                        "x": sites_list,
+                        "y": mae_list,
+                        "type": "bar",
+                        "name": "MAE",
+                        "yaxis": "y",
+                        "marker": {"color": "lightblue"}
+                    },
+                    {
+                        "x": sites_list,
+                        "y": r2_list,
+                        "type": "scatter",
+                        "mode": "markers+lines",
+                        "name": "R²",
+                        "yaxis": "y2",
+                        "marker": {"color": "red", "size": 8},
+                        "line": {"color": "red"}
+                    }
+                ],
+                "layout": {
+                    "title": "Performance by Site",
+                    "xaxis": {"title": "Site", "tickangle": 45},
+                    "yaxis": {"title": "MAE (μg/g)", "side": "left"},
+                    "yaxis2": {"title": "R²", "side": "right", "overlaying": "y", "range": [0, 1]},
+                    "height": 450,
+                    "showlegend": True
+                }
+            }
+            plots.append(plot4)
+    
+    # 5. Time Series of Errors (if date column exists)
+    if 'date' in results_df.columns:
+        results_with_residuals = results_df.copy()
+        results_with_residuals['residuals'] = results_with_residuals['Predicted_da'] - results_with_residuals['da']
+        results_with_residuals['abs_residuals'] = np.abs(results_with_residuals['residuals'])
+        
+        # Sort by date
+        results_with_residuals = results_with_residuals.sort_values('date')
+        
+        plot5 = {
+            "data": [
+                {
+                    "x": results_with_residuals['date'].dt.strftime('%Y-%m-%d').tolist(),
+                    "y": results_with_residuals['residuals'].tolist(),
+                    "type": "scatter",
+                    "mode": "lines+markers",
+                    "name": "Residuals",
+                    "line": {"color": "blue", "width": 1},
+                    "marker": {"size": 3}
+                },
+                {
+                    "x": results_with_residuals['date'].dt.strftime('%Y-%m-%d').tolist(),
+                    "y": [0] * len(results_with_residuals),
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": "Zero Line",
+                    "line": {"color": "red", "dash": "dash"}
+                }
+            ],
+            "layout": {
+                "title": "Residuals Over Time<br><sub>Check for temporal patterns in errors</sub>",
+                "xaxis": {"title": "Date"},
+                "yaxis": {"title": "Residuals (Predicted - Actual)"},
+                "height": 400,
+                "showlegend": True
+            }
+        }
+        plots.append(plot5)
+    
+    return plots
+
+
+def generate_feature_importance_dashboard(model, feature_names, X_sample=None):
+    """Generate SHAP-based feature importance visualizations."""
+    
+    plots = []
+    
+    try:
+        # Use a sample of data for SHAP calculations (for performance)
+        if X_sample is not None and len(X_sample) > 100:
+            X_sample = X_sample.sample(n=100, random_state=42)
+        elif X_sample is not None and len(X_sample) < 10:
+            return plots  # Too few samples
+        
+        # Create SHAP explainer
+        if hasattr(model, 'predict'):
+            explainer = shap.Explainer(model)
+            shap_values = explainer(X_sample)
+            
+            # 1. Feature Importance Bar Chart
+            if hasattr(shap_values, 'values'):
+                mean_abs_shap = np.mean(np.abs(shap_values.values), axis=0)
+                
+                # Sort features by importance
+                importance_df = pd.DataFrame({
+                    'feature': feature_names[:len(mean_abs_shap)],
+                    'importance': mean_abs_shap
+                }).sort_values('importance', ascending=True)
+                
+                plot1 = {
+                    "data": [{
+                        "x": importance_df['importance'].tolist(),
+                        "y": importance_df['feature'].tolist(),
+                        "type": "bar",
+                        "orientation": "h",
+                        "marker": {"color": "skyblue"}
+                    }],
+                    "layout": {
+                        "title": "SHAP Feature Importance<br><sub>Mean absolute SHAP values</sub>",
+                        "xaxis": {"title": "Mean |SHAP Value|"},
+                        "yaxis": {"title": "Features"},
+                        "height": 600,
+                        "margin": {"l": 150}
+                    }
+                }
+                plots.append(plot1)
+                
+                # 2. SHAP Summary Plot Data
+                # Create a scatter plot showing SHAP values vs feature values
+                if len(feature_names) >= 1:
+                    # Take top 10 most important features
+                    top_features = importance_df.tail(min(10, len(importance_df)))
+                    
+                    traces = []
+                    for idx, (_, row) in enumerate(top_features.iterrows()):
+                        feature_idx = feature_names.index(row['feature'])
+                        if feature_idx < X_sample.shape[1] and feature_idx < len(shap_values.values[0]):
+                            feature_values = X_sample.iloc[:, feature_idx].values
+                            feature_shap_values = shap_values.values[:, feature_idx]
+                            
+                            traces.append({
+                                "x": feature_values.tolist(),
+                                "y": feature_shap_values.tolist(),
+                                "type": "scatter",
+                                "mode": "markers",
+                                "name": row['feature'],
+                                "marker": {"size": 6, "opacity": 0.7}
+                            })
+                    
+                    if traces:
+                        plot2 = {
+                            "data": traces,
+                            "layout": {
+                                "title": "SHAP Values vs Feature Values<br><sub>Top 10 most important features</sub>",
+                                "xaxis": {"title": "Feature Value"},
+                                "yaxis": {"title": "SHAP Value"},
+                                "height": 500,
+                                "showlegend": True
+                            }
+                        }
+                        plots.append(plot2)
+        
+    except Exception as e:
+        print(f"SHAP analysis failed: {e}")
+        
+        # Fallback to basic feature importance if available
+        if hasattr(model, 'feature_importances_'):
+            importance_scores = model.feature_importances_
+            
+            importance_df = pd.DataFrame({
+                'feature': feature_names[:len(importance_scores)],
+                'importance': importance_scores
+            }).sort_values('importance', ascending=True)
+            
+            plot_fallback = {
+                "data": [{
+                    "x": importance_df['importance'].tolist(),
+                    "y": importance_df['feature'].tolist(),
+                    "type": "bar",
+                    "orientation": "h",
+                    "marker": {"color": "lightcoral"}
+                }],
+                "layout": {
+                    "title": "Model Feature Importance<br><sub>Built-in feature importance (fallback)</sub>",
+                    "xaxis": {"title": "Feature Importance"},
+                    "yaxis": {"title": "Features"},
+                    "height": 600,
+                    "margin": {"l": 150}
+                }
+            }
+            plots.append(plot_fallback)
+    
+    return plots
+
+
+def generate_spatial_map_visualization(data):
+    """Generate interactive map showing DA levels at monitoring sites."""
+    
+    # Site coordinates from config
+    site_coords = {
+        "Kalaloch": [47.58597, -124.37914],
+        "Quinault": [47.28439, -124.23612],
+        "Copalis": [47.10565, -124.1805],
+        "Twin Harbors": [46.79202, -124.09969],
+        "Long Beach": [46.55835, -124.06088],
+        "Clatsop Beach": [46.028889, -123.917222],
+        "Cannon Beach": [45.881944, -123.959444],
+        "Newport": [44.6, -124.05],
+        "Coos Bay": [43.376389, -124.237222],
+        "Gold Beach": [42.377222, -124.414167]
+    }
+    
+    # Calculate recent statistics by site
+    if 'date' in data.columns:
+        data['date'] = pd.to_datetime(data['date'])
+        # Get recent data (last year)
+        recent_date = data['date'].max()
+        one_year_ago = recent_date - pd.Timedelta(days=365)
+        recent_data = data[data['date'] >= one_year_ago]
+    else:
+        recent_data = data
+    
+    site_stats = []
+    
+    for site in data['site'].unique():
+        if site in site_coords:
+            site_data = recent_data[recent_data['site'] == site]
+            if not site_data.empty and 'da' in site_data.columns:
+                da_values = site_data['da'].dropna()
+                if len(da_values) > 0:
+                    mean_da = da_values.mean()
+                    max_da = da_values.max()
+                    recent_da = da_values.iloc[-1] if len(da_values) > 0 else 0
+                    
+                    # Determine risk level
+                    if recent_da < 5:
+                        risk_level = "Low"
+                        color = "green"
+                    elif recent_da < 20:
+                        risk_level = "Moderate"
+                        color = "yellow"
+                    elif recent_da < 40:
+                        risk_level = "High"
+                        color = "orange"
+                    else:
+                        risk_level = "Extreme"
+                        color = "red"
+                    
+                    site_stats.append({
+                        'site': site,
+                        'lat': site_coords[site][0],
+                        'lon': site_coords[site][1],
+                        'mean_da': mean_da,
+                        'max_da': max_da,
+                        'recent_da': recent_da,
+                        'risk_level': risk_level,
+                        'color': color,
+                        'size': min(20, max(8, recent_da * 0.5))  # Scale marker size
+                    })
+    
+    if not site_stats:
+        return []
+    
+    plot_data = {
+        "data": [
+            {
+                "type": "scattermapbox",
+                "lat": [s['lat'] for s in site_stats],
+                "lon": [s['lon'] for s in site_stats],
+                "mode": "markers",
+                "marker": {
+                    "size": [s['size'] for s in site_stats],
+                    "color": [s['color'] for s in site_stats],
+                    "opacity": 0.8,
+                    "sizemode": "diameter"
+                },
+                "text": [f"{s['site']}<br>Recent DA: {s['recent_da']:.1f} μg/g<br>Risk: {s['risk_level']}<br>Mean: {s['mean_da']:.1f} μg/g<br>Max: {s['max_da']:.1f} μg/g" 
+                        for s in site_stats],
+                "hovertemplate": "%{text}<extra></extra>"
+            }
+        ],
+        "layout": {
+            "mapbox": {
+                "style": "open-street-map",
+                "center": {"lat": 45.5, "lon": -124.0},
+                "zoom": 6
+            },
+            "title": "Domoic Acid Monitoring Sites<br><sub>Marker size and color indicate recent DA levels</sub>",
+            "height": 600,
+            "margin": {"l": 0, "r": 0, "t": 60, "b": 0}
+        }
+    }
+    
+    return [plot_data]
+
+
+def generate_uncertainty_visualization(results_df, confidence_level=0.95):
+    """Generate uncertainty and prediction interval visualizations."""
+    
+    plots = []
+    
+    if results_df is None or results_df.empty:
+        return plots
+    
+    if 'da' not in results_df.columns or 'Predicted_da' not in results_df.columns:
+        return plots
+    
+    # Sort by date if available
+    if 'date' in results_df.columns:
+        results_df = results_df.sort_values('date').copy()
+        x_axis = results_df['date'].dt.strftime('%Y-%m-%d').tolist()
+        x_title = "Date"
+    else:
+        x_axis = list(range(len(results_df)))
+        x_title = "Sample Index"
+    
+    actual = results_df['da'].values
+    predicted = results_df['Predicted_da'].values
+    residuals = predicted - actual
+    
+    # Calculate prediction intervals based on residual distribution
+    residual_std = np.std(residuals)
+    alpha = 1 - confidence_level
+    z_score = 1.96 if confidence_level == 0.95 else 2.576  # 95% or 99%
+    
+    prediction_lower = predicted - z_score * residual_std
+    prediction_upper = predicted + z_score * residual_std
+    
+    # 1. Time series with prediction intervals
+    plot1 = {
+        "data": [
+            {
+                "x": x_axis,
+                "y": actual.tolist(),
+                "type": "scatter",
+                "mode": "lines+markers",
+                "name": "Actual DA",
+                "line": {"color": "blue", "width": 2},
+                "marker": {"size": 4}
+            },
+            {
+                "x": x_axis,
+                "y": predicted.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Predicted DA",
+                "line": {"color": "red", "width": 2}
+            },
+            {
+                "x": x_axis,
+                "y": prediction_lower.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": f"{int(confidence_level*100)}% CI Lower",
+                "line": {"color": "gray", "width": 1, "dash": "dash"},
+                "showlegend": False
+            },
+            {
+                "x": x_axis,
+                "y": prediction_upper.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": f"{int(confidence_level*100)}% CI Upper",
+                "line": {"color": "gray", "width": 1, "dash": "dash"},
+                "fill": "tonexty",
+                "fillcolor": "rgba(128, 128, 128, 0.2)"
+            }
+        ],
+        "layout": {
+            "title": f"Predictions with {int(confidence_level*100)}% Confidence Intervals",
+            "xaxis": {"title": x_title},
+            "yaxis": {"title": "DA (μg/g)"},
+            "height": 500,
+            "showlegend": True
+        }
+    }
+    plots.append(plot1)
+    
+    # 2. Uncertainty vs Prediction Magnitude
+    uncertainty = (prediction_upper - prediction_lower) / 2
+    
+    plot2 = {
+        "data": [{
+            "x": predicted.tolist(),
+            "y": uncertainty.tolist(),
+            "type": "scatter",
+            "mode": "markers",
+            "name": "Prediction Uncertainty",
+            "marker": {
+                "color": "purple",
+                "opacity": 0.6,
+                "size": 6
+            }
+        }],
+        "layout": {
+            "title": "Prediction Uncertainty vs Magnitude<br><sub>Higher predictions may have higher uncertainty</sub>",
+            "xaxis": {"title": "Predicted DA (μg/g)"},
+            "yaxis": {"title": f"±{int(confidence_level*100)}% CI Width"},
+            "height": 400,
+            "showlegend": False
+        }
+    }
+    plots.append(plot2)
+    
+    # 3. Risk categorization with uncertainty
+    risk_categories = []
+    risk_colors = []
+    
+    for pred, lower, upper in zip(predicted, prediction_lower, prediction_upper):
+        if upper < 5:
+            risk_categories.append("Low")
+            risk_colors.append("green")
+        elif lower > 40:
+            risk_categories.append("Extreme")
+            risk_colors.append("red")
+        elif lower > 20:
+            risk_categories.append("High")
+            risk_colors.append("orange")
+        elif lower > 5:
+            risk_categories.append("Moderate")
+            risk_colors.append("yellow")
+        else:
+            risk_categories.append("Uncertain")
+            risk_colors.append("gray")
+    
+    risk_counts = pd.Series(risk_categories).value_counts()
+    
+    plot3 = {
+        "data": [{
+            "labels": risk_counts.index.tolist(),
+            "values": risk_counts.values.tolist(),
+            "type": "pie",
+            "marker": {
+                "colors": ["green", "yellow", "orange", "red", "gray"]
+            },
+            "hovertemplate": "%{label}: %{value} predictions<br>%{percent}<extra></extra>"
+        }],
+        "layout": {
+            "title": f"Risk Classification with {int(confidence_level*100)}% Confidence<br><sub>Uncertain = confidence interval spans multiple risk levels</sub>",
+            "height": 450,
+            "showlegend": True
+        }
+    }
+    plots.append(plot3)
     
     return plots

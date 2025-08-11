@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, BarChart3, Activity } from 'lucide-react'
+import { MapPin, BarChart3, Activity, TrendingUp, Brain, Map } from 'lucide-react'
 import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import api from '../services/api'
@@ -22,6 +22,10 @@ const Historical = () => {
     { value: 'comparison', label: 'DA vs Pseudo-nitzschia', icon: Activity },
     { value: 'waterfall', label: 'Waterfall Plot', icon: BarChart3 },
     { value: 'spectral', label: 'Spectral Analysis', icon: Activity },
+    { value: 'model-performance', label: 'Model Performance', icon: TrendingUp },
+    { value: 'feature-importance', label: 'Feature Importance', icon: Brain },
+    { value: 'spatial-map', label: 'Spatial Map', icon: Map },
+    { value: 'uncertainty', label: 'Uncertainty Analysis', icon: Activity },
   ]
 
   const spectralModeOptions = [
@@ -108,6 +112,14 @@ const Historical = () => {
         } else if (spectralMode === 'comparison') {
           endpoint = '/api/visualizations/spectral-comparison'
         }
+      } else if (visualizationType === 'model-performance') {
+        endpoint = '/api/visualizations/model-performance'
+      } else if (visualizationType === 'feature-importance') {
+        endpoint = '/api/visualizations/feature-importance'
+      } else if (visualizationType === 'spatial-map') {
+        endpoint = '/api/visualizations/spatial-map'
+      } else if (visualizationType === 'uncertainty') {
+        endpoint = '/api/visualizations/uncertainty'
       }
 
       if (endpoint) {
@@ -136,7 +148,7 @@ const Historical = () => {
       setSiteScope('single')
     }
     loadVisualizationData()
-  }, [visualizationType, selectedSite, siteScope])
+  }, [visualizationType, selectedSite, siteScope, spectralMode])
 
   const siteOptions = sites.map(site => ({ value: site, label: site }))
 
@@ -268,9 +280,14 @@ const Historical = () => {
   const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType) && spectralMode !== 'comparison'
   // DA vs Pseudo-nitzschia only supports single site
   const forceSingleSite = visualizationType === 'comparison'
-  // Waterfall plot is all-sites only; hide site controls
-  // Spectral comparison is also all-sites only
-  const hideSiteControls = visualizationType === 'waterfall' || (visualizationType === 'spectral' && spectralMode === 'comparison')
+  // These visualizations don't require site controls (all-sites only or site-independent)
+  const hideSiteControls = [
+    'waterfall', 
+    'model-performance', 
+    'feature-importance', 
+    'spatial-map', 
+    'uncertainty'
+  ].includes(visualizationType) || (visualizationType === 'spectral' && spectralMode === 'comparison')
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -292,7 +309,7 @@ const Historical = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Visualization Type
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
             {visualizationOptions.map(option => (
               <button
                 key={option.value}

@@ -41,7 +41,11 @@ from backend.visualizations import (
     generate_spectral_analysis,
     generate_gradient_uncertainty_plot,
     generate_advanced_spectral_analysis,
-    generate_multisite_spectral_comparison
+    generate_multisite_spectral_comparison,
+    generate_model_performance_dashboard,
+    generate_feature_importance_dashboard,
+    generate_spatial_map_visualization,
+    generate_uncertainty_visualization
 )
 from backend.cache_manager import cache_manager
 
@@ -716,6 +720,119 @@ async def get_multisite_spectral_comparison():
         return {"success": True, "plots": plots}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral comparison: {str(e)}")
+
+@app.get("/api/visualizations/model-performance")
+async def get_model_performance_dashboard():
+    """Generate model performance dashboard using cached retrospective results."""
+    try:
+        # Get cached retrospective results
+        cached_results = cache_manager.get_retrospective_forecast("regression", "xgboost")
+        
+        if cached_results:
+            results_df = pd.DataFrame(cached_results)
+            plots = generate_model_performance_dashboard(results_df)
+            return {"success": True, "plots": plots, "source": "cached"}
+        else:
+            # Compute on server if no cached data (expensive)
+            print("⚠️ WARNING: Computing model performance on server - this is expensive!")
+            engine = ForecastEngine()
+            results_df = engine.run_retrospective_evaluation(
+                task="regression",
+                model_type="xgboost",
+                n_anchors=50  # Reduced for performance
+            )
+            
+            if results_df is not None and not results_df.empty:
+                plots = generate_model_performance_dashboard(results_df)
+                return {"success": True, "plots": plots, "source": "computed"}
+            else:
+                return {"success": False, "message": "No model results available"}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate model performance dashboard: {str(e)}")
+
+@app.get("/api/visualizations/feature-importance")
+async def get_feature_importance_dashboard():
+    """Generate SHAP-based feature importance visualization."""
+    try:
+        # Load model and data for SHAP analysis
+        engine = ForecastEngine()
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Use a sample of data for performance
+        if len(data) > 1000:
+            sample_data = data.sample(n=1000, random_state=42)
+        else:
+            sample_data = data
+        
+        # Get feature columns (exclude target and metadata)
+        feature_cols = [col for col in sample_data.columns 
+                       if col not in ['da', 'date', 'site', 'Predicted_da']]
+        
+        if len(feature_cols) == 0:
+            return {"success": False, "message": "No feature columns found"}
+        
+        X_sample = sample_data[feature_cols].dropna()
+        
+        if len(X_sample) < 10:
+            return {"success": False, "message": "Insufficient clean data for analysis"}
+        
+        # Train a quick model for SHAP analysis
+        y_sample = sample_data.loc[X_sample.index, 'da'].dropna()
+        min_len = min(len(X_sample), len(y_sample))
+        X_sample = X_sample.iloc[:min_len]
+        y_sample = y_sample.iloc[:min_len]
+        
+        # Simple model training
+        from sklearn.ensemble import RandomForestRegressor
+        model = RandomForestRegressor(n_estimators=50, random_state=42)
+        model.fit(X_sample, y_sample)
+        
+        plots = generate_feature_importance_dashboard(model, feature_cols, X_sample)
+        return {"success": True, "plots": plots}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate feature importance dashboard: {str(e)}")
+
+@app.get("/api/visualizations/spatial-map")
+async def get_spatial_map_visualization():
+    """Generate interactive spatial map of monitoring sites."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plots = generate_spatial_map_visualization(data)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate spatial map: {str(e)}")
+
+@app.get("/api/visualizations/uncertainty")
+async def get_uncertainty_visualization():
+    """Generate uncertainty and prediction interval visualizations."""
+    try:
+        # Get cached retrospective results
+        cached_results = cache_manager.get_retrospective_forecast("regression", "xgboost")
+        
+        if cached_results:
+            results_df = pd.DataFrame(cached_results)
+            plots = generate_uncertainty_visualization(results_df)
+            return {"success": True, "plots": plots, "source": "cached"}
+        else:
+            # Compute on server if no cached data
+            print("⚠️ WARNING: Computing uncertainty analysis on server - this is expensive!")
+            engine = ForecastEngine()
+            results_df = engine.run_retrospective_evaluation(
+                task="regression", 
+                model_type="xgboost",
+                n_anchors=50
+            )
+            
+            if results_df is not None and not results_df.empty:
+                plots = generate_uncertainty_visualization(results_df)
+                return {"success": True, "plots": plots, "source": "computed"}
+            else:
+                return {"success": False, "message": "No model results available"}
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate uncertainty visualization: {str(e)}")
 
 @app.get("/api/cache")
 async def get_cache_status():
