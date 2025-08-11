@@ -1,4 +1,4 @@
-# DATect - Domoic Acid Forecasting System 🌊🔬
+# DATect - Domoic Acid Forecasting System
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![XGBoost](https://img.shields.io/badge/ML-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
@@ -6,11 +6,11 @@
 [![React](https://img.shields.io/badge/Frontend-React-blue.svg)](https://reactjs.org/)
 [![Scientific](https://img.shields.io/badge/Status-Peer%20Review%20Ready-brightgreen.svg)](https://github.com/)
 
-## 🎯 Overview
+## Overview
 
 DATect is a machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. The system integrates satellite oceanographic data, environmental measurements, and **advanced temporal safeguards** to provide scientifically rigorous predictions while preventing data leakage.
 
-### 🔬 Key Features
+### Key Features
 
 - **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.37+ performance
 - **Zero Data Leakage**: 7 critical temporal validation tests prevent future information contamination
@@ -21,7 +21,7 @@ DATect is a machine learning system for forecasting harmful algal bloom toxin co
 - **21 Years of Data**: Temporal coverage from 2002-2023
 - **Scientific-Grade Pipeline**: Peer-review ready with comprehensive validation framework
 
-### 🏆 Scientific Validation
+### Scientific Validation
 
 The system implements **scientific rigor** with:
 - **Temporal integrity** - No future data contamination
@@ -30,9 +30,9 @@ The system implements **scientific rigor** with:
 - **Operational constraints** - 7-day satellite data buffer
 - **Edge case handling** - Single-class sites, missing data
 
-## 🚀 Quick Start - Local Development
+## Quick Start - Local Development
 
-### 🖥️ Option 1: One-Command Launch (Recommended)
+### Option 1: One-Command Launch (Recommended)
 
 From any fresh computer with **no requirements pre-installed**:
 
@@ -46,16 +46,16 @@ python run_datect.py
 ```
 
 This will:
-- ✅ Check system prerequisites (Python, Node.js)
-- ✅ Install Python dependencies automatically
-- ✅ Install Node.js dependencies automatically  
-- ✅ Generate dataset if missing (30-60 min first time)
-- ✅ Validate scientific data integrity
-- ✅ Start backend API (port 8000)
-- ✅ Start frontend (port 3000)
-- ✅ Open browser automatically
+- Check system prerequisites (Python, Node.js)
+- Install Python dependencies automatically
+- Install Node.js dependencies automatically  
+- Generate dataset if missing (30-60 min first time)
+- Validate scientific data integrity
+- Start backend API (port 8000)
+- Start frontend (port 3000)
+- Open browser automatically
 
-### 🛠️ Option 2: Manual Setup
+### Option 2: Manual Setup
 
 If you prefer step-by-step control:
 
@@ -79,7 +79,7 @@ python dataset-creation.py
 python run_datect.py
 ```
 
-### 📋 Prerequisites (Auto-installed by run_datect.py)
+### Prerequisites (Auto-installed by run_datect.py)
 
 **Required:**
 - **Python 3.8+** - Download from [python.org](https://www.python.org/downloads/)
@@ -96,9 +96,9 @@ python run_datect.py
 - plotly.js (Interactive plots)
 - tailwindcss (Styling)
 
-## ☁️ Cloud Deployment - Google Cloud
+## Cloud Deployment - Google Cloud
 
-### 🌐 Option 1: Automated Google Cloud Deployment
+### Option 1: Automated Google Cloud Deployment
 
 For production deployment with **zero configuration needed**:
 
@@ -121,7 +121,7 @@ gcloud config set project YOUR-PROJECT-ID
 # Example: https://datect-forecasting-xxxxx-uc.a.run.app
 ```
 
-### 🐳 Option 2: Docker Deployment (Any Platform)
+### Option 2: Docker Deployment (Any Platform)
 
 For deployment to **any cloud platform** (AWS, Azure, Render, Fly.io, etc.):
 
@@ -145,7 +145,7 @@ docker run -d --name datect-test -p 8000:8000 \
 # (Platform-specific commands - see their docs)
 ```
 
-### 🔧 Google Cloud Configuration
+### Google Cloud Configuration
 
 The system includes **production-ready configuration** for Google Cloud:
 
@@ -154,41 +154,41 @@ The system includes **production-ready configuration** for Google Cloud:
 - **IAM** - Secure authentication
 - **Monitoring** - Built-in health checks
 
-## 📊 System Architecture
+## System Architecture
 
 ```
 DATect-Forecasting-Domoic-Acid/
-├── 🎯 Frontend (React + Vite)
+├── Frontend (React + Vite)
 │   ├── src/pages/Dashboard.jsx     # Real-time forecasting interface
 │   ├── src/pages/Historical.jsx    # Scientific visualizations
 │   └── src/services/api.js         # Backend API integration
-├── 🚀 Backend (FastAPI)
+├── Backend (FastAPI)
 │   ├── api.py                      # REST API endpoints  
 │   ├── cache_manager.py            # Performance optimization
 │   └── visualizations.py           # Scientific plots
-├── 🔬 Core ML System
+├── Core ML System
 │   ├── forecasting/core/
 │   │   ├── forecast_engine.py      # Main forecasting logic
 │   │   ├── data_processor.py       # Temporal-safe processing
 │   │   └── model_factory.py        # ML model management
-├── 📁 Data Pipeline  
+├── Data Pipeline  
 │   ├── data/                       # Dataset storage
 │   ├── dataset-creation.py         # Data processing pipeline
 │   └── config.py                   # System configuration
-├── 🌐 Deployment
+├── Deployment
 │   ├── Dockerfile                  # Development container
 │   ├── Dockerfile.production       # Production container
 │   ├── deploy_gcloud.sh            # Google Cloud deployment
 │   └── cloudbuild.yaml             # CI/CD pipeline
-└── 📚 Documentation
+└── Documentation
     ├── docs/QUICK_START.md         # Setup instructions
     ├── docs/API_DOCUMENTATION.md   # REST API reference
     └── docs/SCIENTIFIC_VALIDATION.md # Peer review docs
 ```
 
-## 🖥️ Using the System
+## Using the System
 
-### 🏠 Dashboard (Real-time Forecasting)
+### Dashboard (Real-time Forecasting)
 
 1. **Select Parameters**:
    - **Date**: Any date from 2008-2024
@@ -207,7 +207,7 @@ DATect-Forecasting-Domoic-Acid/
    - **High (20-40 μg/g)**: Avoid consumption
    - **Extreme (>40 μg/g)**: Health hazard
 
-### 📊 Historical Analysis (Research Tools)
+### Historical Analysis (Research Tools)
 
 1. **Correlation Heatmaps**: Variable relationships with scientific colorscales
 2. **Sensitivity Analysis**: Feature importance using Sobol indices  
@@ -215,7 +215,7 @@ DATect-Forecasting-Domoic-Acid/
 4. **Spectral Analysis**: Frequency domain analysis
 5. **Model Performance**: Retrospective validation metrics
 
-### 🔧 Configuration Options
+### Configuration Options
 
 Edit `config.py` to customize system behavior:
 
@@ -236,7 +236,7 @@ N_RANDOM_ANCHORS = 200              # Retrospective evaluation points
 DASHBOARD_PORT = 8066               # Web interface port
 ```
 
-## 🔬 Scientific Features
+## Scientific Features
 
 ### Temporal Integrity Safeguards
 
@@ -268,7 +268,7 @@ The system implements **gold-standard temporal safeguards**:
 - **In-situ Measurements**: DA toxin concentrations
 - **Pseudo-nitzschia**: Cell count data
 
-## 📚 API Reference
+## API Reference
 
 ### Core Endpoints
 
@@ -308,7 +308,7 @@ print(f"Predicted DA: {forecast['regression']['predicted_da']:.2f} μg/g")
 print(f"Risk Category: {forecast['classification']['predicted_category']}")
 ```
 
-## 🧪 Testing and Validation
+## Testing and Validation
 
 ### Built-in Validation (Runs Automatically)
 
@@ -318,18 +318,18 @@ python run_datect.py
 
 **Validation Output:**
 ```
-🔬 Scientific Integrity Validation
+Scientific Integrity Validation
 =====================================
-✅ Temporal safeguards: PASSED (0 leakage violations)
-✅ Data integrity: PASSED (10,950 records validated) 
-✅ Model consistency: PASSED (XGBoost/Linear pipelines identical)
-✅ Classification fixes: PASSED (Non-consecutive labels handled)
-✅ Feature importance: PASSED (JSON serialization compatible)
-✅ Edge case handling: PASSED (Single-class predictions)
-✅ API endpoints: PASSED (All 8 endpoints functional)
+Temporal safeguards: PASSED (0 leakage violations)
+Data integrity: PASSED (10,950 records validated) 
+Model consistency: PASSED (XGBoost/Linear pipelines identical)
+Classification fixes: PASSED (Non-consecutive labels handled)
+Feature importance: PASSED (JSON serialization compatible)
+Edge case handling: PASSED (Single-class predictions)
+API endpoints: PASSED (All 8 endpoints functional)
 
-🏆 Scientific Integrity Rating: 95/100
-📋 Status: PUBLICATION READY
+Scientific Integrity Rating: 95/100
+Status: PUBLICATION READY
 ```
 
 ### Manual Validation Commands
@@ -346,7 +346,7 @@ python dataset-creation.py
 python run_datect.py
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -402,15 +402,15 @@ gcloud services enable cloudbuild.googleapis.com
 - Reduce lag features to `[1]` for quicker processing
 - Cache results using built-in cache_manager.py
 
-## 🏆 Scientific Publications
+## Scientific Publications
 
 This system is designed for **peer-reviewed publication** with:
 
-- ✅ **Rigorous temporal validation** - Zero data leakage guaranteed
-- ✅ **Comprehensive statistical analysis** - Multiple model types
-- ✅ **Reproducible results** - Fixed random seeds
-- ✅ **Complete data provenance** - Full methodology documentation
-- ✅ **Transparent edge case handling** - Single-class predictions documented
+- **Rigorous temporal validation** - Zero data leakage guaranteed
+- **Comprehensive statistical analysis** - Multiple model types
+- **Reproducible results** - Fixed random seeds
+- **Complete data provenance** - Full methodology documentation
+- **Transparent edge case handling** - Single-class predictions documented
 
 **Publication Readiness Checklist:**
 - [x] Temporal integrity safeguards implemented and tested
@@ -419,7 +419,7 @@ This system is designed for **peer-reviewed publication** with:
 - [x] Code quality suitable for supplementary materials
 - [x] Documentation complete for methods section
 
-## 🤝 Contributing
+## Contributing
 
 ### Development Guidelines
 
@@ -445,11 +445,11 @@ python run_datect.py
 # 4. Submit pull request with validation output
 ```
 
-## 📄 License
+## License
 
 This project is part of scientific research. Please cite appropriately if used in publications.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **NOAA CoastWatch and Oceanview** for satellite data access and oceanic trend data
 - **USGS** for streamflow data  
@@ -459,7 +459,7 @@ This project is part of scientific research. Please cite appropriately if used i
 
 ---
 
-## 🎯 Next Steps
+## Next Steps
 
 ### For Research Use:
 1. **Clone repository** and run `python run_datect.py`
@@ -482,7 +482,7 @@ This project is part of scientific research. Please cite appropriately if used i
 
 ---
 
-### 📚 Detailed Documentation
+### Detailed Documentation
 
 For comprehensive technical details, see our extensive documentation:
 
@@ -493,6 +493,6 @@ For comprehensive technical details, see our extensive documentation:
 
 ---
 
-**System Status**: ✅ **Production Ready** | 🔬 **Peer Review Ready** | 🚀 **Actively Maintained**
+**System Status**: **Production Ready** | **Peer Review Ready** | **Actively Maintained**
 
 **Last Updated**: January 2025 

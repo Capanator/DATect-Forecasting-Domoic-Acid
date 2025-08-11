@@ -1,17 +1,17 @@
-# DATect - Complete Setup Guide 🚀
+# DATect - Complete Setup Guide
 
 This guide will get you running DATect from a **fresh computer with nothing installed**.
 
-## 🖥️ Local Development Setup
+## Local Development Setup
 
 ### Step 1: Install Prerequisites
 
 **On Windows:**
 1. **Install Python 3.8+**: Download from [python.org](https://www.python.org/downloads/)
-   - ✅ Check "Add Python to PATH" during installation
-   - ✅ Recommended: Python 3.9+ for best performance
+   - Check "Add Python to PATH" during installation
+   - Recommended: Python 3.9+ for best performance
 2. **Install Node.js 16+**: Download from [nodejs.org](https://nodejs.org/)
-   - ✅ Recommended: Node.js 18+ (LTS version)
+   - Recommended: Node.js 18+ (LTS version)
 3. **Install Git**: Download from [git-scm.com](https://git-scm.com/download/win)
 
 **On macOS:**
@@ -52,19 +52,9 @@ cd DATect-Forecasting-Domoic-Acid
 python run_datect.py
 ```
 
-**That's it!** The launcher will:
-- ✅ Check all prerequisites automatically
-- ✅ Install Python packages (35+ packages)
-- ✅ Install Node.js packages (~1000 packages)
-- ✅ Generate dataset if missing (30-60 min first time)
-- ✅ Run scientific validation (temporal integrity checks)
-- ✅ Start backend API server (port 8000)
-- ✅ Start frontend development server (port 3000)
-- ✅ Open browser automatically to http://localhost:3000
-
 ### What You'll See
 
-**First Run (with dataset generation):**
+**First Run (dataset must exist first):**
 ```
 🚀 DATect Scientific System Launcher
 ====================================
@@ -183,14 +173,13 @@ Press Ctrl+C to stop all services...
 🎉 System ready! Total startup time: 8.3 seconds
 ```
 
-## ☁️ Google Cloud Deployment
+## Google Cloud Deployment
 
 ### Step 1: Google Cloud Setup
 
 **Install Google Cloud CLI:**
 - **Windows**: Download from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install)
 - **macOS**: `brew install google-cloud-sdk`
-- **Linux**: Follow [official instructions](https://cloud.google.com/sdk/docs/install)
 
 **Set up Google Cloud:**
 ```bash
@@ -274,7 +263,7 @@ Your deployed system will be available at the provided URL:
 - **API Documentation**: https://your-url.a.run.app/docs
 - **Health Check**: https://your-url.a.run.app/health
 
-## 🐳 Docker Deployment (Any Platform)
+## Docker Deployment (Any Platform)
 
 For **AWS, Azure, Render, Fly.io, or any Docker-compatible platform**:
 
@@ -326,7 +315,7 @@ fly launch --image datect:latest
 fly deploy
 ```
 
-## 🖥️ Using the System
+## Using the System
 
 ### Dashboard Features
 
@@ -365,7 +354,7 @@ N_RANDOM_ANCHORS = 200              # Retrospective evaluation points
 TEMPORAL_BUFFER_DAYS = 1            # Minimum train/test gap
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -445,7 +434,7 @@ SATELLITE_CACHE_SIZE = 100  # Reduce from default 500
 - Enable caching in `cache_manager.py`
 - Consider Google Cloud for automatic scaling
 
-## ✅ Validation Checklist
+## Validation Checklist
 
 After setup, verify everything works:
 
@@ -470,7 +459,7 @@ curl http://localhost:8000/health
 # Should generate 200 test forecasts
 ```
 
-## 🎯 Next Steps
+## Next Steps
 
 ### For Research:
 1. **Explore historical data** using the Historical Analysis page
@@ -493,14 +482,14 @@ curl http://localhost:8000/health
 
 ---
 
-## 🏆 Success Indicators
+## Success Indicators
 
 **Your setup is successful when you see:**
-- ✅ **Scientific Integrity Rating: 95/100**  
-- ✅ **Zero data leakage violations**
-- ✅ **All API endpoints responding**
-- ✅ **Web interface functional with forecasting**
-- ✅ **Can generate forecasts for any site/date combination**
+- **Scientific Integrity Rating: 95/100**  
+- **Zero data leakage violations**
+- **All API endpoints responding**
+- **Web interface functional with forecasting**
+- **Can generate forecasts for any site/date combination**
 
 **Your system is publication-ready!** 🚀
 
@@ -508,7 +497,7 @@ curl http://localhost:8000/health
 
 **Last Updated**: January 2025 | **System Status**: Production Ready
 
-## 📋 Complete Dependencies Reference
+## Complete Dependencies Reference
 
 ### Python Dependencies (35+ packages)
 Core packages automatically installed by `run_datect.py`:

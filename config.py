@@ -2,7 +2,7 @@
 # DATECT FORECASTING CONFIGURATION FILE
 # =============================================================================
 # Configuration for Domoic Acid (DA) forecasting system
-# This file contains all settings for data processing, modeling, and dashboards
+# This file contains all settings for data processing, modeling, and web interface
 
 # =============================================================================
 # DATA SOURCES AND PATHS
@@ -81,7 +81,6 @@ FINAL_OUTPUT_PATH = "./data/processed/final_output.parquet"
 
 # Intermediate data paths
 SATELLITE_CACHE_PATH = "./data/intermediate/satellite_data_intermediate.parquet"
-LOG_OUTPUT_DIR = "./outputs/logs/"
 
 # =============================================================================
 # SATELLITE DATA CONFIGURATION
@@ -220,12 +219,8 @@ FORECAST_MODEL = "xgboost"  # Options: "xgboost", "linear"
 # Note: XGBoost is recommended for best performance, linear/logistic for interpretability
 
 
-# Dashboard Configuration  
-# Network ports for web dashboards
-DASHBOARD_PORT = 8066         # Real-time forecasting dashboard port
-RETROSPECTIVE_PORT = 8071     # Retrospective analysis dashboard port
-# - Must be available and not blocked by firewall
-# - Different ports allow running both dashboards simultaneously
+# Note: System uses fixed ports 8000 (backend API) and 3000 (frontend)
+# These are hardcoded in run_datect.py and cannot be configured here
 
 # Temporal Validation Settings
 # These settings control data leakage prevention - CRITICAL for research validity
