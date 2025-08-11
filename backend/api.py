@@ -66,11 +66,11 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not os.path.isabs(config.FINAL_OUTPUT_PATH):
     config.FINAL_OUTPUT_PATH = os.path.join(project_root, config.FINAL_OUTPUT_PATH)
 
-# Ensure spectral analysis XGBoost is enabled for local development
+# Ensure spectral analysis Random Forest is enabled for local development
 if os.getenv("NODE_ENV") != "production" and os.getenv("CACHE_DIR") != "/app/cache":
     # Clear any disabling flag from cache precomputation for local development
-    if 'SPECTRAL_ENABLE_XGB' in os.environ:
-        del os.environ['SPECTRAL_ENABLE_XGB']
+    if 'SPECTRAL_ENABLE_RF' in os.environ:
+        del os.environ['SPECTRAL_ENABLE_RF']
 
 def _list_cache():
     """Legacy cache removed - use precomputed cache status instead."""
@@ -126,8 +126,8 @@ def get_model_factory() -> ModelFactory:
 # Model mapping function
 def get_actual_model_name(ui_model: str, task: str) -> str:
     """Map UI model selection to actual model names based on task."""
-    if ui_model == "xgboost":
-        return "xgboost"  # XGBoost works for both regression and classification
+    if ui_model == "rf":
+        return "rf"  # Random Forest works for both regression and classification
     elif ui_model == "linear":
         if task == "regression":
             return "linear"  # Linear regression
@@ -137,11 +137,11 @@ def get_actual_model_name(ui_model: str, task: str) -> str:
         return ui_model  # Fallback to original name
 
 def get_realtime_model_name(task: str) -> str:
-    """Force XGBoost for all realtime forecasting regardless of user selection."""
-    return "xgboost"  # Always use XGBoost for realtime forecasting
+    """Force Random Forest for all realtime forecasting regardless of user selection."""
+    return "rf"  # Always use Random Forest for realtime forecasting
 
-def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
-    """Generate quantile predictions using Gradient Boosting and point prediction using XGBoost."""
+def generate_quantile_predictions(data_file, forecast_date, site, model_type="rf"):
+    """Generate quantile predictions using Gradient Boosting and point prediction using Random Forest."""
     try:
         # Load and prepare data
         data = pd.read_parquet(data_file)
@@ -218,16 +218,16 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
             # Ensure quantile predictions cannot be negative (biological constraint)
             gb_predictions[name] = max(0.0, float(pred_value))
         
-        # Generate point prediction using existing XGBoost engine
-        xgb_result = get_forecast_engine().generate_single_forecast(
+        # Generate point prediction using existing Random Forest engine
+        rf_result = get_forecast_engine().generate_single_forecast(
             data_file, forecast_date, site, "regression", model_type
         )
         
-        xgb_prediction = xgb_result.get('predicted_da') if xgb_result else gb_predictions['q50']
+        rf_prediction = rf_result.get('predicted_da') if rf_result else gb_predictions['q50']
         
         return {
             'quantile_predictions': gb_predictions,
-            'point_prediction': xgb_prediction,
+            'point_prediction': rf_prediction,
             'training_samples': len(train_data)
         }
         
@@ -242,12 +242,12 @@ class ForecastRequest(BaseModel):
     date: date
     site: str
     task: str = "regression"  # "regression" or "classification"
-    model: str = "xgboost"
+    model: str = "rf"
 
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
     forecast_task: str = "regression"  # "regression" or "classification"
-    forecast_model: str = "xgboost"  # "xgboost" or "linear" (linear models)
+    forecast_model: str = "rf"  # "rf" or "linear" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
 
 class ForecastResponse(BaseModel):
@@ -357,7 +357,7 @@ async def generate_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
+        # For realtime forecasting, always use Random Forest regardless of UI selection
         actual_model = get_realtime_model_name(request.task)
         result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
@@ -472,7 +472,7 @@ async def get_config():
     return {
         "forecast_mode": getattr(config, 'FORECAST_MODE', 'realtime'),
         "forecast_task": getattr(config, 'FORECAST_TASK', 'regression'),
-        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost')
+        "forecast_model": getattr(config, 'FORECAST_MODEL', 'rf')
     }
 
 @app.post("/api/config")
@@ -738,30 +738,30 @@ async def get_gradient_uncertainty_visualization(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Generate quantile predictions - always use XGBoost for realtime
+        # Generate quantile predictions - always use Random Forest for realtime
         quantile_result = generate_quantile_predictions(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
-            "xgboost"  # Force XGBoost for realtime forecasting
+            "rf"  # Force Random Forest for realtime forecasting
         )
         
         if not quantile_result:
             raise HTTPException(status_code=400, detail="Insufficient data for quantile prediction")
         
         gb_preds = quantile_result['quantile_predictions']
-        xgb_pred = quantile_result['point_prediction']
+        rf_pred = quantile_result['point_prediction']
         
         # Generate gradient visualization plot
         gradient_plot = generate_gradient_uncertainty_plot(
-            gb_preds, xgb_pred, actual_da=None
+            gb_preds, rf_pred, actual_da=None
         )
         
         return {
             "success": True,
             "plot": gradient_plot,
             "quantile_predictions": gb_preds,
-            "xgboost_prediction": xgb_pred,
+            "rf_prediction": rf_pred,
             "training_samples": quantile_result['training_samples']
         }
         
@@ -782,23 +782,23 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
+        # For realtime forecasting, always use Random Forest regardless of UI selection
         regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            "xgboost"  # Force XGBoost for realtime
+            "rf"  # Force Random Forest for realtime
         )
         
         
-        # For classification, also force XGBoost
+        # For classification, also force Random Forest
         classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "classification",
-            "xgboost"  # Force XGBoost for realtime
+            "rf"  # Force Random Forest for realtime
         )
         
         # Helper function to make results JSON serializable
@@ -851,23 +851,23 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "graphs": {}
         }
         
-        # Add advanced quantile-based uncertainty using Gradient Boosting + XGBoost
+        # Add advanced quantile-based uncertainty using Gradient Boosting + Random Forest
         if regression_result and 'predicted_da' in regression_result:
-            # Generate quantile predictions - always use XGBoost for realtime
+            # Generate quantile predictions - always use Random Forest for realtime
             quantile_result = generate_quantile_predictions(
                 config.FINAL_OUTPUT_PATH,
                 pd.to_datetime(request.date),
                 actual_site,
-                "xgboost"  # Force XGBoost for realtime forecasting
+                "rf"  # Force Random Forest for realtime forecasting
             )
             
             if quantile_result:
                 gb_preds = quantile_result['quantile_predictions']
-                xgb_pred = quantile_result['point_prediction']
+                rf_pred = quantile_result['point_prediction']
                 
                 # Generate advanced gradient visualization plot
                 gradient_plot = generate_gradient_uncertainty_plot(
-                    gb_preds, xgb_pred, actual_da=None
+                    gb_preds, rf_pred, actual_da=None
                 )
                 
                 response_data["graphs"]["level_range"] = {
@@ -876,7 +876,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                         "q50": float(gb_preds['q50']),
                         "q95": float(gb_preds['q95'])
                     },
-                    "xgboost_prediction": float(xgb_pred),
+                    "rf_prediction": float(rf_pred),
                     "gradient_plot": gradient_plot,
                     "type": "gradient_uncertainty"
                 }
@@ -896,7 +896,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                 
                 response_data["graphs"]["level_range"] = {
                     "gradient_quantiles": fallback_quantiles,
-                    "xgboost_prediction": float(predicted_da),
+                    "rf_prediction": float(predicted_da),
                     "gradient_plot": gradient_plot,
                     "type": "gradient_uncertainty"
                 }

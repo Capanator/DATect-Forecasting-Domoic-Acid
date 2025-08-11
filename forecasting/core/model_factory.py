@@ -7,12 +7,7 @@ Supports both regression and classification tasks with multiple algorithms.
 """
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
-# sklearn.ensemble models deprecated in favor of XGBoost
-try:
-    import xgboost as xgb
-    HAS_XGBOOST = True
-except ImportError:
-    HAS_XGBOOST = False
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 
 import config
 
@@ -22,7 +17,7 @@ class ModelFactory:
     Factory class for creating configured ML models.
     
     Supported Models:
-    - XGBoost (regression & classification) - PRIMARY MODEL
+    - Random Forest (regression & classification) - PRIMARY MODEL
     - Linear models (Linear/Logistic) - ALTERNATIVE MODEL
     - Linear Regression (regression)
     - Logistic Regression (classification)
@@ -37,7 +32,7 @@ class ModelFactory:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost", "linear", or "logistic"
+            model_type: "rf", "linear", or "logistic"
             
         Returns:
             Configured scikit-learn model
@@ -54,21 +49,19 @@ class ModelFactory:
             
     def _get_regression_model(self, model_type):
         """Get regression model."""
-        if model_type == "xgboost" or model_type == "xgb":
-            if not HAS_XGBOOST:
-                raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            return xgb.XGBRegressor(
+        if model_type == "rf" or model_type == "random_forest":
+            return RandomForestRegressor(
                 n_estimators=300,
                 max_depth=8,
-                learning_rate=0.1,
-                subsample=0.8,
-                colsample_bytree=0.8,
+                max_features='sqrt',
+                min_samples_split=2,
+                min_samples_leaf=1,
                 random_state=self.random_seed,
                 n_jobs=-1
             )
-        elif model_type == "rf":
-            # RF deprecated in favor of XGBoost
-            raise ValueError("Random Forest deprecated. Use 'xgboost' or 'linear' instead.")
+        elif model_type == "xgboost" or model_type == "xgb":
+            # XGBoost deprecated in favor of Random Forest
+            raise ValueError("XGBoost deprecated. Use 'rf' or 'linear' instead.")
         elif model_type == "ridge":
             # Ridge deprecated in favor of LinearRegression
             raise ValueError("Ridge deprecated. Use 'linear' for Linear Regression instead.")
@@ -78,37 +71,34 @@ class ModelFactory:
             )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'linear')")
+                           f"Supported: 'rf', 'linear')")
             
     def _get_classification_model(self, model_type):
         """Get classification model.""" 
-        if model_type == "xgboost" or model_type == "xgb":
-            if not HAS_XGBOOST:
-                raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            return xgb.XGBClassifier(
+        if model_type == "rf" or model_type == "random_forest":
+            return RandomForestClassifier(
                 n_estimators=300,
                 max_depth=8,
-                learning_rate=0.1,
-                subsample=0.8,
-                colsample_bytree=0.8,
+                max_features='sqrt',
+                min_samples_split=2,
+                min_samples_leaf=1,
                 random_state=self.random_seed,
-                n_jobs=-1,
-                eval_metric='logloss'
+                n_jobs=-1
             )
-        elif model_type == "rf":
-            # RF deprecated in favor of XGBoost
-            raise ValueError("Random Forest deprecated. Use 'xgboost' or 'logistic' instead.")
+        elif model_type == "xgboost" or model_type == "xgb":
+            # XGBoost deprecated in favor of Random Forest
+            raise ValueError("XGBoost deprecated. Use 'rf' or 'logistic' instead.")
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",
                 max_iter=1000,
                 C=1.0,
                 random_state=self.random_seed,
-                n_jobs=-1  # Use all CPU cores for fair comparison with XGBoost
+                n_jobs=-1  # Use all CPU cores for fair comparison with Random Forest
             )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
-                           f"Supported: 'xgboost', 'logistic')")
+                           f"Supported: 'rf', 'logistic')")
             
     def get_supported_models(self, task=None):
         """
@@ -121,8 +111,8 @@ class ModelFactory:
             Dictionary of supported models by task
         """
         models = {
-            "regression": ["xgboost", "linear"],
-            "classification": ["xgboost", "logistic"]
+            "regression": ["rf", "linear"],
+            "classification": ["rf", "logistic"]
         }
         
         if task is None:
@@ -143,8 +133,8 @@ class ModelFactory:
             String description of model
         """
         descriptions = {
-            "xgboost": "XGBoost",
-            "xgb": "XGBoost",
+            "rf": "Random Forest",
+            "random_forest": "Random Forest",
             "linear": "Linear Regression",
             "logistic": "Logistic Regression",
         }

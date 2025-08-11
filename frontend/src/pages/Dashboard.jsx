@@ -16,7 +16,7 @@ const Dashboard = () => {
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
-    forecast_model: 'xgboost',
+    forecast_model: 'rf',
     selected_sites: [] // For retrospective site filtering
   })
   const [configLoading, setConfigLoading] = useState(false)
@@ -29,7 +29,7 @@ const Dashboard = () => {
   // Realtime forecast state
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('xgboost')
+  const [selectedModel, setSelectedModel] = useState('rf')
   const [task, setTask] = useState('regression')
   
   // Results state
@@ -721,7 +721,7 @@ const Dashboard = () => {
                     onChange={(e) => setConfig({...config, forecast_model: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md text-lg"
                   >
-                    <option value="xgboost">XGBoost - Advanced gradient boosting (Recommended)</option>
+                    <option value="rf">Random Forest - Ensemble decision trees (Recommended)</option>
                     <option value="linear">Linear Models - Linear regression & Logistic classification</option>
                   </select>
                 </div>
@@ -952,7 +952,7 @@ const Dashboard = () => {
                         const q05 = quantiles.q05 || levelData.q05;
                         const q50 = quantiles.q50 || levelData.q50;
                         const q95 = quantiles.q95 || levelData.q95;
-                        const xgb_pred = levelData.xgboost_prediction || levelData.predicted_da;
+                        const rf_pred = levelData.rf_prediction || levelData.predicted_da;
                         
                         const traces = [];
                         const n_segments = 30;
@@ -977,9 +977,9 @@ const Dashboard = () => {
                           name: 'GB Range (Q05-Q95)'
                         });
                         
-                        // XGBoost point prediction
+                        // Random Forest point prediction
                         traces.push({
-                          x: [xgb_pred],
+                          x: [rf_pred],
                           y: [0.5],
                           mode: 'markers',
                           marker: {
@@ -988,13 +988,13 @@ const Dashboard = () => {
                             symbol: 'diamond-tall',
                             line: { width: 2, color: 'black' }
                           },
-                          name: 'XGBoost Prediction'
+                          name: 'Random Forest Prediction'
                         });
                         
                         return traces;
                       })()}
                       layout={{
-                        title: "Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
+                        title: "Advanced DA Level Forecast: Gradient Boosting Quantiles + Random Forest Point",
                         xaxis: { title: "DA Level (μg/L)" },
                         yaxis: { visible: false, range: [0, 1] },
                         showlegend: true,

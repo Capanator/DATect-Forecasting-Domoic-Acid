@@ -66,7 +66,7 @@ class CacheManager:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost" or "linear"
+            model_type: "rf" or "linear"
             
         Returns:
             List of forecast results or None if not cached
@@ -197,7 +197,7 @@ class CacheManager:
         if retrospective_dir.exists():
             for json_file in retrospective_dir.glob("*.json"):
                 if not json_file.name.endswith("_summary.json"):
-                    # Parse filename like "classification_xgboost.json"
+                    # Parse filename like "classification_rf.json"
                     name_parts = json_file.stem.split("_", 1)
                     if len(name_parts) == 2:
                         task, model = name_parts

@@ -19,15 +19,15 @@ This guide explains how to deploy DATect to Google Cloud with pre-computed cachi
 ## Pre-Computed Components
 
 ### 1. Retrospective Forecasts
-- **Classification + XGBoost**: ~2000 predictions across 10 sites
+- **Classification + Random Forest**: ~2000 predictions across 10 sites
 - **Classification + Linear**: ~2000 predictions across 10 sites  
-- **Regression + XGBoost**: ~2000 predictions across 10 sites
+- **Regression + Random Forest**: ~2000 predictions across 10 sites
 - **Regression + Linear**: ~2000 predictions across 10 sites
 
 ### 2. Spectral Analysis
 - **All Sites Combined**: Power spectral density, coherence analysis
 - **Individual Sites**: Site-specific spectral characteristics for all 10 locations
-- **XGBoost Comparisons**: Spectral analysis of model predictions vs actual data
+- **Random Forest Comparisons**: Spectral analysis of model predictions vs actual data
 
 ### 3. Visualization Data
 - **Correlation Matrices**: Pre-computed for all sites

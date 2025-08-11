@@ -62,9 +62,9 @@ class DATectCacheGenerator:
         
         # All combinations to cache
         combinations = [
-            ("classification", "xgboost"),
+            ("classification", "rf"),
             ("classification", "logistic"),
-            ("regression", "xgboost"), 
+            ("regression", "rf"), 
             ("regression", "linear")
         ]
         
@@ -134,7 +134,7 @@ class DATectCacheGenerator:
             self.print_status(f"  Computing spectral analysis for {site_name}...", 'yellow')
             
             try:
-                # Enable XGBoost comparison in spectral analysis for complete precomputation
+                # Enable Random Forest comparison in spectral analysis for complete precomputation
                 if 'SPECTRAL_ENABLE_XGB' in os.environ:
                     del os.environ['SPECTRAL_ENABLE_XGB']
                 

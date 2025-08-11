@@ -81,14 +81,14 @@ class ForecastEngine:
             logger.error(f"Failed to initialize ForecastEngine: {str(e)}")
             raise ScientificValidationError(f"ForecastEngine initialization failed: {str(e)}")
         
-    def run_retrospective_evaluation(self, task="regression", model_type="xgboost", 
+    def run_retrospective_evaluation(self, task="regression", model_type="rf", 
                                    n_anchors=50, min_test_date="2008-01-01"):
         """
         Run leak-free retrospective evaluation matching original behavior.
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost", "linear", or "logistic" 
+            model_type: "rf", "linear", or "logistic" 
             n_anchors: Number of random anchor points per site
             min_test_date: Earliest date for test anchors
             
@@ -272,12 +272,12 @@ class ForecastEngine:
                 # Check if we have multiple classes in training data
                 unique_classes = train_df["da-category"].nunique()
                 if unique_classes > 1:
-                    # Handle non-consecutive class labels for XGBoost
+                    # Handle non-consecutive class labels for Random Forest
                     unique_cats = sorted(train_df["da-category"].unique())
                     cat_mapping = {cat: i for i, cat in enumerate(unique_cats)}
                     reverse_mapping = {i: cat for cat, i in cat_mapping.items()}
                     
-                    # Convert to consecutive labels for XGBoost
+                    # Convert to consecutive labels for Random Forest
                     y_train_encoded = train_df["da-category"].map(cat_mapping)
                     
                     cls_model = self.model_factory.get_model("classification", model_type)
@@ -387,12 +387,12 @@ class ForecastEngine:
                 # Check if we have multiple classes
                 unique_classes = df_train_clean["da-category"].nunique()
                 if unique_classes > 1:
-                    # Handle non-consecutive class labels for XGBoost
+                    # Handle non-consecutive class labels for Random Forest
                     unique_cats = sorted(df_train_clean["da-category"].unique())
                     cat_mapping = {cat: i for i, cat in enumerate(unique_cats)}
                     reverse_mapping = {i: cat for cat, i in cat_mapping.items()}
                     
-                    # Convert to consecutive labels for XGBoost
+                    # Convert to consecutive labels for Random Forest
                     y_train_encoded = df_train_clean["da-category"].map(cat_mapping)
                     
                     model = self.model_factory.get_model("classification", model_type)

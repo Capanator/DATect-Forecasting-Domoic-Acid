@@ -149,7 +149,7 @@ python -m pytest analysis/scientific-validation/test_temporal_integrity.py -v
 
 ### Model Performance Standards
 
-**XGBoost Benchmark Performance**:
+**Random Forest Benchmark Performance**:
 - **R² Score**: ~0.529 (at ~200 forecasts per site)
 - **Cross-Validation**: 5-fold temporal cross-validation
 - **Temporal Consistency**: Performance stable across time periods
@@ -236,7 +236,7 @@ xgb.set_config(verbosity=0, use_rmm=False)
 
 #### Version Control
 - **Data Versioning**: Processed data checksums validated
-- **Model Versioning**: XGBoost version pinned
+- **Model Versioning**: scikit-learn Random Forest version pinned
 - **Code Versioning**: Git commit hash in results
 
 ## ⚡ Performance Profiling
@@ -263,7 +263,7 @@ def profile_system_performance():
 
 1. **All 7 temporal integrity tests must pass** (100% pass rate)
 2. **No data leakage detected** in any component
-3. **Model performance meets benchmarks** (R² ≥ 0.5 for XGBoost)
+3. **Model performance meets benchmarks** (R² ≥ 0.5 for Random Forest)
 4. **Chronological data ordering maintained** throughout pipeline
 5. **Realistic data availability constraints simulated**
 

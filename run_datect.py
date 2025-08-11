@@ -204,7 +204,7 @@ class DATectLauncher:
             spec.loader.exec_module(config)
             
             # Validate model/task combinations
-            valid_models = ['xgboost', 'linear']
+            valid_models = ['rf', 'linear']
             if not hasattr(config, 'FORECAST_MODEL') or config.FORECAST_MODEL not in valid_models:
                 self.print_colored(f"❌ Invalid FORECAST_MODEL. Must be one of: {valid_models}", 'red')
                 return False
@@ -248,7 +248,7 @@ class DATectLauncher:
         print("Installing Python dependencies...")
         python_packages = [
             'fastapi', 'uvicorn', 'pydantic', 'pandas', 'numpy', 
-            'scikit-learn', 'plotly', 'requests', 'xgboost', 'dash'
+            'scikit-learn', 'plotly', 'requests', 'dash'
         ]
         
         try:

@@ -8,7 +8,7 @@ scikit-learn>=1.1.0
 joblib>=1.0.0         # Parallel processing for model training
 
 # Machine Learning Models
-xgboost>=1.6.0
+# Random Forest is included in scikit-learn, no additional package needed
 
 # Web API and Backend
 fastapi>=0.95.0

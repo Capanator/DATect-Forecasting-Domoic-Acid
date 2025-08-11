@@ -24,7 +24,7 @@ Usage:
         forecast_date="2015-06-15", 
         site="Santa Cruz Wharf",
         task="regression",
-        model_type="xgboost"
+        model_type="rf"
     )
 """
 

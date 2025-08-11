@@ -1,7 +1,7 @@
 # DATect - Domoic Acid Forecasting System 🌊🔬
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![XGBoost](https://img.shields.io/badge/ML-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
+[![Random Forest](https://img.shields.io/badge/ML-Random%20Forest-green.svg)](https://scikit-learn.org/stable/modules/ensemble.html#forests-of-randomized-trees)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-teal.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React-blue.svg)](https://reactjs.org/)
 [![Scientific](https://img.shields.io/badge/Status-Peer%20Review%20Ready-brightgreen.svg)](https://github.com/)
@@ -12,7 +12,7 @@ DATect is a machine learning system for forecasting harmful algal bloom toxin co
 
 ### 🔬 Key Features
 
-- **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.37+ performance
+- **Advanced ML Forecasting**: Random Forest-based predictions with R² ≈ 0.37+ performance
 - **Data Leakage Prevention**: temporal safeguards validated through comprehensive testing
 - **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
 - **Modern Web Interface**: React frontend with FastAPI backend
@@ -87,7 +87,7 @@ python run_datect.py
 
 **Auto-installed Python packages:**
 - fastapi, uvicorn, pydantic (API)
-- pandas, numpy, scikit-learn, xgboost (ML)
+- pandas, numpy, scikit-learn (ML)
 - plotly, matplotlib (Visualizations)
 
 **Auto-installed Node.js packages:**
@@ -192,7 +192,7 @@ DATect-Forecasting-Domoic-Acid/
 1. **Select Parameters**:
    - **Date**: Any date from 2008-2024
    - **Site**: 10 Pacific Coast monitoring locations
-   - **Model**: XGBoost (recommended) or Linear/Logistic
+   - **Model**: Random Forest (recommended) or Linear/Logistic
 
 2. **Generate Forecast**:
    - Click **"Forecast"** button
@@ -222,7 +222,7 @@ Edit `config.py` to customize system behavior:
 # Operation Mode
 FORECAST_MODE = "realtime"          # "realtime" or "retrospective"  
 FORECAST_TASK = "classification"    # "regression" or "classification"
-FORECAST_MODEL = "xgboost"          # "xgboost" or "linear"
+FORECAST_MODEL = "rf"          # "rf" or "linear"
 
 # Scientific Parameters
 TEMPORAL_BUFFER_DAYS = 1            # Minimum days between train/test
@@ -249,12 +249,12 @@ The system implements **gold-standard temporal safeguards**:
 
 ### Model Performance
 
-**XGBoost Regression:**
+**Random Forest Regression:**
 - R² ≈ 0.37 (Cannon Beach gets pre-2015 forecasts now!)
 - MAE ≈ 5.9-7.7 μg/g depending on site
 - Handles non-consecutive category labels correctly
 
-**XGBoost Classification:**  
+**Random Forest Classification:**  
 - Accuracy ≈ 77-82% for 4-category risk levels
 - Proper class probability distributions
 - Single-class prediction fallbacks
@@ -298,7 +298,7 @@ import requests
 response = requests.post("http://localhost:8000/api/forecast/enhanced", json={
     "date": "2015-06-24",
     "site": "Cannon Beach", 
-    "model": "xgboost",
+    "model": "rf",
     "task": "classification"
 })
 
@@ -321,7 +321,7 @@ python run_datect.py
 =====================================
 ✅ Temporal safeguards: PASSED (0 leakage violations)
 ✅ Data integrity: PASSED (10,950 records validated) 
-✅ Model consistency: PASSED (XGBoost/Linear pipelines identical)
+✅ Model consistency: PASSED (Random Forest/Linear pipelines identical)
 ✅ Classification fixes: PASSED (Non-consecutive labels handled)
 ✅ Feature importance: PASSED (JSON serialization compatible)
 ✅ Edge case handling: PASSED (Single-class predictions)
@@ -453,7 +453,7 @@ This project is part of scientific research. Please cite appropriately if used i
 - **NOAA CoastWatch and Oceanview** for satellite data access and oceanic trend data
 - **USGS** for streamflow data  
 - **Olympic Region Harmful Algal Bloom Partnership, Washington State Department of Health, and Oregon Department of Fish and Wildlife** for Domoic Acid and Pseudo-Nitzschia measurements
-- **XGBoost and scikit-learn communities** for ML frameworks
+- **scikit-learn community** for ML frameworks
 - **FastAPI and React teams** for web technologies
 
 ---

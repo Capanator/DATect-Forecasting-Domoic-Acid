@@ -68,7 +68,7 @@ python run_datect.py
 
 📦 Installing Python Dependencies...
 ✅ Installing fastapi, uvicorn, pydantic...
-✅ Installing pandas, numpy, scikit-learn, xgboost...
+✅ Installing pandas, numpy, scikit-learn...
 ✅ Installing plotly, matplotlib...
 ✅ All Python dependencies installed (32 packages)
 
@@ -325,7 +325,7 @@ fly deploy
 **Real-time Forecasting:**
 1. **Select Date**: Any date from 2008-2024
 2. **Select Site**: 10 Pacific Coast monitoring locations
-3. **Select Model**: XGBoost (recommended) or Linear/Logistic  
+3. **Select Model**: Random Forest (recommended) or Linear/Logistic  
 4. **Click "Forecast"**: Get predictions with visualizations
 
 **Results Include:**
@@ -350,7 +350,7 @@ Edit `config.py` for different operation modes:
 # Switch between modes
 FORECAST_MODE = "realtime"          # or "retrospective"
 FORECAST_TASK = "classification"    # or "regression"  
-FORECAST_MODEL = "xgboost"          # or "linear"
+FORECAST_MODEL = "rf"          # or "linear"
 
 # Performance tuning
 N_RANDOM_ANCHORS = 200              # Retrospective evaluation points
@@ -448,7 +448,7 @@ curl http://localhost:8000/health
 # Browser should open automatically to http://localhost:3000
 
 # 4. Generate a test forecast
-# Use the web interface: Cannon Beach, 2015-06-24, XGBoost, Classification
+# Use the web interface: Cannon Beach, 2015-06-24, Random Forest, Classification
 
 # 5. Check retrospective validation
 # Edit config.py: FORECAST_MODE = "retrospective"  
