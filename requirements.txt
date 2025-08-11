@@ -29,6 +29,8 @@ netcdf4>=1.5.8        # NetCDF data handling
 scipy>=1.8.0          # Spectral analysis and statistics
 tqdm>=4.62.0          # Progress bars for data processing
 SALib>=1.4.0          # Sensitivity analysis (Sobol indices)
+statsmodels>=0.13.0   # Time series analysis and seasonal decomposition
+PyWavelets>=1.4.0     # Wavelet transforms for spectral analysis
 
 # Standard Library (included with Python)
 # json, os, tempfile, datetime, warnings, shutil, random, sys, asyncio, pickle

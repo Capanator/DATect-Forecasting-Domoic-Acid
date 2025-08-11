@@ -18,6 +18,9 @@ import os
 import sys
 import plotly.graph_objs as go
 import plotly.io as pio
+import pywt  # Wavelet analysis
+from statsmodels.tsa.seasonal import STL  # Seasonal decomposition
+from scipy.signal import windows  # For multitaper analysis
 
 warnings.filterwarnings('ignore')
 
@@ -938,5 +941,508 @@ def generate_spectral_analysis(data, site=None):
         }
     }
     plots.append(plot4)
+    
+    return plots
+
+
+def generate_advanced_spectral_analysis(data, site=None):
+    """Generate comprehensive spectral analysis with advanced methods."""
+    
+    # Ensure date column is datetime
+    data['date'] = pd.to_datetime(data['date'])
+    
+    if site:
+        site_data = data[data['site'] == site].copy()
+        site_name = site
+    else:
+        site_data = data.groupby('date')['da'].mean().reset_index()
+        site_name = "All Sites"
+    
+    # Sort by date and remove NaN values
+    site_data = site_data.sort_values('date')
+    
+    if 'da' in site_data.columns:
+        da_values = site_data['da'].dropna().values
+        dates = site_data[site_data['da'].notna()]['date'].values
+    else:
+        da_values = site_data.dropna().values
+        dates = site_data.index
+    
+    if len(da_values) < 50:
+        return []
+    
+    plots = []
+    
+    # 1. Multitaper Spectral Estimation
+    # Using DPSS (Discrete Prolate Spheroidal Sequences) windows
+    NW = 4  # Time-bandwidth product
+    Kmax = 7  # Number of tapers
+    
+    # Create DPSS windows
+    n_samples = len(da_values)
+    dpss_tapers, dpss_eigen = windows.dpss(n_samples, NW, Kmax, return_ratios=True)
+    
+    # Compute multitaper spectrum
+    mt_spectra = []
+    for taper in dpss_tapers:
+        windowed_signal = da_values * taper
+        spectrum = np.abs(np.fft.rfft(windowed_signal))**2
+        mt_spectra.append(spectrum)
+    
+    # Average the spectra
+    mt_spectrum = np.mean(mt_spectra, axis=0)
+    freqs_mt = np.fft.rfftfreq(n_samples, d=1.0)  # Weekly sampling
+    
+    # Jackknife confidence intervals
+    jackknife_estimates = []
+    for i in range(len(mt_spectra)):
+        leave_one_out = [s for j, s in enumerate(mt_spectra) if j != i]
+        jackknife_estimates.append(np.mean(leave_one_out, axis=0))
+    
+    mt_std = np.std(jackknife_estimates, axis=0)
+    mt_lower = mt_spectrum - 2 * mt_std
+    mt_upper = mt_spectrum + 2 * mt_std
+    
+    plot_multitaper = {
+        "data": [
+            {
+                "x": freqs_mt[1:].tolist(),
+                "y": mt_spectrum[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Multitaper Estimate",
+                "line": {"color": "blue", "width": 2}
+            },
+            {
+                "x": freqs_mt[1:].tolist(),
+                "y": mt_lower[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "95% CI Lower",
+                "line": {"color": "lightblue", "width": 1, "dash": "dash"},
+                "showlegend": False
+            },
+            {
+                "x": freqs_mt[1:].tolist(),
+                "y": mt_upper[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "95% CI Upper",
+                "line": {"color": "lightblue", "width": 1, "dash": "dash"},
+                "fill": "tonexty",
+                "fillcolor": "rgba(173, 216, 230, 0.2)",
+                "showlegend": False
+            }
+        ],
+        "layout": {
+            "title": f"Multitaper Spectral Estimate - {site_name}",
+            "xaxis": {"title": "Frequency (1/weeks)", "type": "log"},
+            "yaxis": {"title": "Power", "type": "log"},
+            "height": 400,
+            "showlegend": True
+        }
+    }
+    plots.append(plot_multitaper)
+    
+    # 2. Wavelet Analysis (Continuous Wavelet Transform)
+    scales = np.arange(1, min(128, len(da_values)//2))
+    wavelet = 'morl'  # Morlet wavelet
+    
+    coefficients, frequencies = pywt.cwt(da_values, scales, wavelet, sampling_period=1.0)
+    power = np.abs(coefficients)**2
+    
+    # Convert frequencies to periods for better interpretation
+    periods = 1 / frequencies
+    
+    plot_wavelet = {
+        "data": [{
+            "type": "heatmap",
+            "x": list(range(len(da_values))),
+            "y": periods.tolist(),
+            "z": np.log10(power + 1e-10).tolist(),
+            "colorscale": "Viridis",
+            "colorbar": {"title": "log(Power)"}
+        }],
+        "layout": {
+            "title": f"Wavelet Transform (Morlet) - {site_name}",
+            "xaxis": {"title": "Time Index (weeks)"},
+            "yaxis": {"title": "Period (weeks)", "type": "log"},
+            "height": 400
+        }
+    }
+    plots.append(plot_wavelet)
+    
+    # 3. Statistical Significance Testing with Surrogate Data
+    n_surrogates = 100
+    surrogate_spectra = []
+    
+    for _ in range(n_surrogates):
+        # Create phase-randomized surrogate
+        fft_original = np.fft.rfft(da_values)
+        random_phases = np.exp(1j * np.random.uniform(0, 2*np.pi, len(fft_original)))
+        # Keep DC component real
+        random_phases[0] = 1
+        surrogate_fft = fft_original * random_phases
+        surrogate_signal = np.fft.irfft(surrogate_fft, n=len(da_values))
+        
+        # Compute spectrum of surrogate
+        freqs_surr, psd_surr = signal.welch(surrogate_signal, fs=1.0, 
+                                           nperseg=min(256, len(da_values)//4))
+        surrogate_spectra.append(psd_surr)
+    
+    # Original spectrum
+    freqs_orig, psd_orig = signal.welch(da_values, fs=1.0, 
+                                       nperseg=min(256, len(da_values)//4))
+    
+    # Calculate significance thresholds
+    surrogate_array = np.array(surrogate_spectra)
+    significance_95 = np.percentile(surrogate_array, 95, axis=0)
+    significance_99 = np.percentile(surrogate_array, 99, axis=0)
+    
+    # Find significant peaks
+    significant_peaks_95 = psd_orig > significance_95
+    significant_peaks_99 = psd_orig > significance_99
+    
+    plot_significance = {
+        "data": [
+            {
+                "x": freqs_orig[1:].tolist(),
+                "y": psd_orig[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Observed Spectrum",
+                "line": {"color": "blue", "width": 2}
+            },
+            {
+                "x": freqs_orig[1:].tolist(),
+                "y": significance_95[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "95% Significance",
+                "line": {"color": "orange", "width": 1, "dash": "dash"}
+            },
+            {
+                "x": freqs_orig[1:].tolist(),
+                "y": significance_99[1:].tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": "99% Significance",
+                "line": {"color": "red", "width": 1, "dash": "dot"}
+            }
+        ],
+        "layout": {
+            "title": f"Spectral Significance Testing - {site_name}",
+            "xaxis": {"title": "Frequency (1/weeks)", "type": "log"},
+            "yaxis": {"title": "Power", "type": "log"},
+            "height": 400,
+            "showlegend": True,
+            "annotations": [{
+                "x": 0.5,
+                "y": 1.1,
+                "xref": "paper",
+                "yref": "paper",
+                "text": f"Peaks above lines are statistically significant (phase randomization test)",
+                "showarrow": False,
+                "font": {"size": 11}
+            }]
+        }
+    }
+    plots.append(plot_significance)
+    
+    # 4. Seasonal Decomposition (STL)
+    try:
+        # Ensure we have regular weekly data
+        weekly_data = pd.Series(da_values, index=pd.date_range(start='2002-01-01', 
+                                                               periods=len(da_values), 
+                                                               freq='W'))
+        
+        # STL decomposition with annual seasonality (52 weeks)
+        stl = STL(weekly_data, seasonal=53, trend=105)  # Flexible trend
+        result = stl.fit()
+        
+        # Create subplots for decomposition
+        decomp_traces = []
+        
+        # Original series
+        decomp_traces.append({
+            "x": list(range(len(da_values))),
+            "y": da_values.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": "Original",
+            "yaxis": "y",
+            "line": {"color": "black", "width": 1}
+        })
+        
+        # Trend
+        decomp_traces.append({
+            "x": list(range(len(result.trend))),
+            "y": result.trend.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": "Trend",
+            "yaxis": "y2",
+            "line": {"color": "blue", "width": 2}
+        })
+        
+        # Seasonal
+        decomp_traces.append({
+            "x": list(range(len(result.seasonal))),
+            "y": result.seasonal.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": "Seasonal",
+            "yaxis": "y3",
+            "line": {"color": "green", "width": 1}
+        })
+        
+        # Residual
+        decomp_traces.append({
+            "x": list(range(len(result.resid))),
+            "y": result.resid.tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": "Residual",
+            "yaxis": "y4",
+            "line": {"color": "red", "width": 1}
+        })
+        
+        plot_stl = {
+            "data": decomp_traces,
+            "layout": {
+                "title": f"STL Seasonal Decomposition - {site_name}",
+                "xaxis": {"title": "Time (weeks)", "domain": [0, 1]},
+                "yaxis": {"title": "Original", "domain": [0.75, 1]},
+                "yaxis2": {"title": "Trend", "domain": [0.5, 0.73]},
+                "yaxis3": {"title": "Seasonal", "domain": [0.25, 0.48]},
+                "yaxis4": {"title": "Residual", "domain": [0, 0.23]},
+                "height": 600,
+                "showlegend": False
+            }
+        }
+        plots.append(plot_stl)
+        
+    except Exception as e:
+        print(f"STL decomposition failed: {e}")
+    
+    # 5. Autocorrelation and Partial Autocorrelation
+    from statsmodels.tsa.stattools import acf, pacf
+    
+    max_lag = min(100, len(da_values)//3)
+    acf_values = acf(da_values, nlags=max_lag)
+    pacf_values = pacf(da_values, nlags=max_lag)
+    
+    # Confidence intervals
+    ci = 1.96 / np.sqrt(len(da_values))
+    
+    plot_acf = {
+        "data": [
+            {
+                "x": list(range(len(acf_values))),
+                "y": acf_values.tolist(),
+                "type": "bar",
+                "name": "ACF",
+                "marker": {"color": "blue"}
+            },
+            {
+                "x": [0, max_lag],
+                "y": [ci, ci],
+                "type": "scatter",
+                "mode": "lines",
+                "line": {"color": "red", "dash": "dash"},
+                "showlegend": False
+            },
+            {
+                "x": [0, max_lag],
+                "y": [-ci, -ci],
+                "type": "scatter",
+                "mode": "lines",
+                "line": {"color": "red", "dash": "dash"},
+                "showlegend": False
+            }
+        ],
+        "layout": {
+            "title": f"Autocorrelation Function - {site_name}",
+            "xaxis": {"title": "Lag (weeks)"},
+            "yaxis": {"title": "Correlation"},
+            "height": 350,
+            "showlegend": False
+        }
+    }
+    plots.append(plot_acf)
+    
+    return plots
+
+
+def generate_multisite_spectral_comparison(data):
+    """Generate spectral comparison across all sites."""
+    
+    # Get unique sites
+    unique_sites = data['site'].unique()
+    
+    plots = []
+    
+    # 1. Power Spectral Density Comparison
+    psd_traces = []
+    dominant_frequencies = {}
+    
+    for site in unique_sites:
+        site_data = data[data['site'] == site].copy()
+        site_data = site_data.sort_values('date')
+        da_values = site_data['da'].dropna().values
+        
+        if len(da_values) < 50:
+            continue
+        
+        # Compute PSD
+        freqs, psd = signal.welch(da_values, fs=1.0, nperseg=min(256, len(da_values)//4))
+        
+        # Find dominant frequency
+        dominant_idx = np.argmax(psd[1:10]) + 1  # Exclude DC, look at low frequencies
+        dominant_freq = freqs[dominant_idx]
+        dominant_period = 1 / dominant_freq
+        dominant_frequencies[site] = dominant_period
+        
+        psd_traces.append({
+            "x": freqs[1:].tolist(),
+            "y": psd[1:].tolist(),
+            "type": "scatter",
+            "mode": "lines",
+            "name": site,
+            "line": {"width": 2}
+        })
+    
+    plot_psd_comparison = {
+        "data": psd_traces,
+        "layout": {
+            "title": "Power Spectral Density - All Sites Comparison",
+            "xaxis": {"title": "Frequency (1/weeks)", "type": "log"},
+            "yaxis": {"title": "Power", "type": "log"},
+            "height": 500,
+            "showlegend": True,
+            "hovermode": "x unified"
+        }
+    }
+    plots.append(plot_psd_comparison)
+    
+    # 2. Dominant Periods Bar Chart
+    if dominant_frequencies:
+        sites = list(dominant_frequencies.keys())
+        periods = list(dominant_frequencies.values())
+        
+        plot_dominant = {
+            "data": [{
+                "x": sites,
+                "y": periods,
+                "type": "bar",
+                "marker": {"color": periods, "colorscale": "Viridis"},
+                "text": [f"{p:.1f} weeks" for p in periods],
+                "textposition": "outside"
+            }],
+            "layout": {
+                "title": "Dominant Periods by Site",
+                "xaxis": {"title": "Site"},
+                "yaxis": {"title": "Dominant Period (weeks)"},
+                "height": 400
+            }
+        }
+        plots.append(plot_dominant)
+    
+    # 3. Coherence Matrix Between Sites
+    coherence_matrix = np.zeros((len(unique_sites), len(unique_sites)))
+    
+    for i, site1 in enumerate(unique_sites):
+        for j, site2 in enumerate(unique_sites):
+            if i <= j:
+                site1_data = data[data['site'] == site1].sort_values('date')
+                site2_data = data[data['site'] == site2].sort_values('date')
+                
+                # Merge on date to align time series
+                merged = pd.merge(site1_data[['date', 'da']], 
+                                site2_data[['date', 'da']], 
+                                on='date', 
+                                suffixes=('_1', '_2'))
+                
+                if len(merged) >= 50:
+                    da1 = merged['da_1'].dropna().values
+                    da2 = merged['da_2'].dropna().values
+                    
+                    if len(da1) >= 50 and len(da2) >= 50:
+                        min_len = min(len(da1), len(da2))
+                        da1 = da1[:min_len]
+                        da2 = da2[:min_len]
+                        
+                        # Compute mean coherence
+                        freqs_coh, coh = signal.coherence(da1, da2, fs=1.0, 
+                                                         nperseg=min(64, min_len//4))
+                        mean_coherence = np.mean(coh[1:])  # Exclude DC
+                        coherence_matrix[i, j] = mean_coherence
+                        coherence_matrix[j, i] = mean_coherence
+    
+    plot_coherence_matrix = {
+        "data": [{
+            "type": "heatmap",
+            "x": unique_sites.tolist(),
+            "y": unique_sites.tolist(),
+            "z": coherence_matrix.tolist(),
+            "colorscale": "RdBu",
+            "colorbar": {"title": "Mean Coherence"},
+            "zmin": 0,
+            "zmax": 1
+        }],
+        "layout": {
+            "title": "Spectral Coherence Between Sites",
+            "xaxis": {"title": "Site", "tickangle": 45},
+            "yaxis": {"title": "Site"},
+            "height": 600
+        }
+    }
+    plots.append(plot_coherence_matrix)
+    
+    # 4. Seasonal Strength Comparison
+    seasonal_strengths = {}
+    
+    for site in unique_sites:
+        site_data = data[data['site'] == site].sort_values('date')
+        da_values = site_data['da'].dropna().values
+        
+        if len(da_values) >= 104:  # Need at least 2 years
+            try:
+                weekly_data = pd.Series(da_values[:104*2], 
+                                      index=pd.date_range(start='2002-01-01', 
+                                                         periods=min(104*2, len(da_values)), 
+                                                         freq='W'))
+                stl = STL(weekly_data, seasonal=53)
+                result = stl.fit()
+                
+                # Calculate seasonal strength
+                seasonal_var = np.var(result.seasonal)
+                total_var = np.var(da_values[:len(result.seasonal)])
+                seasonal_strength = seasonal_var / total_var if total_var > 0 else 0
+                seasonal_strengths[site] = seasonal_strength
+            except:
+                pass
+    
+    if seasonal_strengths:
+        sites_seasonal = list(seasonal_strengths.keys())
+        strengths = list(seasonal_strengths.values())
+        
+        plot_seasonal = {
+            "data": [{
+                "x": sites_seasonal,
+                "y": strengths,
+                "type": "bar",
+                "marker": {"color": strengths, "colorscale": "RdYlGn"},
+                "text": [f"{s:.2%}" for s in strengths],
+                "textposition": "outside"
+            }],
+            "layout": {
+                "title": "Seasonal Component Strength by Site",
+                "xaxis": {"title": "Site"},
+                "yaxis": {"title": "Seasonal Strength (% of total variance)"},
+                "height": 400
+            }
+        }
+        plots.append(plot_seasonal)
     
     return plots

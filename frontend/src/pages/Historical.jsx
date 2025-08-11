@@ -14,6 +14,7 @@ const Historical = () => {
   const [siteScope, setSiteScope] = useState('single') // 'single' or 'all'
   const [visualizationData, setVisualizationData] = useState(null)
   const [loadingVisualization, setLoadingVisualization] = useState(false)
+  const [spectralMode, setSpectralMode] = useState('basic') // 'basic', 'advanced', 'comparison'
 
   const visualizationOptions = [
     { value: 'correlation', label: 'Correlation Heatmap', icon: BarChart3 },
@@ -21,6 +22,12 @@ const Historical = () => {
     { value: 'comparison', label: 'DA vs Pseudo-nitzschia', icon: Activity },
     { value: 'waterfall', label: 'Waterfall Plot', icon: BarChart3 },
     { value: 'spectral', label: 'Spectral Analysis', icon: Activity },
+  ]
+
+  const spectralModeOptions = [
+    { value: 'basic', label: 'Basic Analysis' },
+    { value: 'advanced', label: 'Advanced Methods' },
+    { value: 'comparison', label: 'Site Comparison' }
   ]
 
   const siteScopeOptions = [
@@ -90,9 +97,17 @@ const Historical = () => {
       } else if (visualizationType === 'waterfall') {
         endpoint = '/api/visualizations/waterfall'
       } else if (visualizationType === 'spectral') {
-        endpoint = siteScope === 'single' && selectedSite
-          ? `/api/visualizations/spectral/${selectedSite.value}`
-          : '/api/visualizations/spectral/all'
+        if (spectralMode === 'basic') {
+          endpoint = siteScope === 'single' && selectedSite
+            ? `/api/visualizations/spectral/${selectedSite.value}`
+            : '/api/visualizations/spectral/all'
+        } else if (spectralMode === 'advanced') {
+          endpoint = siteScope === 'single' && selectedSite
+            ? `/api/visualizations/spectral-advanced/${selectedSite.value}`
+            : '/api/visualizations/spectral-advanced/all'
+        } else if (spectralMode === 'comparison') {
+          endpoint = '/api/visualizations/spectral-comparison'
+        }
       }
 
       if (endpoint) {
@@ -250,11 +265,12 @@ const Historical = () => {
   }
 
   // Check if current visualization supports site scope selection
-  const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType)
+  const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType) && spectralMode !== 'comparison'
   // DA vs Pseudo-nitzschia only supports single site
   const forceSingleSite = visualizationType === 'comparison'
   // Waterfall plot is all-sites only; hide site controls
-  const hideSiteControls = visualizationType === 'waterfall'
+  // Spectral comparison is also all-sites only
+  const hideSiteControls = visualizationType === 'waterfall' || (visualizationType === 'spectral' && spectralMode === 'comparison')
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -295,6 +311,35 @@ const Historical = () => {
             ))}
           </div>
         </div>
+
+        {/* Spectral Mode Selector - only show when spectral is selected */}
+        {visualizationType === 'spectral' && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Spectral Analysis Mode
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {spectralModeOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setSpectralMode(option.value)}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                    spectralMode === option.value
+                      ? 'bg-green-500 text-white border-green-500'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-sm">{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              {spectralMode === 'basic' && 'Standard PSD, Periodogram, Spectrogram, and Coherence analysis'}
+              {spectralMode === 'advanced' && 'Multitaper, Wavelet, Significance Testing, STL Decomposition, and ACF/PACF'}
+              {spectralMode === 'comparison' && 'Compare spectral characteristics across all monitoring sites'}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Site Scope Selector */}

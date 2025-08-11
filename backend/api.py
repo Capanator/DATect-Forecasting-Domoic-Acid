@@ -39,7 +39,9 @@ from backend.visualizations import (
     generate_time_series_comparison,
     generate_waterfall_plot,
     generate_spectral_analysis,
-    generate_gradient_uncertainty_plot
+    generate_gradient_uncertainty_plot,
+    generate_advanced_spectral_analysis,
+    generate_multisite_spectral_comparison
 )
 from backend.cache_manager import cache_manager
 
@@ -680,6 +682,40 @@ async def get_spectral_analysis_single(site: str):
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
+
+@app.get("/api/visualizations/spectral-advanced/all")
+async def get_advanced_spectral_analysis_all():
+    """Generate advanced spectral analysis for all sites combined."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plots = generate_advanced_spectral_analysis(data, site=None)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate advanced spectral analysis: {str(e)}")
+
+@app.get("/api/visualizations/spectral-advanced/{site}")
+async def get_advanced_spectral_analysis_single(site: str):
+    """Generate advanced spectral analysis for a single site."""
+    try:
+        # Handle site name mapping
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        actual_site = site_mapping.get(site.lower(), site)
+        
+        plots = generate_advanced_spectral_analysis(data, actual_site)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate advanced spectral analysis: {str(e)}")
+
+@app.get("/api/visualizations/spectral-comparison")
+async def get_multisite_spectral_comparison():
+    """Generate spectral comparison across all sites."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        plots = generate_multisite_spectral_comparison(data)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate spectral comparison: {str(e)}")
 
 @app.get("/api/cache")
 async def get_cache_status():
