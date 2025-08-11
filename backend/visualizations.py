@@ -362,7 +362,8 @@ def generate_sensitivity_analysis(data):
         from SALib.sample import saltelli
         from SALib.analyze import sobol
         
-        if len(X) > 200:  # Need sufficient data for Sobol
+        # Lower threshold to 50 rows (minimum for meaningful Sobol analysis)
+        if len(X) >= 50:  # Need sufficient data for Sobol
             # Define the problem for SALib
             problem = {
                 'num_vars': len(feature_cols),
@@ -371,7 +372,8 @@ def generate_sensitivity_analysis(data):
             }
             
             # Generate samples using Saltelli's sampling scheme
-            N = 64  # Base sample size
+            # Adjust N based on available data
+            N = min(64, max(8, len(X) // 20))  # Adaptive base sample size
             param_values = saltelli.sample(problem, N, calc_second_order=False)
             
             # Evaluate the model for all generated samples
@@ -416,8 +418,12 @@ def generate_sensitivity_analysis(data):
                 }
             }
             plots.append(plot_sobol)
+        else:
+            pass  # Insufficient data for Sobol analysis
+    except ImportError as e:
+        pass  # SALib not installed
     except Exception as e:
-        # Sobol analysis failed, skip it
+        # Sobol analysis failed, skip it silently
         pass
     
     # Compute permutation feature importance

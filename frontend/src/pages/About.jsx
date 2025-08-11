@@ -27,7 +27,7 @@ const About = () => {
           <div>
             <h3 className="font-semibold text-gray-800">Data Sources</h3>
             <ul className="list-disc list-inside text-gray-600 space-y-1">
-              <li>MODIS satellite data (chlorophyll, SST)</li>
+              <li>MODIS satellite and anomaly</li>
               <li>Climate indices (PDO, ONI, BEUTI)</li>
               <li>USGS streamflow measurements</li>
               <li>Shellfish toxin monitoring data</li>
