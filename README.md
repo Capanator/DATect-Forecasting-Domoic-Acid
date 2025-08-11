@@ -486,9 +486,10 @@ This project is part of scientific research. Please cite appropriately if used i
 
 For comprehensive technical details, see our extensive documentation:
 
-1. **[Forecast Pipeline Documentation](docs/FORECAST_PIPELINE.md)** - Complete data flow from raw inputs to predictions
-2. **[Visualizations Guide](docs/VISUALIZATIONS_GUIDE.md)** - How to interpret all charts, graphs, and analysis outputs  
-3. **[Scientific Validation](docs/SCIENTIFIC_VALIDATION.md)** - Temporal safeguards, validation tests, and why you can trust the results
+1. **[Forecast Pipeline Documentation](docs/FORECAST_PIPELINE.md)** - Complete technical data flow from raw inputs to predictions
+2. **[Domain Expert Guide](docs/PIPELINE_FOR_MARINE_BIOLOGISTS.md)** - Scientific methodology explanation for domain experts (no programming background required)
+3. **[Visualizations Guide](docs/VISUALIZATIONS_GUIDE.md)** - How to interpret all charts, graphs, and analysis outputs  
+4. **[Scientific Validation](docs/SCIENTIFIC_VALIDATION.md)** - Temporal safeguards, validation tests, and why you can trust the results
 
 ---
 
