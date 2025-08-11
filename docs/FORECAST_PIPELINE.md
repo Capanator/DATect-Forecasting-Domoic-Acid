@@ -32,11 +32,13 @@ graph TB
   - Photosynthetically Available Radiation (8-day composite)
   - Fluorescence Line Height (8-day composite)
   - Diffuse Attenuation Coefficient K490 (8-day composite)
-  - Chlorophyll-a Anomaly (monthly)
-  - SST Anomaly (monthly)
+  - Chlorophyll-a Anomaly (monthly - 2-month reporting delay)
+  - SST Anomaly (monthly - 2-month reporting delay)
 - **Spatial Resolution**: ~4km grid cells around each monitoring site
 - **Temporal Coverage**: 2002-2025
-- **Critical Safeguard**: 7-day satellite processing buffer prevents using data that wouldn't be available operationally
+- **Critical Safeguards**: 
+  - 7-day satellite processing buffer for 8-day composites
+  - 2-month reporting delay for monthly anomaly products (same as climate indices)
 
 ### 1.2 Climate Indices (Large-Scale Oceanographic Conditions)
 - **Pacific Decadal Oscillation (PDO)**: Large-scale North Pacific climate pattern
@@ -75,9 +77,9 @@ graph TB
 
 ### 2.2 Environmental Data Integration
 ```python
-# Climate indices processing:
+# Climate indices and monthly anomaly processing:
 1. Download time series from NOAA servers
-2. Apply 2-month reporting delay buffer
+2. Apply 2-month reporting delay buffer (PDO, ONI, BEUTI, CHLA-ANOM, SST-ANOM)
 3. Interpolate to weekly resolution
 4. Create lagged features based on statistical analysis
 ```
@@ -93,6 +95,19 @@ graph TB
 ```
 
 **Critical Design Decision**: DA risk categories are created per-forecast during prediction, not during data preparation. This prevents target leakage where future information influences category thresholds.
+
+**Monthly Anomaly Safeguards**: The system automatically detects any variable with "anom" in the name and applies the same 2-month temporal buffer used for climate indices:
+
+```python
+# Automatic anomaly detection and temporal safeguarding
+is_anomaly_var = "anom" in var_name.lower()
+
+if is_anomaly_var:
+    # Use data from 2 months prior to ensure no temporal overlap
+    current_month_period = target_ts.to_period('M')
+    safe_month_period = current_month_period - 2
+    # Apply same temporal constraints as PDO, ONI, BEUTI
+```
 
 ## Stage 3: Feature Engineering (`forecasting/core/data_processor.py`)
 
@@ -116,9 +131,10 @@ for lag in [1, 3]:
 - **All rolling features respect temporal boundaries**
 
 ### 3.3 Anomaly Detection Features
-- **Seasonal anomalies**: Deviation from long-term monthly averages
+- **Seasonal anomalies**: Deviation from long-term monthly averages (2-month temporal buffer)
 - **Trend anomalies**: Deviation from linear trends
 - **Z-score normalization**: Standardized anomaly metrics
+- **Monthly anomaly safeguards**: CHLA-ANOM and SST-ANOM use same 2-month delay as climate indices
 
 ## Stage 4: Temporal Validation (`forecasting/core/validation.py`)
 
@@ -127,7 +143,7 @@ for lag in [1, 3]:
 # Critical checks performed:
 - TEMPORAL_BUFFER_DAYS ≥ 1 (prevents same-day leakage)
 - SATELLITE_BUFFER_DAYS ≥ 7 (realistic processing delays)
-- CLIMATE_BUFFER_MONTHS ≥ 2 (realistic reporting delays)
+- CLIMATE_BUFFER_MONTHS ≥ 2 (realistic reporting delays for PDO, ONI, BEUTI, CHLA-ANOM, SST-ANOM)
 - Date ranges within valid satellite data period
 - Site coordinates within Pacific Northwest region
 ```
@@ -315,8 +331,8 @@ else:
 ```python
 # Temporal safeguards
 TEMPORAL_BUFFER_DAYS = 1        # Minimum gap between train/test
-SATELLITE_BUFFER_DAYS = 7       # Satellite processing delay
-CLIMATE_BUFFER_MONTHS = 2       # Climate index reporting delay
+SATELLITE_BUFFER_DAYS = 7       # Satellite 8-day composite processing delay
+CLIMATE_BUFFER_MONTHS = 2       # Monthly data reporting delay (PDO, ONI, BEUTI, CHLA-ANOM, SST-ANOM)
 
 # Model configuration  
 FORECAST_MODEL = "xgboost"      # Primary model type
