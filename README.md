@@ -4,403 +4,126 @@
 [![XGBoost](https://img.shields.io/badge/ML-XGBoost-green.svg)](https://xgboost.readthedocs.io/)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-teal.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React-blue.svg)](https://reactjs.org/)
-[![Scientific](https://img.shields.io/badge/Status-Peer%20Review%20Ready-brightgreen.svg)](https://github.com/)
 
 ## Overview
 
-DATect is a machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. The system integrates satellite oceanographic data, environmental measurements, and **advanced temporal safeguards** to provide scientifically rigorous predictions while preventing data leakage.
+Machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. Integrates satellite data, climate indices, and environmental measurements with strict temporal safeguards to prevent data leakage.
 
-### Key Features
+- **10 monitoring sites** from Oregon to Washington
+- **21 years of data** (2002-2023)
+- **R² ≈ 0.37** for regression, **77-82% accuracy** for classification
+- **Zero data leakage** with 7 temporal validation tests
 
-- **Advanced ML Forecasting**: XGBoost-based predictions with R² ≈ 0.51
-- ** Data Leakage Prevention**: 7 critical temporal validation tests prevent future information contamination
-- **Multi-Source Data Integration**: MODIS satellite, climate indices, and streamflow data
-- **Modern Web Interface**: React + Vite frontend with FastAPI backend
-- **Real-time & Retrospective Analysis**: Support for both operational and research use
-- **10 Monitoring Sites**: Complete Pacific Coast coverage from Oregon to Washington
-- **21 Years of Data**: Temporal coverage from 2002-2023
-- **Scientific-Grade Pipeline**: Peer-review ready with comprehensive validation framework
-
-### Scientific Validation
-
-The system implements **scientific rigor** with:
-- **Temporal integrity** - No future data contamination
-- **Per-forecast DA categorization** - No target leakage
-- **Strict train/test chronological ordering**
-- **Operational constraints** - 7-day satellite data buffer
-- **Edge case handling** - Single-class sites, missing data
-
-## Quick Start - Local Development
-
-### Option 1: One-Command Launch (Recommended)
-
-From any fresh computer with **no requirements pre-installed**:
+## Quick Start
 
 ```bash
-# 1. Clone the repository
+# Clone repository
 git clone https://github.com/your-username/DATect-Forecasting-Domoic-Acid.git
 cd DATect-Forecasting-Domoic-Acid
 
-# 2. Launch complete system (auto-installs everything)
+# Run locally (auto-installs dependencies)
 python run_datect.py
 ```
 
-This will:
-- Check system prerequisites (Python, Node.js)
-- Install Python dependencies automatically
-- Install Node.js dependencies automatically  
-- Generate dataset if missing (30-60 min first time)
-- Validate scientific data integrity
-- Start backend API (port 8000)
-- Start frontend (port 3000)
-- Open browser automatically
+Opens at http://localhost:3000
 
-### Option 2: Manual Setup
-
-If you prefer step-by-step control:
+## Commands
 
 ```bash
-# 1. Clone and navigate
-git clone https://github.com/your-username/DATect-Forecasting-Domoic-Acid.git
-cd DATect-Forecasting-Domoic-Acid
+# Run system locally
+python run_datect.py
 
-# 2. Install Python dependencies
-pip install -r requirements.txt
-
-# 3. Install Node.js dependencies
-cd frontend
-npm install
-cd ..
-
-# 4. Generate dataset (first time only, 30-60 min)
+# Generate/update dataset (30-60 min, only when data changes)
 python dataset-creation.py
 
-# 5. Run the system
-python run_datect.py
+# Deploy to Google Cloud
+./deploy_gcloud.sh
 ```
 
-### Prerequisites (Auto-installed by run_datect.py)
-
-**Required:**
-- **Python 3.8+** - Download from [python.org](https://www.python.org/downloads/)
-- **Node.js 16+** - Download from [nodejs.org](https://nodejs.org/)
-- **Git** - For cloning the repository
-
-**Auto-installed Python packages:**
-- fastapi, uvicorn, pydantic (API)
-- pandas, numpy, scikit-learn, xgboost (ML)
-- plotly, matplotlib (Visualizations)
-
-**Auto-installed Node.js packages:**
-- react, vite (Frontend framework)
-- plotly.js (Interactive plots)
-- tailwindcss (Styling)
-
-## Cloud Deployment - Google Cloud
-
-### Option 1: Automated Google Cloud Deployment
-
-For production deployment with **zero configuration needed**:
+## Google Cloud Deployment
 
 ```bash
-# 1. Clone repository (if not done already)
-git clone https://github.com/your-username/DATect-Forecasting-Domoic-Acid.git
-cd DATect-Forecasting-Domoic-Acid
-
-# 2. Install Google Cloud CLI (first time only)
-# Visit: https://cloud.google.com/sdk/docs/install
-
-# 3. Authenticate and set project
+# Set up Google Cloud CLI
 gcloud auth login
 gcloud config set project YOUR-PROJECT-ID
 
-# 4. Deploy with one command (auto-builds container image)
+# Deploy (builds container automatically)
 ./deploy_gcloud.sh
-
-# 5. Access your live URL (provided in output)
-# Example: https://datect-forecasting-xxxxx-uc.a.run.app
 ```
-
-### Google Cloud Configuration
-
-The system includes **production-ready configuration** for Google Cloud:
-
-- **Cloud Build** - Automated CI/CD pipeline
-- **Cloud Run** - Serverless container deployment  
-- **IAM** - Secure authentication
-- **Monitoring** - Built-in health checks
 
 ## System Architecture
 
 ```
-DATect-Forecasting-Domoic-Acid/
-├── Frontend (React + Vite)
-│   ├── src/pages/Dashboard.jsx     # Real-time forecasting interface
-│   ├── src/pages/Historical.jsx    # Scientific visualizations
-│   └── src/services/api.js         # Backend API integration
-├── Backend (FastAPI)
-│   ├── api.py                      # REST API endpoints  
-│   ├── cache_manager.py            # Performance optimization
-│   └── visualizations.py           # Scientific plots
-├── Core ML System
-│   ├── forecasting/core/
-│   │   ├── forecast_engine.py      # Main forecasting logic
-│   │   ├── data_processor.py       # Temporal-safe processing
-│   │   └── model_factory.py        # ML model management
-├── Data Pipeline  
-│   ├── data/                       # Dataset storage
-│   ├── dataset-creation.py         # Data processing pipeline
-│   └── config.py                   # System configuration
-├── Deployment
-│   ├── deploy_gcloud.sh            # Google Cloud deployment
-│   └── cloudbuild.yaml             # CI/CD pipeline
-└── Documentation
-    ├── docs/QUICK_START.md         # Setup instructions
-    ├── docs/API_DOCUMENTATION.md   # REST API reference
-    └── docs/SCIENTIFIC_VALIDATION.md # Peer review docs
+├── frontend/          # React + Vite interface
+├── backend/           # FastAPI server
+├── forecasting/core/  # ML engine with temporal safeguards
+├── data/              # Datasets (satellite, climate, toxins)
+└── cache/             # Pre-computed results
+```
+
+## Configuration
+
+Edit `config.py`:
+
+```python
+FORECAST_MODE = "realtime"       # or "retrospective"
+FORECAST_TASK = "classification" # or "regression"
+FORECAST_MODEL = "xgboost"       # or "linear"
+TEMPORAL_BUFFER_DAYS = 1         # Train/test gap
+SATELLITE_BUFFER_DAYS = 7        # Data delay
 ```
 
 ## Using the System
 
-### Dashboard (Real-time Forecasting)
+### Dashboard
+1. Select date (2008-2024), site, and model
+2. Click "Forecast" for predictions
+3. Risk categories:
+   - **Low (≤5 μg/g)**: Safe
+   - **Moderate (5-20 μg/g)**: Caution
+   - **High (20-40 μg/g)**: Avoid
+   - **Extreme (>40 μg/g)**: Hazard
 
-1. **Select Parameters**:
-   - **Date**: Any date from 2008-2024
-   - **Site**: 10 Pacific Coast monitoring locations
-   - **Model**: XGBoost (recommended) or Linear/Logistic
+### Historical Analysis
+Access correlation heatmaps, sensitivity analysis, time series comparisons, and spectral analysis.
 
-2. **Generate Forecast**:
-   - Click **"Forecast"** button
-   - View DA concentration predictions
-   - See risk category classifications
-   - Examine feature importance
+## API Endpoints
 
-3. **Interpret Results**:
-   - **Low (≤5 μg/g)**: Safe for consumption
-   - **Moderate (5-20 μg/g)**: Caution advised
-   - **High (20-40 μg/g)**: Avoid consumption
-   - **Extreme (>40 μg/g)**: Health hazard
-
-### Historical Analysis (Research Tools)
-
-1. **Correlation Heatmaps**: Variable relationships with scientific colorscales
-2. **Sensitivity Analysis**: Feature importance using Sobol indices  
-3. **Time Series Comparison**: DA vs Pseudo-nitzschia temporal patterns
-4. **Spectral Analysis**: Frequency domain analysis
-5. **Model Performance**: Retrospective validation metrics
-
-### Configuration Options
-
-Edit `config.py` to customize system behavior:
-
-```python
-# Operation Mode
-FORECAST_MODE = "realtime"          # "realtime" or "retrospective"  
-FORECAST_TASK = "classification"    # "regression" or "classification"
-FORECAST_MODEL = "xgboost"          # "xgboost" or "linear"
-
-# Scientific Parameters
-TEMPORAL_BUFFER_DAYS = 1            # Minimum days between train/test
-LAG_FEATURES = [1, 3]               # Temporal lag periods
-MIN_TRAINING_SAMPLES = 3            # Minimum training size
-RANDOM_SEED = 42                    # Reproducible results
-
-# Performance Settings  
-N_RANDOM_ANCHORS = 200              # Retrospective evaluation points
-DASHBOARD_PORT = 8066               # Web interface port
+```
+GET  /health                     # Status check
+GET  /api/sites                  # Monitoring sites
+POST /api/forecast               # Generate forecast
+POST /api/forecast/enhanced      # Forecast with visualizations
+GET  /api/visualizations/*       # Analysis plots
 ```
 
-## Scientific Features
+## Documentation
 
-### Temporal Integrity Safeguards
-
-The system implements **gold-standard temporal safeguards**:
-
-- **Strict Chronological Splits**: Training data ≤ anchor date < test data
-- **Temporal Buffers**: Configurable gaps between train/test sets  
-- **Lag Feature Cutoffs**: Future values set to NaN
-- **Per-Forecast Categories**: No target leakage
-- **Realistic Operational Delays**: 7-day satellite data buffer
-
-### Model Performance
-
-**XGBoost Regression:**
-- R² ≈ 0.37 (Cannon Beach gets pre-2015 forecasts now!)
-- MAE ≈ 5.9-7.7 μg/g depending on site
-- Handles non-consecutive category labels correctly
-
-**XGBoost Classification:**  
-- Accuracy ≈ 77-82% for 4-category risk levels
-- Proper class probability distributions
-- Single-class prediction fallbacks
-
-### Data Sources
-
-- **MODIS Satellite**: Chlorophyll-a, SST, PAR, fluorescence (7-day buffer)
-- **Climate Indices**: PDO, ONI, BEUTI upwelling (2-month buffer)
-- **USGS Streamflow**: Columbia River discharge  
-- **In-situ Measurements**: DA toxin concentrations
-- **Pseudo-nitzschia**: Cell count data
-
-## API Reference
-
-### Core Endpoints
-
-```python
-# Health and System Info
-GET  /health                        # System status check
-GET  /api/sites                     # Available monitoring sites  
-GET  /api/models                    # Available ML models
-
-# Forecasting
-POST /api/forecast                  # Generate single forecast
-POST /api/forecast/enhanced         # Enhanced forecast with graphs
-POST /api/retrospective             # Run retrospective analysis
-
-# Visualizations  
-GET  /api/visualizations/correlation    # Correlation heatmap
-GET  /api/visualizations/sensitivity    # Feature importance analysis
-GET  /api/visualizations/timeseries     # Time series comparison
-GET  /api/visualizations/spectral       # Frequency analysis
-```
-
-### Example API Usage
-
-```python
-import requests
-
-# Generate forecast
-response = requests.post("http://localhost:8000/api/forecast/enhanced", json={
-    "date": "2015-06-24",
-    "site": "Cannon Beach", 
-    "model": "xgboost",
-    "task": "classification"
-})
-
-forecast = response.json()
-print(f"Predicted DA: {forecast['regression']['predicted_da']:.2f} μg/g")
-print(f"Risk Category: {forecast['classification']['predicted_category']}")
-```
-
-## Testing and Validation
-
-### Built-in Validation (Runs Automatically)
-
-```bash
-python run_datect.py
-```
-
-**Validation Output:**
-```
-Scientific Integrity Validation
-=====================================
-Temporal safeguards: PASSED (0 leakage violations)
-Data integrity: PASSED (10,950 records validated) 
-Model consistency: PASSED (XGBoost/Linear pipelines identical)
-Classification fixes: PASSED (Non-consecutive labels handled)
-Feature importance: PASSED (JSON serialization compatible)
-Edge case handling: PASSED (Single-class predictions)
-API endpoints: PASSED (All 8 endpoints functional)
-
-Scientific Integrity Rating: 95/100
-Status: PUBLICATION READY
-```
-
-### Manual Validation Commands
-
-```bash
-# Complete system validation
-python run_datect.py
-
-# Data pipeline validation  
-python dataset-creation.py
-
-# Retrospective model validation (200 forecasts)
-# Set FORECAST_MODE = "retrospective" in config.py, then:
-python run_datect.py
-```
+- [Forecast Pipeline](docs/FORECAST_PIPELINE.md) - Technical data flow
+- [Scientific Validation](docs/SCIENTIFIC_VALIDATION.md) - Temporal safeguards
+- [Visualizations Guide](docs/VISUALIZATIONS_GUIDE.md) - Chart interpretation
 
 ## Troubleshooting
 
-### Common Issues and Solutions
-
-**"Port already in use" error:**
+**Port in use:**
 ```bash
-# Kill processes automatically (built into run_datect.py)
-python run_datect.py
-# Or manually:
-kill $(lsof -ti:8000,3000)
+python run_datect.py  # Kills existing processes automatically
 ```
 
-**Missing dataset file:**
+**Missing dataset:**
 ```bash
-python dataset-creation.py  # Takes 30-60 minutes
+python dataset-creation.py
 ```
 
-**Node.js/npm not found:**
-```bash
-# Install Node.js from: https://nodejs.org/
-# Then retry:
-python run_datect.py
-```
-
-**Google Cloud deployment fails:**
-```bash
-# Check authentication
-gcloud auth list
-gcloud config get-value project
-
-# Enable required APIs
-gcloud services enable run.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-```
+**Node.js not found:**
+Install from [nodejs.org](https://nodejs.org/)
 
 ## License
 
-This project is part of scientific research. Please cite appropriately if used in publications.
+Scientific research project. Please cite if used in publications.
 
 ## Acknowledgments
 
-- **NOAA CoastWatch and Oceanview** for satellite data access and oceanic trend data
-- **USGS** for streamflow data  
-- **Olympic Region Harmful Algal Bloom Partnership, Washington State Department of Health, and Oregon Department of Fish and Wildlife** for Domoic Acid and Pseudo-Nitzschia measurements
-- **XGBoost and scikit-learn communities** for ML frameworks
-- **FastAPI and React teams** for web technologies
-
----
-
-## Next Steps
-
-### For Research Use:
-1. **Clone repository** and run `python run_datect.py`
-2. **Explore historical analysis** tools for your research questions
-3. **Run retrospective validation** with your parameters  
-4. **Generate forecasts** for your sites and dates of interest
-
-### For Production Deployment:
-1. **Deploy to Google Cloud** with `./deploy_gcloud.sh`
-2. **Configure monitoring** and alerting systems
-3. **Set up automated data updates** for real-time operation
-4. **Integrate with existing systems** using the REST API
-
-### For Development:
-1. **Read scientific validation docs** in `docs/SCIENTIFIC_VALIDATION.md`
-2. **Understand the API** in `docs/API_DOCUMENTATION.md`  
-3. **Follow testing guidelines** in `docs/TESTING_DOCUMENTATION.md`
-
----
-
-### Detailed Documentation
-
-For comprehensive technical details, see our extensive documentation:
-
-1. **[Forecast Pipeline Documentation](docs/FORECAST_PIPELINE.md)** - Complete technical data flow from raw inputs to predictions
-2. **[Domain Expert Guide](docs/PIPELINE_FOR_MARINE_BIOLOGISTS.md)** - Scientific methodology explanation for domain experts (no programming background required)
-3. **[Visualizations Guide](docs/VISUALIZATIONS_GUIDE.md)** - How to interpret all charts, graphs, and analysis outputs  
-4. **[Scientific Validation](docs/SCIENTIFIC_VALIDATION.md)** - Temporal safeguards, validation tests, and why you can trust the results
-
----
-
-**System Status**: **Production Ready** | **Peer Review Ready** | **Actively Maintained**
-
-**Last Updated**: August 2025 
+- NOAA CoastWatch for satellite data
+- USGS for streamflow data
+- Olympic Region HAB Partnership, WA DOH, OR DFW for toxin measurements
