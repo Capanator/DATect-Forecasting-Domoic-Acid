@@ -33,6 +33,13 @@ statsmodels>=0.13.0   # Time series analysis and seasonal decomposition
 PyWavelets>=1.4.0     # Wavelet transforms for spectral analysis
 shap>=0.43.0          # Model interpretability and feature importance
 seaborn>=0.12.0       # Statistical data visualization
+lightgbm>=3.3.0       # LightGBM gradient boosting
+catboost>=1.2.0       # CatBoost gradient boosting
+tensorflow>=2.13.0    # TensorFlow for neural networks
+keras>=2.13.0         # Keras for neural network API
+flaml>=2.0.0          # FLAML AutoML
+prophet>=1.1.4        # Facebook Prophet time series
+pmdarima>=2.0.0       # Auto ARIMA for time series
 
 # Standard Library (included with Python)
 # json, os, tempfile, datetime, warnings, shutil, random, sys, asyncio, pickle

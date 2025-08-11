@@ -52,6 +52,7 @@ Thumbs.db
 tools/testing/results/
 analysis/*/outputs/
 claude.md
+catboost_info/
 
 # Temporary files
 *.tmp
