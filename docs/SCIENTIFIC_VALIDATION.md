@@ -66,7 +66,7 @@ test_data = data_sorted[data_sorted.date >= split_date]
 
 ### Comprehensive Validation (7 Critical Tests)
 
-**Location**: `run_datect.py` (validation executed on every startup)
+**Location**: `forecasting/core/temporal_validation.py` (validation executed on every startup via `run_datect.py`)
 
 #### Test 1: Chronological Split Validation
 ```python
@@ -223,8 +223,11 @@ def _validate_cross_site_consistency():
 # Automatic execution (runs before system startup)
 python run_datect.py
 
-# Manual execution for development
-python forecasting/core/validation.py
+# Standalone validation script
+python verify_temporal_integrity.py
+
+# Direct module execution
+python forecasting/core/temporal_validation.py
 
 # The temporal validation is automatically executed during system startup
 ```

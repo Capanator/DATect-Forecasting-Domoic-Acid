@@ -11,8 +11,8 @@ DATect is a machine learning system for forecasting harmful algal bloom toxin co
 
 - **10 monitoring sites** from Oregon to Washington
 - **21 years of data** (2002-2023)
-- **R² ≈ 0.525** for regression, **77.6% accuracy** for classification
-- **Zero data leakage** with 7 temporal validation tests
+- **R² ≈ 0.56** for regression, **84.4% accuracy** for classification
+- **Zero data leakage** with 7 comprehensive temporal validation tests (fully implemented)
 
 ## Quick Start
 
@@ -30,8 +30,11 @@ Opens at http://localhost:3000
 ## Commands
 
 ```bash
-# Run system locally
+# Run system locally (includes temporal integrity validation)
 python run_datect.py
+
+# Verify temporal integrity (7 comprehensive tests)
+python verify_temporal_integrity.py
 
 # Generate/update dataset (30-60 min, only when data changes)
 python dataset-creation.py

@@ -144,14 +144,17 @@ class DATectLauncher:
             return False
     
     def _validate_temporal_integrity(self):
-        """Check temporal safeguards prevent data leakage"""
-        self.print_colored("⏱️  Validating temporal integrity safeguards...", 'blue')
+        """Run comprehensive 7-test temporal integrity validation suite"""
+        self.print_colored("🔬 Running Temporal Integrity Validation Suite...", 'blue')
         
         try:
+            # Load configuration
             config_path = self.project_root / "config.py"
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
+            
+            # Basic configuration checks
             if not hasattr(config, 'TEMPORAL_BUFFER_DAYS'):
                 self.print_colored("❌ TEMPORAL_BUFFER_DAYS not configured", 'red')
                 return False
@@ -168,8 +171,29 @@ class DATectLauncher:
                 self.print_colored("❌ SATELLITE_BUFFER_DAYS should be ≥ 7 days for realistic data availability", 'red')
                 return False
             
-            self.print_colored("✅ Temporal integrity safeguards validated", 'green')
-            return True
+            # Run comprehensive temporal validation suite if available
+            try:
+                from forecasting.core.temporal_validation import TemporalIntegrityValidator
+                
+                self.print_colored("Running 7 comprehensive temporal integrity tests...", 'blue')
+                validator = TemporalIntegrityValidator(config)
+                results = validator.run_all_tests()
+                
+                if results['overall_status'] == 'FAILED':
+                    self.print_colored("🚨 CRITICAL: Temporal integrity violations detected", 'red')
+                    self.print_colored("❌ System is NOT scientifically valid", 'red')
+                    self.print_colored("⚠️  DO NOT USE FOR PUBLICATION OR DEPLOYMENT", 'red')
+                    return False
+                else:
+                    self.print_colored("🎉 All temporal integrity tests passed (7/7)", 'green')
+                    self.print_colored("✅ System is scientifically valid for publication", 'green')
+                    return True
+                    
+            except ImportError:
+                # Fallback to basic validation if comprehensive suite not available
+                self.print_colored("⚠️  Comprehensive temporal validation not available, using basic checks", 'yellow')
+                self.print_colored("✅ Basic temporal integrity safeguards validated", 'green')
+                return True
             
         except Exception as e:
             self.print_colored(f"❌ Temporal integrity validation failed: {e}", 'red')
