@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MapPin, BarChart3, Activity } from 'lucide-react'
 import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import api from '../services/api'
-import { plotConfig, plotConfigSquare, getPlotFilename, scaleLayoutForExport } from '../utils/plotConfig'
+import { plotConfig, plotConfigSquare, getPlotFilename } from '../utils/plotConfig'
 
 const Historical = () => {
   const [sites, setSites] = useState([])

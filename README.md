@@ -7,11 +7,11 @@
 
 ## Overview
 
-Machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. Integrates satellite data, climate indices, and environmental measurements with strict temporal safeguards to prevent data leakage.
+DATect is a machine learning system for forecasting harmful algal bloom toxin concentrations (domoic acid) along the Pacific Coast. The system integrates satellite oceanographic data, environmental measurements, and advanced temporal safeguards to provide scientifically rigorous predictions while preventing data leakage.
 
 - **10 monitoring sites** from Oregon to Washington
 - **21 years of data** (2002-2023)
-- **R² ≈ 0.37** for regression, **77-82% accuracy** for classification
+- **R² ≈ 0.525** for regression, **77.6% accuracy** for classification
 - **Zero data leakage** with 7 temporal validation tests
 
 ## Quick Start
@@ -61,18 +61,6 @@ gcloud config set project YOUR-PROJECT-ID
 └── cache/             # Pre-computed results
 ```
 
-## Configuration
-
-Edit `config.py`:
-
-```python
-FORECAST_MODE = "realtime"       # or "retrospective"
-FORECAST_TASK = "classification" # or "regression"
-FORECAST_MODEL = "xgboost"       # or "linear"
-TEMPORAL_BUFFER_DAYS = 1         # Train/test gap
-SATELLITE_BUFFER_DAYS = 7        # Data delay
-```
-
 ## Using the System
 
 ### Dashboard
@@ -81,21 +69,12 @@ SATELLITE_BUFFER_DAYS = 7        # Data delay
 3. Risk categories:
    - **Low (≤5 μg/g)**: Safe
    - **Moderate (5-20 μg/g)**: Caution
-   - **High (20-40 μg/g)**: Avoid
+   - **High (20-40 μg/g)**: Avoid (Above Federal Limit)
    - **Extreme (>40 μg/g)**: Hazard
+4. Using Retrospective mode allows you to see how XGBoost performs much better over simple regression based forecasts by comparing regression and classification results over 500 anchors points per site
 
 ### Historical Analysis
 Access correlation heatmaps, sensitivity analysis, time series comparisons, and spectral analysis.
-
-## API Endpoints
-
-```
-GET  /health                     # Status check
-GET  /api/sites                  # Monitoring sites
-POST /api/forecast               # Generate forecast
-POST /api/forecast/enhanced      # Forecast with visualizations
-GET  /api/visualizations/*       # Analysis plots
-```
 
 ## Documentation
 

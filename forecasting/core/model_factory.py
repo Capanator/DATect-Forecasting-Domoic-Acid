@@ -66,12 +66,6 @@ class ModelFactory:
                 random_state=self.random_seed,
                 n_jobs=-1
             )
-        elif model_type == "rf":
-            # RF deprecated in favor of XGBoost
-            raise ValueError("Random Forest deprecated. Use 'xgboost' or 'linear' instead.")
-        elif model_type == "ridge":
-            # Ridge deprecated in favor of LinearRegression
-            raise ValueError("Ridge deprecated. Use 'linear' for Linear Regression instead.")
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
@@ -95,9 +89,6 @@ class ModelFactory:
                 n_jobs=-1,
                 eval_metric='logloss'
             )
-        elif model_type == "rf":
-            # RF deprecated in favor of XGBoost
-            raise ValueError("Random Forest deprecated. Use 'xgboost' or 'logistic' instead.")
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",

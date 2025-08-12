@@ -26,7 +26,6 @@ import shutil
 import config
 
 from forecasting.core.logging_config import setup_logging, get_logger
-from forecasting.core.exception_handling import safe_execute, handle_data_errors, ScientificValidationError
 
 setup_logging(log_level='INFO', enable_file_logging=True)
 logger = get_logger(__name__)
@@ -73,7 +72,6 @@ print(f"Satellite configuration loaded with {len(satellite_metadata)} data types
 
 # Utility Functions
 
-@handle_data_errors
 def download_file(url, filename):
     """Download file with error handling and progress tracking"""
     try:
@@ -96,7 +94,7 @@ def download_file(url, filename):
         
     except requests.RequestException as e:
         logger.error(f"Failed to download {url}: {str(e)}")
-        raise ScientificValidationError(f"Download failed: {str(e)}")
+        raise
     except Exception as e:
         logger.error(f"Unexpected error downloading {url}: {str(e)}")
         raise
@@ -127,20 +125,14 @@ def convert_files_to_parquet(files_dict):
         new_files[name] = csv_to_parquet(path)
     return new_files
 
-@handle_data_errors
 def process_stitched_dataset(yearly_nc_files, data_type, site):
     """Process stitched satellite NetCDF from multiple files"""
-    try:
-        logger.info(f"Processing stitched dataset for {data_type} at site {site}")
-        logger.debug(f"Processing {len(yearly_nc_files)} yearly files: {yearly_nc_files[:3]}...")
-        
-        ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
-        ds = ds.sortby('time')
-        logger.debug(f"Dataset loaded: {ds.dims} dimensions, {len(ds.data_vars)} variables")
-        
-    except Exception as e:
-        logger.error(f"Failed to load NetCDF dataset for {data_type} at {site}: {str(e)}")
-        raise ScientificValidationError(f"Satellite data loading failed: {str(e)}")
+    logger.info(f"Processing stitched dataset for {data_type} at site {site}")
+    logger.debug(f"Processing {len(yearly_nc_files)} yearly files: {yearly_nc_files[:3]}...")
+    
+    ds = xr.open_mfdataset(yearly_nc_files, combine='nested', concat_dim='time', engine='netcdf4', decode_times=True, parallel=False)
+    ds = ds.sortby('time')
+    logger.debug(f"Dataset loaded: {ds.dims} dimensions, {len(ds.data_vars)} variables")
 
     # Determine data variable name
     data_var = None
@@ -987,9 +979,7 @@ def main():
                     f"--- Removed old intermediate file due to force reprocessing: {SATELLITE_OUTPUT_PARQUET} ---"
                 )
             except OSError as e:
-                print(
-                    f"--- Warning: Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e} ---"
-                )
+                logger.warning(f"Could not remove old intermediate file {SATELLITE_OUTPUT_PARQUET}: {e}")
 
         generated_path = generate_satellite_parquet(
             satellite_metadata,
