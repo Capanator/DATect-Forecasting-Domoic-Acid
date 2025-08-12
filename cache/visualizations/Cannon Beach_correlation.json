@@ -1,42 +1,6 @@
 {
   "matrix": {
-    "lat": {
-      "lat": NaN,
-      "lon": NaN,
-      "oni": NaN,
-      "pdo": NaN,
-      "discharge": NaN,
-      "da": NaN,
-      "pn": NaN,
-      "beuti": NaN,
-      "chla-anom": NaN,
-      "modis-chla": NaN,
-      "modis-flr": NaN,
-      "modis-k490": NaN,
-      "modis-par": NaN,
-      "modis-sst": NaN,
-      "sst-anom": NaN
-    },
-    "lon": {
-      "lat": NaN,
-      "lon": NaN,
-      "oni": NaN,
-      "pdo": NaN,
-      "discharge": NaN,
-      "da": NaN,
-      "pn": NaN,
-      "beuti": NaN,
-      "chla-anom": NaN,
-      "modis-chla": NaN,
-      "modis-flr": NaN,
-      "modis-k490": NaN,
-      "modis-par": NaN,
-      "modis-sst": NaN,
-      "sst-anom": NaN
-    },
     "oni": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 1.0,
       "pdo": 0.5294315852238152,
       "discharge": -0.13863487773220756,
@@ -52,8 +16,6 @@
       "sst-anom": 0.31918120373369824
     },
     "pdo": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.5294315852238152,
       "pdo": 1.0,
       "discharge": 0.027151333890868993,
@@ -69,8 +31,6 @@
       "sst-anom": 0.47027678687100305
     },
     "discharge": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": -0.13863487773220756,
       "pdo": 0.027151333890868993,
       "discharge": 1.0,
@@ -86,8 +46,6 @@
       "sst-anom": -0.012811682822608037
     },
     "da": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.16638056182725564,
       "pdo": 0.2226599670062207,
       "discharge": 0.006718916880716657,
@@ -103,8 +61,6 @@
       "sst-anom": 0.10108354793937616
     },
     "pn": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": -0.03914865324896136,
       "pdo": -0.1162706514546144,
       "discharge": -0.12919002919163355,
@@ -120,8 +76,6 @@
       "sst-anom": -0.08586073055634043
     },
     "beuti": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.018717870356872002,
       "pdo": 0.07911756133386293,
       "discharge": -0.05578715505047881,
@@ -137,8 +91,6 @@
       "sst-anom": 0.029452983476324964
     },
     "chla-anom": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.03286068436088615,
       "pdo": 0.04341927246443224,
       "discharge": -0.07029648356592631,
@@ -154,8 +106,6 @@
       "sst-anom": -0.1581709041660927
     },
     "modis-chla": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.01461724591645647,
       "pdo": 0.10958368662040995,
       "discharge": -0.2324010742697853,
@@ -171,8 +121,6 @@
       "sst-anom": 0.03662935762216425
     },
     "modis-flr": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.038130872878459114,
       "pdo": -0.10726777105205694,
       "discharge": -0.16148829137662016,
@@ -188,8 +136,6 @@
       "sst-anom": 0.0731961466602454
     },
     "modis-k490": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.057831163959785305,
       "pdo": 0.09633577973723405,
       "discharge": -0.23399622719230748,
@@ -205,8 +151,6 @@
       "sst-anom": 0.1111851139379509
     },
     "modis-par": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.05260567329272606,
       "pdo": 0.21332350839218922,
       "discharge": -0.07074441112505199,
@@ -222,8 +166,6 @@
       "sst-anom": 0.07264831140098141
     },
     "modis-sst": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.1923952159829211,
       "pdo": 0.2417421198479616,
       "discharge": -0.30398529413126474,
@@ -239,8 +181,6 @@
       "sst-anom": 0.07838017501672814
     },
     "sst-anom": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.31918120373369824,
       "pdo": 0.47027678687100305,
       "discharge": -0.012811682822608037,
@@ -257,8 +197,6 @@
     }
   },
   "columns": [
-    "lat",
-    "lon",
     "oni",
     "pdo",
     "discharge",
@@ -274,5 +212,5 @@
     "sst-anom"
   ],
   "site": "Cannon Beach",
-  "generated_at": "2025-08-11T23:57:27.221825"
+  "generated_at": "2025-08-12T07:08:32.210177"
 }

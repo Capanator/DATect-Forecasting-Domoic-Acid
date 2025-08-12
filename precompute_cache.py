@@ -126,6 +126,10 @@ class DATectCacheGenerator:
         # Load data
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         
+        # Enable XGBoost for spectral analysis to include comparisons in cache
+        # This will use the already-cached retrospective results
+        os.environ['SPECTRAL_ENABLE_XGB'] = '1'
+        
         # Get all sites plus aggregate
         sites = list(data['site'].unique()) + [None]  # None = aggregate
         
@@ -134,10 +138,6 @@ class DATectCacheGenerator:
             self.print_status(f"  Computing spectral analysis for {site_name}...", 'yellow')
             
             try:
-                # Enable XGBoost comparison in spectral analysis for complete precomputation
-                if 'SPECTRAL_ENABLE_XGB' in os.environ:
-                    del os.environ['SPECTRAL_ENABLE_XGB']
-                
                 spectral_plots = generate_spectral_analysis(data, site=site)
                 
                 if spectral_plots:
@@ -174,7 +174,7 @@ class DATectCacheGenerator:
             
             # Compute correlation matrix for numerical columns
             numeric_cols = site_data.select_dtypes(include=[np.number]).columns
-            numeric_cols = [col for col in numeric_cols if col not in ['date']]  # Exclude non-meaningful cols
+            numeric_cols = [col for col in numeric_cols if col not in ['date', 'lat', 'lon']]  # Exclude non-meaningful cols
             
             if len(numeric_cols) > 1:
                 corr_matrix = site_data[numeric_cols].corr()

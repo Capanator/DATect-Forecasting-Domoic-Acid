@@ -1,42 +1,6 @@
 {
   "matrix": {
-    "lat": {
-      "lat": NaN,
-      "lon": NaN,
-      "oni": NaN,
-      "pdo": NaN,
-      "discharge": NaN,
-      "da": NaN,
-      "pn": NaN,
-      "beuti": NaN,
-      "chla-anom": NaN,
-      "modis-chla": NaN,
-      "modis-flr": NaN,
-      "modis-k490": NaN,
-      "modis-par": NaN,
-      "modis-sst": NaN,
-      "sst-anom": NaN
-    },
-    "lon": {
-      "lat": NaN,
-      "lon": NaN,
-      "oni": NaN,
-      "pdo": NaN,
-      "discharge": NaN,
-      "da": NaN,
-      "pn": NaN,
-      "beuti": NaN,
-      "chla-anom": NaN,
-      "modis-chla": NaN,
-      "modis-flr": NaN,
-      "modis-k490": NaN,
-      "modis-par": NaN,
-      "modis-sst": NaN,
-      "sst-anom": NaN
-    },
     "oni": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 1.0,
       "pdo": 0.5294315852238152,
       "discharge": -0.13863487773220756,
@@ -52,8 +16,6 @@
       "sst-anom": 0.284600768902939
     },
     "pdo": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.5294315852238152,
       "pdo": 1.0,
       "discharge": 0.027151333890868993,
@@ -69,8 +31,6 @@
       "sst-anom": 0.39842048798645985
     },
     "discharge": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": -0.13863487773220756,
       "pdo": 0.027151333890868993,
       "discharge": 1.0,
@@ -86,8 +46,6 @@
       "sst-anom": -0.032703085828132736
     },
     "da": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.18251408340312378,
       "pdo": 0.2683268494178493,
       "discharge": -0.03277643537397506,
@@ -103,8 +61,6 @@
       "sst-anom": 0.17251927098541503
     },
     "pn": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": -2.0384603127110554e-05,
       "pdo": 0.03796662145760949,
       "discharge": -0.026806201751246435,
@@ -120,8 +76,6 @@
       "sst-anom": 0.01193714875548428
     },
     "beuti": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.014110711500292961,
       "pdo": 0.09757612105763219,
       "discharge": -0.04091901957216706,
@@ -137,8 +91,6 @@
       "sst-anom": 0.015840705283684406
     },
     "chla-anom": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.07374073818772643,
       "pdo": 0.14666225368656455,
       "discharge": -0.03215066747524815,
@@ -154,8 +106,6 @@
       "sst-anom": -0.19668807393976623
     },
     "modis-chla": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.013299976283540365,
       "pdo": 0.15008657592041488,
       "discharge": -0.20501308385489656,
@@ -171,8 +121,6 @@
       "sst-anom": 0.0035517187401858056
     },
     "modis-flr": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.07668400420546795,
       "pdo": -0.09381697784812186,
       "discharge": -0.12425801254222497,
@@ -188,8 +136,6 @@
       "sst-anom": 0.15381602899425226
     },
     "modis-k490": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.08434694155843507,
       "pdo": 0.1377080418369333,
       "discharge": -0.14784533763252294,
@@ -205,8 +151,6 @@
       "sst-anom": 0.09487895860835992
     },
     "modis-par": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.05220161706387855,
       "pdo": 0.21947488703937384,
       "discharge": -0.05168648163277768,
@@ -222,8 +166,6 @@
       "sst-anom": 0.03389914903398527
     },
     "modis-sst": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.1484261125906385,
       "pdo": 0.21060436463703228,
       "discharge": -0.29246237541222536,
@@ -239,8 +181,6 @@
       "sst-anom": 0.016762513413146916
     },
     "sst-anom": {
-      "lat": NaN,
-      "lon": NaN,
       "oni": 0.284600768902939,
       "pdo": 0.39842048798645985,
       "discharge": -0.032703085828132736,
@@ -257,8 +197,6 @@
     }
   },
   "columns": [
-    "lat",
-    "lon",
     "oni",
     "pdo",
     "discharge",
@@ -274,5 +212,5 @@
     "sst-anom"
   ],
   "site": "Copalis",
-  "generated_at": "2025-08-11T23:57:27.228431"
+  "generated_at": "2025-08-12T07:08:32.213532"
 }

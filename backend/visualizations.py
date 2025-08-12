@@ -13,16 +13,15 @@ from scipy import signal
 from scipy.stats import pearsonr
 import warnings
 import os
-import os
 import sys
+import logging
 import plotly.graph_objs as go
 import plotly.io as pio
 
 warnings.filterwarnings('ignore')
+logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import config
-
 
 def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, actual_da=None):
     """Create gradient visualization with quantile uncertainty bands"""
@@ -684,36 +683,55 @@ def generate_spectral_analysis(data, site=None):
     if len(da_values) < 20:
         return []
     
-    # Optionally disable XGBoost comparison for performance (set SPECTRAL_ENABLE_XGB=0)
-    if os.getenv('SPECTRAL_ENABLE_XGB', '1') not in ('1', 'true', 'TRUE'):
-        xgb_predictions = None
-        actual_for_comparison = da_values
-    else:
-        # Run actual XGBoost retrospective evaluation for comparison
+    # Always enable XGBoost comparison in spectral analysis
+    if True:  # Always enabled
+        # Use cached XGBoost retrospective results instead of recomputing
         try:
-            from forecasting.core.forecast_engine import ForecastEngine
-            import config
-
-            engine = ForecastEngine()
-            n_anchors = int(os.getenv('SPECTRAL_N_ANCHORS', getattr(config, 'N_RANDOM_ANCHORS', 200)))
-            results_df = engine.run_retrospective_evaluation(
-                task="regression",
-                model_type="xgboost",
-                n_anchors=n_anchors
-            )
-
-            if site and results_df is not None and not results_df.empty:
-                results_df = results_df[results_df['site'] == site]
-
-            if results_df is not None and not results_df.empty:
-                results_df = results_df.sort_values('date')
-                xgb_predictions = results_df['Predicted_da'].dropna().values
-                actual_for_comparison = results_df['da'].dropna().values
+            from pathlib import Path
+            
+            # Try to load cached retrospective results
+            cache_dir = Path("cache/retrospective")
+            cache_file = cache_dir / "regression_xgboost.parquet"
+            
+            if cache_file.exists():
+                # Load cached results
+                results_df = pd.read_parquet(cache_file)
+                
+                if site and not results_df.empty:
+                    results_df = results_df[results_df['site'] == site]
+                
+                if not results_df.empty:
+                    results_df = results_df.sort_values('date')
+                    xgb_predictions = results_df['Predicted_da'].dropna().values
+                    actual_for_comparison = results_df['da'].dropna().values
+                else:
+                    xgb_predictions = None
+                    actual_for_comparison = da_values
             else:
-                xgb_predictions = None
-                actual_for_comparison = da_values
+                # Fallback: compute if cache doesn't exist
+                from forecasting.core.forecast_engine import ForecastEngine
+                import config
+                
+                engine = ForecastEngine()
+                n_anchors = int(os.getenv('SPECTRAL_N_ANCHORS', getattr(config, 'N_RANDOM_ANCHORS', 200)))
+                results_df = engine.run_retrospective_evaluation(
+                    task="regression",
+                    model_type="xgboost",
+                    n_anchors=n_anchors
+                )
+                
+                if site and results_df is not None and not results_df.empty:
+                    results_df = results_df[results_df['site'] == site]
+                
+                if results_df is not None and not results_df.empty:
+                    results_df = results_df.sort_values('date')
+                    xgb_predictions = results_df['Predicted_da'].dropna().values
+                    actual_for_comparison = results_df['da'].dropna().values
+                else:
+                    xgb_predictions = None
+                    actual_for_comparison = da_values
         except Exception as e:
-            logger.error(f"XGBoost retrospective evaluation failed: {e}")
+            logger.error(f"Loading XGBoost results failed: {e}")
             xgb_predictions = None
             actual_for_comparison = da_values
     
