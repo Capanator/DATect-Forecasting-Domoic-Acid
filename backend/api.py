@@ -3,21 +3,22 @@ DATect Web Application API
 FastAPI backend providing forecasting, visualization, and analysis endpoints
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel
+import logging
+import math
+import os
+import re
+import sys
+import traceback
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
-import sys
-import os
-import pandas as pd
+
 import numpy as np
-import json
-import asyncio
-import math
+import pandas as pd
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.impute import SimpleImputer
@@ -61,17 +62,6 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not os.path.isabs(config.FINAL_OUTPUT_PATH):
     config.FINAL_OUTPUT_PATH = os.path.join(project_root, config.FINAL_OUTPUT_PATH)
 
-if os.getenv("NODE_ENV") != "production" and os.getenv("CACHE_DIR") != "/app/cache":
-    if 'SPECTRAL_ENABLE_XGB' in os.environ:
-        del os.environ['SPECTRAL_ENABLE_XGB']
-
-def _list_cache():
-    """Legacy cache removed - use precomputed cache status"""
-    return {"dir": "legacy cache removed", "files": [], "total_size": 0, "writable": False}
-
-def _clear_cache_internal():
-    """Legacy cache removed - use precomputed cache status"""
-    return {"dir": "legacy cache removed", "deleted_files": 0, "freed_bytes": 0, "writable": False}
 
 app = FastAPI(
     title="DATect API",
@@ -95,7 +85,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-security = HTTPBearer()
 
 # Lazy singletons for Cloud Run optimization
 forecast_engine = None
@@ -220,8 +209,6 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
         }
         
     except Exception as e:
-        import traceback
-        import logging
         logging.error(f"Error in quantile prediction: {str(e)}")
         logging.error(f"Traceback: {traceback.format_exc()}")
         return None
@@ -270,7 +257,9 @@ class CacheDeleteOneResponse(BaseModel):
     message: str
     target: Dict[str, Any]
 
-    
+class RetrospectiveRequest(BaseModel):
+    selected_sites: List[str] = []  # Empty list means all sites
+
 
 @app.get("/api")
 async def root():
@@ -481,7 +470,6 @@ async def update_config(config_request: ConfigUpdateRequest):
             config_content = f.read()
         
         # Update the specific lines
-        import re
         config_content = re.sub(
             r'FORECAST_MODE = ".*?"',
             f'FORECAST_MODE = "{config_request.forecast_mode}"',
@@ -641,7 +629,6 @@ async def get_spectral_analysis_all():
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
 
         # Compute on server (expensive - only for local development)
-        import logging
         logging.warning("Computing spectral analysis on server - this is very expensive!")
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         plots = generate_spectral_analysis(data, site=None)
@@ -665,7 +652,6 @@ async def get_spectral_analysis_single(site: str):
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
 
         # Compute on server (expensive - only for local development)
-        import logging
         logging.warning(f"Computing spectral analysis for {actual_site} on server - this is very expensive!")
         plots = generate_spectral_analysis(data, actual_site)
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
@@ -675,12 +661,9 @@ async def get_spectral_analysis_single(site: str):
 @app.get("/api/cache")
 async def get_cache_status():
     """Return cache directory, file list, size, and writability."""
-    legacy_cache = _list_cache()
-    precomputed_cache = cache_manager.get_cache_status()
-    
     return {
-        "legacy_cache": legacy_cache,
-        "precomputed_cache": precomputed_cache,
+        "legacy_cache": {"dir": "legacy cache removed", "files": [], "total_size": 0, "writable": False},
+        "precomputed_cache": cache_manager.get_cache_status(),
         "available_forecasts": cache_manager.list_available_forecasts(),
         "available_spectral": cache_manager.list_available_spectral()
     }
@@ -688,10 +671,8 @@ async def get_cache_status():
 @app.delete("/api/cache", response_model=CacheClearResponse)
 async def clear_cache():
     """Clear writable cache files (no-op if cache is read-only)."""
-    details = _clear_cache_internal()
-    if not details.get("writable", False):
-        return CacheClearResponse(success=False, message="Cache directory is read-only; cannot clear.", details=details)
-    return CacheClearResponse(success=True, message="Cache cleared.", details=details)
+    details = {"dir": "legacy cache removed", "deleted_files": 0, "freed_bytes": 0, "writable": False}
+    return CacheClearResponse(success=False, message="Cache directory is read-only; cannot clear.", details=details)
 
 @app.delete("/api/cache/retrospective", response_model=CacheDeleteOneResponse)
 async def delete_retrospective_cache(task: str, model: str):
@@ -961,9 +942,6 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "error": str(e)
         }
 
-class RetrospectiveRequest(BaseModel):
-    selected_sites: List[str] = []  # Empty list means all sites
-
 # Removed streaming progress functionality
 
 @app.post("/api/retrospective")
@@ -978,7 +956,6 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         
         if base_results is None:
             # Compute on server (expensive - only for local development)
-            import logging
             logging.warning("Computing retrospective analysis on server - this is expensive!")
             engine = get_forecast_engine()
             engine.data_file = config.FINAL_OUTPUT_PATH
@@ -1007,7 +984,6 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
 
             # Results computed on-demand for local development
         else:
-            import logging
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
         # Normalize cached data format to match expected API format
@@ -1102,31 +1078,19 @@ def _compute_summary(results_json: list) -> dict:
             summary["macro_f1"] = float(f1.mean())
             
         except Exception as e:
-            import logging
             logging.error(f"Error calculating classification metrics: {e}")
             pass
     return summary
 
-# Serve built frontend if present (single-origin deploy) even when running via `uvicorn backend.api:app`
+# Serve built frontend if present (single-origin deploy)
 try:
     frontend_dist = os.path.join(project_root, "frontend", "dist")
-    import logging
-    logging.info(f"Looking for frontend dist at: {frontend_dist}")
     if os.path.isdir(frontend_dist):
-        import logging
         logging.info("Frontend dist found, mounting static files")
-        logging.debug(f"Contents: {os.listdir(frontend_dist)[:10]}")
         app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
     else:
-        import logging
         logging.warning(f"Frontend dist not found at: {frontend_dist}")
-        logging.debug(f"Project root contents: {os.listdir(project_root)[:10]}")
-        if os.path.exists(os.path.join(project_root, "frontend")):
-            frontend_contents = os.listdir(os.path.join(project_root, "frontend"))
-            import logging
-            logging.debug(f"Frontend directory contents: {frontend_contents[:10]}")
 except Exception as e:
-    import logging
     logging.error(f"Error setting up static files: {e}")
     pass
 
