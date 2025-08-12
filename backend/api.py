@@ -221,8 +221,9 @@ def generate_quantile_predictions(data_file, forecast_date, site, model_type="xg
         
     except Exception as e:
         import traceback
-        print(f"Error in quantile prediction: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
+        import logging
+        logging.error(f"Error in quantile prediction: {str(e)}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 # Pydantic models
@@ -640,7 +641,8 @@ async def get_spectral_analysis_all():
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
 
         # Compute on server (expensive - only for local development)
-        print("⚠️ WARNING: Computing spectral analysis on server - this is very expensive!")
+        import logging
+        logging.warning("Computing spectral analysis on server - this is very expensive!")
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         plots = generate_spectral_analysis(data, site=None)
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
@@ -663,7 +665,8 @@ async def get_spectral_analysis_single(site: str):
             return {"success": True, "plots": plots, "cached": True, "source": "precomputed"}
 
         # Compute on server (expensive - only for local development)
-        print(f"⚠️ WARNING: Computing spectral analysis for {actual_site} on server - this is very expensive!")
+        import logging
+        logging.warning(f"Computing spectral analysis for {actual_site} on server - this is very expensive!")
         plots = generate_spectral_analysis(data, actual_site)
         return {"success": True, "plots": plots, "cached": False, "source": "computed"}
     except Exception as e:
@@ -975,7 +978,8 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         
         if base_results is None:
             # Compute on server (expensive - only for local development)
-            print(f"⚠️ WARNING: Computing retrospective analysis on server - this is expensive!")
+            import logging
+            logging.warning("Computing retrospective analysis on server - this is expensive!")
             engine = get_forecast_engine()
             engine.data_file = config.FINAL_OUTPUT_PATH
             
@@ -1003,7 +1007,8 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
 
             # Results computed on-demand for local development
         else:
-            print(f"✅ Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
+            import logging
+            logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
         # Normalize cached data format to match expected API format
         if base_results and isinstance(base_results, list):
@@ -1097,26 +1102,32 @@ def _compute_summary(results_json: list) -> dict:
             summary["macro_f1"] = float(f1.mean())
             
         except Exception as e:
-            print(f"Error calculating classification metrics: {e}")
+            import logging
+            logging.error(f"Error calculating classification metrics: {e}")
             pass
     return summary
 
 # Serve built frontend if present (single-origin deploy) even when running via `uvicorn backend.api:app`
 try:
     frontend_dist = os.path.join(project_root, "frontend", "dist")
-    print(f"🔍 Looking for frontend dist at: {frontend_dist}")
+    import logging
+    logging.info(f"Looking for frontend dist at: {frontend_dist}")
     if os.path.isdir(frontend_dist):
-        print(f"✅ Frontend dist found, mounting static files")
-        print(f"📁 Contents: {os.listdir(frontend_dist)[:10]}")
+        import logging
+        logging.info("Frontend dist found, mounting static files")
+        logging.debug(f"Contents: {os.listdir(frontend_dist)[:10]}")
         app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
     else:
-        print(f"❌ Frontend dist not found at: {frontend_dist}")
-        print(f"📁 Project root contents: {os.listdir(project_root)[:10]}")
+        import logging
+        logging.warning(f"Frontend dist not found at: {frontend_dist}")
+        logging.debug(f"Project root contents: {os.listdir(project_root)[:10]}")
         if os.path.exists(os.path.join(project_root, "frontend")):
             frontend_contents = os.listdir(os.path.join(project_root, "frontend"))
-            print(f"📁 Frontend directory contents: {frontend_contents[:10]}")
+            import logging
+            logging.debug(f"Frontend directory contents: {frontend_contents[:10]}")
 except Exception as e:
-    print(f"❌ Error setting up static files: {e}")
+    import logging
+    logging.error(f"Error setting up static files: {e}")
     pass
 
 if __name__ == "__main__":

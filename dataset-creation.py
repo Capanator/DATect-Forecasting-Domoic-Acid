@@ -200,7 +200,7 @@ def process_stitched_dataset(yearly_nc_files, data_type, site):
         final_cols = ['timestamp', 'site', 'data_type', data_var]
         df_final = df[[col for col in final_cols if col in df.columns]]
     except Exception as df_err:
-        print(f"      ERROR: Failed during DataFrame conversion/formatting for {site} - {data_type}: {df_err}")
+        logger.error(f"Failed during DataFrame conversion/formatting for {site} - {data_type}: {df_err}")
         df_final = None
     finally:
         if ds:

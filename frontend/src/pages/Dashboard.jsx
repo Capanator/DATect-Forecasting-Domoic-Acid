@@ -62,7 +62,7 @@ const Dashboard = () => {
       
     } catch (err) {
       setError('Failed to load initial data')
-      console.error(err)
+      // Error loading initial data
     }
   }
 
@@ -73,7 +73,7 @@ const Dashboard = () => {
       setTask(response.data.forecast_task)
       setSelectedModel(response.data.forecast_model)
     } catch (err) {
-      console.error('Failed to load config:', err)
+      // Failed to load config
     }
   }
 
@@ -109,7 +109,7 @@ const Dashboard = () => {
       }
     } catch (err) {
       setError('Failed to update configuration')
-      console.error(err)
+      // Error applying configuration
     } finally {
       setConfigLoading(false)
     }
@@ -239,7 +239,7 @@ const Dashboard = () => {
       setCurrentStep('results')
     } catch (err) {
       setError('Failed to run retrospective analysis')
-      console.error('Retrospective analysis error:', err)
+      // Retrospective analysis error
     } finally {
       setLoading(false)
     }
@@ -255,12 +255,7 @@ const Dashboard = () => {
     setError(null)
     
     try {
-      console.log('Sending forecast request:', {
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        site: selectedSite.value,
-        task: task,
-        model: selectedModel
-      })
+      // Sending forecast request
       
       const response = await api.post('/api/forecast/enhanced', {
         date: format(selectedDate, 'yyyy-MM-dd'),
@@ -269,14 +264,11 @@ const Dashboard = () => {
         model: selectedModel
       })
       
-      console.log('Received forecast response:', response.data)
-      console.log('Classification data:', response.data?.classification)
-      console.log('Class probabilities:', response.data?.classification?.class_probabilities)
+      // Received forecast response
       setForecast(response.data)
       setCurrentStep('results')
     } catch (err) {
-      console.error('Forecast error details:', err)
-      console.error('Error response:', err.response?.data)
+      // Forecast error
       setError(`Failed to generate forecast: ${err.response?.data?.detail || err.message}`)
     } finally {
       setLoading(false)

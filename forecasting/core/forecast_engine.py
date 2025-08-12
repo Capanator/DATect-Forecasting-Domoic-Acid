@@ -91,7 +91,7 @@ class ForecastEngine:
         # Validate runtime parameters
         validate_runtime_parameters(n_anchors, min_test_date)
         
-        print(f"\n[INFO] Running LEAK-FREE {task} evaluation with {model_type}")
+        logger.info(f"Running LEAK-FREE {task} evaluation with {model_type}")
         
         # Load data using original method
         self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
@@ -138,10 +138,10 @@ class ForecastEngine:
                     self.last_diagnostics["per_site"][site]["earliest_selected_date"] = str(sel_sorted[0].date()) if sel_sorted else None
         
         if not anchor_infos:
-            print("[ERROR] No valid anchor points generated")
+            logger.error("No valid anchor points generated")
             return None
         
-        print(f"[INFO] Generated {len(anchor_infos)} leak-free anchor points")
+        logger.info(f"Generated {len(anchor_infos)} leak-free anchor points")
         
         # Process anchors in parallel using original method
         results = Parallel(n_jobs=-1, verbose=1)(
@@ -152,12 +152,12 @@ class ForecastEngine:
         # Filter successful results and combine using original method
         forecast_dfs = [df for df in results if df is not None]
         if not forecast_dfs:
-            print("[ERROR] No successful forecasts")
+            logger.error("No successful forecasts")
             return None
             
         final_df = pd.concat(forecast_dfs, ignore_index=True)
         final_df = final_df.sort_values(["date", "site"]).drop_duplicates(["date", "site"])
-        print(f"[INFO] Successfully processed {len(forecast_dfs)} leak-free forecasts")
+        logger.info(f"Successfully processed {len(forecast_dfs)} leak-free forecasts")
         
         # Store results for dashboard
         self.results_df = final_df
@@ -428,10 +428,10 @@ class ForecastEngine:
     def _display_evaluation_metrics(self, task):
         """Display evaluation metrics using original format."""
         if self.results_df is None or self.results_df.empty:
-            print("No results for evaluation")
+            logger.warning("No results for evaluation")
             return
             
-        print(f"[INFO] Successfully processed {len(self.results_df)} leak-free forecasts")
+        logger.info(f"Successfully processed {len(self.results_df)} leak-free forecasts")
         
         if task == "regression" or task == "both":
             # Calculate regression metrics
@@ -439,15 +439,15 @@ class ForecastEngine:
             if not valid_results.empty:
                 r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
                 mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
-                print(f"[INFO] LEAK-FREE Regression R2: {r2:.4f}, MAE: {mae:.4f}")
+                logger.info(f"LEAK-FREE Regression R2: {r2:.4f}, MAE: {mae:.4f}")
             else:
-                print("[WARNING] No valid regression results for evaluation")
+                logger.warning("No valid regression results for evaluation")
                 
         if task == "classification" or task == "both":
             # Calculate classification metrics
             valid_results = self.results_df.dropna(subset=['da-category', 'Predicted_da-category'])
             if not valid_results.empty:
                 accuracy = accuracy_score(valid_results['da-category'], valid_results['Predicted_da-category'])
-                print(f"[INFO] LEAK-FREE Classification Accuracy: {accuracy:.4f}")
+                logger.info(f"LEAK-FREE Classification Accuracy: {accuracy:.4f}")
             else:
-                print("[WARNING] No valid classification results for evaluation")
+                logger.warning("No valid classification results for evaluation")

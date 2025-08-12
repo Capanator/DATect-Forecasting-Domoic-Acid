@@ -255,7 +255,7 @@ class DATectLauncher:
             sys.executable, 'backend/api.py'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.project_root)
         
-        print(f"Backend PID: {self.backend_process.pid}")
+        # Backend started successfully
         
         if not self.wait_for_service("http://localhost:8000/health", "Backend API"):
             return False
@@ -272,7 +272,7 @@ class DATectLauncher:
             'npm', 'run', 'dev'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=frontend_dir)
         
-        print(f"Frontend PID: {self.frontend_process.pid}")
+        # Frontend started successfully
         
         if not self.wait_for_service("http://localhost:3000", "Frontend", max_wait=45):
             return False

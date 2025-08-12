@@ -15,7 +15,10 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`)
+    // Log API requests in development only
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`)
+    }
     return config
   },
   (error) => {
@@ -26,11 +29,17 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log(`API Response: ${response.status} ${response.config.url}`)
+    // Log API responses in development only
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`API Response: ${response.status} ${response.config.url}`)
+    }
     return response
   },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message)
+    // Log API errors in development only
+    if (process.env.NODE_ENV === 'development') {
+      console.error('API Error:', error.response?.data || error.message)
+    }
     return Promise.reject(error)
   }
 )

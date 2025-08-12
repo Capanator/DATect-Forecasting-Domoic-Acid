@@ -713,7 +713,7 @@ def generate_spectral_analysis(data, site=None):
                 xgb_predictions = None
                 actual_for_comparison = da_values
         except Exception as e:
-            print(f"XGBoost retrospective evaluation failed: {e}")
+            logger.error(f"XGBoost retrospective evaluation failed: {e}")
             xgb_predictions = None
             actual_for_comparison = da_values
     

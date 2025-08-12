@@ -42,7 +42,7 @@ class DATectCacheGenerator:
         (self.cache_dir / "spectral").mkdir(exist_ok=True)
         (self.cache_dir / "visualizations").mkdir(exist_ok=True)
         
-        print(f"🗃️  Cache directory: {self.cache_dir}")
+        # Cache directory initialized
         
     def print_status(self, message, color='blue'):
         """Print colored status message"""
