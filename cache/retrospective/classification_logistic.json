@@ -4093,7 +4093,7 @@
     "anchor_date": "2009-08-31 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-09-07 00:00:00",
@@ -4197,7 +4197,7 @@
     "anchor_date": "2009-09-14 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-09-21 00:00:00",
@@ -4341,7 +4341,7 @@
     "anchor_date": "2009-10-05 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-10-12 00:00:00",
@@ -4413,7 +4413,7 @@
     "anchor_date": "2009-10-12 00:00:00",
     "da": 5.666666666666667,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-10-19 00:00:00",
@@ -4469,7 +4469,7 @@
     "anchor_date": "2009-10-26 00:00:00",
     "da": 4.2,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-11-02 00:00:00",
@@ -4509,7 +4509,7 @@
     "anchor_date": "2009-10-26 00:00:00",
     "da": 5.5,
     "da-category": 1,
-    "Predicted_da-category": 2
+    "Predicted_da-category": 3
   },
   {
     "date": "2009-11-02 00:00:00",
@@ -4557,7 +4557,7 @@
     "anchor_date": "2009-11-02 00:00:00",
     "da": 4.666666666666667,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-11-09 00:00:00",
@@ -4573,7 +4573,7 @@
     "anchor_date": "2009-11-09 00:00:00",
     "da": 0.5652173913043478,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2009-11-16 00:00:00",
@@ -4589,7 +4589,7 @@
     "anchor_date": "2009-11-09 00:00:00",
     "da": 4.333333333333333,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-11-16 00:00:00",
@@ -4613,7 +4613,7 @@
     "anchor_date": "2009-11-16 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 2
+    "Predicted_da-category": 3
   },
   {
     "date": "2009-11-23 00:00:00",
@@ -4645,7 +4645,7 @@
     "anchor_date": "2009-11-23 00:00:00",
     "da": 0.5869565217391304,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2009-11-30 00:00:00",
@@ -4661,7 +4661,7 @@
     "anchor_date": "2009-11-23 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 2
+    "Predicted_da-category": 3
   },
   {
     "date": "2009-11-30 00:00:00",
@@ -4669,7 +4669,7 @@
     "anchor_date": "2009-11-23 00:00:00",
     "da": 3.666666666666667,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2009-11-30 00:00:00",
@@ -5629,7 +5629,7 @@
     "anchor_date": "2010-04-12 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2010-04-19 00:00:00",
@@ -10749,7 +10749,7 @@
     "anchor_date": "2012-04-30 00:00:00",
     "da": 1.4,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2012-05-14 00:00:00",
@@ -14453,7 +14453,7 @@
     "anchor_date": "2013-10-14 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2013-10-21 00:00:00",
@@ -16213,7 +16213,7 @@
     "anchor_date": "2014-06-30 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-07-07 00:00:00",
@@ -16269,7 +16269,7 @@
     "anchor_date": "2014-07-07 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2014-07-21 00:00:00",
@@ -16293,7 +16293,7 @@
     "anchor_date": "2014-07-14 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2014-07-21 00:00:00",
@@ -16525,7 +16525,7 @@
     "anchor_date": "2014-08-25 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-09-01 00:00:00",
@@ -16581,7 +16581,7 @@
     "anchor_date": "2014-09-01 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-09-08 00:00:00",
@@ -16629,7 +16629,7 @@
     "anchor_date": "2014-09-08 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-09-15 00:00:00",
@@ -16645,7 +16645,7 @@
     "anchor_date": "2014-09-08 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-09-15 00:00:00",
@@ -16765,7 +16765,7 @@
     "anchor_date": "2014-09-29 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2014-10-13 00:00:00",
@@ -16781,7 +16781,7 @@
     "anchor_date": "2014-10-06 00:00:00",
     "da": 0.2375,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-10-13 00:00:00",
@@ -16869,7 +16869,7 @@
     "anchor_date": "2014-10-13 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-10-20 00:00:00",
@@ -16925,7 +16925,7 @@
     "anchor_date": "2014-10-20 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2014-11-03 00:00:00",
@@ -17365,7 +17365,7 @@
     "anchor_date": "2014-12-29 00:00:00",
     "da": 53.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-01-05 00:00:00",
@@ -17421,7 +17421,7 @@
     "anchor_date": "2015-01-05 00:00:00",
     "da": 46.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-01-12 00:00:00",
@@ -17469,7 +17469,7 @@
     "anchor_date": "2015-01-12 00:00:00",
     "da": 40.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-01-19 00:00:00",
@@ -17525,7 +17525,7 @@
     "anchor_date": "2015-01-19 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-01-26 00:00:00",
@@ -17725,7 +17725,7 @@
     "anchor_date": "2015-02-16 00:00:00",
     "da": 23.25,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-02-23 00:00:00",
@@ -17765,7 +17765,7 @@
     "anchor_date": "2015-02-23 00:00:00",
     "da": 31.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-03-02 00:00:00",
@@ -17885,7 +17885,7 @@
     "anchor_date": "2015-03-09 00:00:00",
     "da": 28.2,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-03-16 00:00:00",
@@ -17941,7 +17941,7 @@
     "anchor_date": "2015-03-16 00:00:00",
     "da": 26.8,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-03-23 00:00:00",
@@ -17989,7 +17989,7 @@
     "anchor_date": "2015-03-23 00:00:00",
     "da": 25.4,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-03-30 00:00:00",
@@ -17997,7 +17997,7 @@
     "anchor_date": "2015-03-23 00:00:00",
     "da": 27.653846153846153,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-03-30 00:00:00",
@@ -18053,7 +18053,7 @@
     "anchor_date": "2015-03-30 00:00:00",
     "da": 24.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-04-06 00:00:00",
@@ -18069,7 +18069,7 @@
     "anchor_date": "2015-03-30 00:00:00",
     "da": 28.92307692307692,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-04-06 00:00:00",
@@ -18109,7 +18109,7 @@
     "anchor_date": "2015-04-06 00:00:00",
     "da": 30.19230769230769,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-04-13 00:00:00",
@@ -18173,7 +18173,7 @@
     "anchor_date": "2015-04-13 00:00:00",
     "da": 31.46153846153846,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-04-20 00:00:00",
@@ -18205,7 +18205,7 @@
     "anchor_date": "2015-04-20 00:00:00",
     "da": 23.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-04-27 00:00:00",
@@ -18221,7 +18221,7 @@
     "anchor_date": "2015-04-20 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-04-27 00:00:00",
@@ -18253,7 +18253,7 @@
     "anchor_date": "2015-04-27 00:00:00",
     "da": 27.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-05-04 00:00:00",
@@ -18269,7 +18269,7 @@
     "anchor_date": "2015-04-27 00:00:00",
     "da": 16.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-05-04 00:00:00",
@@ -18301,7 +18301,7 @@
     "anchor_date": "2015-05-04 00:00:00",
     "da": 31.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-05-11 00:00:00",
@@ -18397,7 +18397,7 @@
     "anchor_date": "2015-05-18 00:00:00",
     "da": 103.75,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-05-25 00:00:00",
@@ -18429,7 +18429,7 @@
     "anchor_date": "2015-05-25 00:00:00",
     "da": 30.3,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-06-01 00:00:00",
@@ -18445,7 +18445,7 @@
     "anchor_date": "2015-05-25 00:00:00",
     "da": 82.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-06-01 00:00:00",
@@ -18517,7 +18517,7 @@
     "anchor_date": "2015-06-01 00:00:00",
     "da": 83.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-06-08 00:00:00",
@@ -18565,7 +18565,7 @@
     "anchor_date": "2015-06-08 00:00:00",
     "da": 29.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-06-15 00:00:00",
@@ -18573,7 +18573,7 @@
     "anchor_date": "2015-06-08 00:00:00",
     "da": 34.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-06-15 00:00:00",
@@ -18597,7 +18597,7 @@
     "anchor_date": "2015-06-08 00:00:00",
     "da": 17.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-06-15 00:00:00",
@@ -18693,7 +18693,7 @@
     "anchor_date": "2015-06-22 00:00:00",
     "da": 79.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-06-29 00:00:00",
@@ -18701,7 +18701,7 @@
     "anchor_date": "2015-06-22 00:00:00",
     "da": 94.0,
     "da-category": 3,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-06-29 00:00:00",
@@ -18709,7 +18709,7 @@
     "anchor_date": "2015-06-22 00:00:00",
     "da": 18.25,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-07-06 00:00:00",
@@ -18725,7 +18725,7 @@
     "anchor_date": "2015-06-29 00:00:00",
     "da": 26.25,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-07-06 00:00:00",
@@ -18765,7 +18765,7 @@
     "anchor_date": "2015-07-06 00:00:00",
     "da": 29.5,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-07-13 00:00:00",
@@ -18773,7 +18773,7 @@
     "anchor_date": "2015-07-06 00:00:00",
     "da": 17.1,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-07-13 00:00:00",
@@ -18797,7 +18797,7 @@
     "anchor_date": "2015-07-06 00:00:00",
     "da": 47.0,
     "da-category": 3,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-07-13 00:00:00",
@@ -18805,7 +18805,7 @@
     "anchor_date": "2015-07-06 00:00:00",
     "da": 53.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-07-13 00:00:00",
@@ -18813,7 +18813,7 @@
     "anchor_date": "2015-07-06 00:00:00",
     "da": 19.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-07-13 00:00:00",
@@ -18829,7 +18829,7 @@
     "anchor_date": "2015-07-13 00:00:00",
     "da": 8.55,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-07-20 00:00:00",
@@ -18853,7 +18853,7 @@
     "anchor_date": "2015-07-13 00:00:00",
     "da": 20.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-07-20 00:00:00",
@@ -18885,7 +18885,7 @@
     "anchor_date": "2015-07-20 00:00:00",
     "da": 24.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-07-27 00:00:00",
@@ -18909,7 +18909,7 @@
     "anchor_date": "2015-07-20 00:00:00",
     "da": 34.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-07-27 00:00:00",
@@ -18917,7 +18917,7 @@
     "anchor_date": "2015-07-20 00:00:00",
     "da": 46.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-07-27 00:00:00",
@@ -18933,7 +18933,7 @@
     "anchor_date": "2015-07-27 00:00:00",
     "da": 22.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-03 00:00:00",
@@ -18941,7 +18941,7 @@
     "anchor_date": "2015-07-27 00:00:00",
     "da": 18.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-03 00:00:00",
@@ -18949,7 +18949,7 @@
     "anchor_date": "2015-07-27 00:00:00",
     "da": 22.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-03 00:00:00",
@@ -18973,7 +18973,7 @@
     "anchor_date": "2015-08-03 00:00:00",
     "da": 21.25,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-10 00:00:00",
@@ -18981,7 +18981,7 @@
     "anchor_date": "2015-08-03 00:00:00",
     "da": 22.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-08-10 00:00:00",
@@ -18989,7 +18989,7 @@
     "anchor_date": "2015-08-03 00:00:00",
     "da": 58.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-08-10 00:00:00",
@@ -19021,7 +19021,7 @@
     "anchor_date": "2015-08-10 00:00:00",
     "da": 20.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-08-17 00:00:00",
@@ -19029,7 +19029,7 @@
     "anchor_date": "2015-08-10 00:00:00",
     "da": 24.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-17 00:00:00",
@@ -19053,7 +19053,7 @@
     "anchor_date": "2015-08-10 00:00:00",
     "da": 42.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-08-17 00:00:00",
@@ -19077,7 +19077,7 @@
     "anchor_date": "2015-08-10 00:00:00",
     "da": 60.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-08-24 00:00:00",
@@ -19101,7 +19101,7 @@
     "anchor_date": "2015-08-17 00:00:00",
     "da": 24.6,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-24 00:00:00",
@@ -19109,7 +19109,7 @@
     "anchor_date": "2015-08-17 00:00:00",
     "da": 18.666666666666668,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-24 00:00:00",
@@ -19149,7 +19149,7 @@
     "anchor_date": "2015-08-24 00:00:00",
     "da": 24.7,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-31 00:00:00",
@@ -19157,7 +19157,7 @@
     "anchor_date": "2015-08-24 00:00:00",
     "da": 6.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-08-31 00:00:00",
@@ -19165,7 +19165,7 @@
     "anchor_date": "2015-08-24 00:00:00",
     "da": 9.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-08-31 00:00:00",
@@ -19173,7 +19173,7 @@
     "anchor_date": "2015-08-24 00:00:00",
     "da": 25.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-08-31 00:00:00",
@@ -19189,7 +19189,7 @@
     "anchor_date": "2015-08-24 00:00:00",
     "da": 61.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-09-07 00:00:00",
@@ -19205,7 +19205,7 @@
     "anchor_date": "2015-08-31 00:00:00",
     "da": 6.75,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-09-07 00:00:00",
@@ -19221,7 +19221,7 @@
     "anchor_date": "2015-08-31 00:00:00",
     "da": 3.25,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-09-07 00:00:00",
@@ -19245,7 +19245,7 @@
     "anchor_date": "2015-08-31 00:00:00",
     "da": 64.5,
     "da-category": 3,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-09-14 00:00:00",
@@ -19261,7 +19261,7 @@
     "anchor_date": "2015-09-07 00:00:00",
     "da": 8.333333333333334,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-09-14 00:00:00",
@@ -19269,7 +19269,7 @@
     "anchor_date": "2015-09-07 00:00:00",
     "da": 19.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-09-14 00:00:00",
@@ -19285,7 +19285,7 @@
     "anchor_date": "2015-09-14 00:00:00",
     "da": 46.25,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-09-21 00:00:00",
@@ -19301,7 +19301,7 @@
     "anchor_date": "2015-09-14 00:00:00",
     "da": 22.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-09-21 00:00:00",
@@ -19325,7 +19325,7 @@
     "anchor_date": "2015-09-21 00:00:00",
     "da": 63.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-09-28 00:00:00",
@@ -19357,7 +19357,7 @@
     "anchor_date": "2015-09-21 00:00:00",
     "da": 13.0,
     "da-category": 1,
-    "Predicted_da-category": 2
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-09-28 00:00:00",
@@ -19373,7 +19373,7 @@
     "anchor_date": "2015-09-21 00:00:00",
     "da": 44.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-10-05 00:00:00",
@@ -19397,7 +19397,7 @@
     "anchor_date": "2015-09-28 00:00:00",
     "da": 21.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-10-05 00:00:00",
@@ -19413,7 +19413,7 @@
     "anchor_date": "2015-09-28 00:00:00",
     "da": 21.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-10-05 00:00:00",
@@ -19421,7 +19421,7 @@
     "anchor_date": "2015-09-28 00:00:00",
     "da": 6.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-10-05 00:00:00",
@@ -19453,7 +19453,7 @@
     "anchor_date": "2015-10-05 00:00:00",
     "da": 50.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-10-12 00:00:00",
@@ -19469,7 +19469,7 @@
     "anchor_date": "2015-10-05 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-10-12 00:00:00",
@@ -19477,7 +19477,7 @@
     "anchor_date": "2015-10-05 00:00:00",
     "da": 23.555555555555557,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-10-12 00:00:00",
@@ -19501,7 +19501,7 @@
     "anchor_date": "2015-10-12 00:00:00",
     "da": 67.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-10-19 00:00:00",
@@ -19509,7 +19509,7 @@
     "anchor_date": "2015-10-12 00:00:00",
     "da": 25.444444444444446,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-10-19 00:00:00",
@@ -19517,7 +19517,7 @@
     "anchor_date": "2015-10-12 00:00:00",
     "da": 21.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-10-26 00:00:00",
@@ -19525,7 +19525,7 @@
     "anchor_date": "2015-10-19 00:00:00",
     "da": 16.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-10-26 00:00:00",
@@ -19533,7 +19533,7 @@
     "anchor_date": "2015-10-19 00:00:00",
     "da": 85.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-10-26 00:00:00",
@@ -19549,7 +19549,7 @@
     "anchor_date": "2015-10-26 00:00:00",
     "da": 15.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-02 00:00:00",
@@ -19557,7 +19557,7 @@
     "anchor_date": "2015-10-26 00:00:00",
     "da": 24.166666666666668,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-02 00:00:00",
@@ -19573,7 +19573,7 @@
     "anchor_date": "2015-10-26 00:00:00",
     "da": 21.25,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-02 00:00:00",
@@ -19597,7 +19597,7 @@
     "anchor_date": "2015-11-02 00:00:00",
     "da": 28.333333333333336,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-11-09 00:00:00",
@@ -19621,7 +19621,7 @@
     "anchor_date": "2015-11-09 00:00:00",
     "da": 19.4,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-16 00:00:00",
@@ -19653,7 +19653,7 @@
     "anchor_date": "2015-11-09 00:00:00",
     "da": 16.799999999999997,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-11-16 00:00:00",
@@ -19677,7 +19677,7 @@
     "anchor_date": "2015-11-16 00:00:00",
     "da": 12.2,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-23 00:00:00",
@@ -19717,7 +19717,7 @@
     "anchor_date": "2015-11-16 00:00:00",
     "da": 21.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-11-30 00:00:00",
@@ -19741,7 +19741,7 @@
     "anchor_date": "2015-11-23 00:00:00",
     "da": 13.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-11-30 00:00:00",
@@ -19757,7 +19757,7 @@
     "anchor_date": "2015-11-23 00:00:00",
     "da": 25.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-11-30 00:00:00",
@@ -19765,7 +19765,7 @@
     "anchor_date": "2015-11-23 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-11-30 00:00:00",
@@ -19773,7 +19773,7 @@
     "anchor_date": "2015-11-23 00:00:00",
     "da": 21.555555555555557,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-11-30 00:00:00",
@@ -19781,7 +19781,7 @@
     "anchor_date": "2015-11-23 00:00:00",
     "da": 36.77777777777778,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-07 00:00:00",
@@ -19797,7 +19797,7 @@
     "anchor_date": "2015-11-30 00:00:00",
     "da": 6.833333333333333,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-12-07 00:00:00",
@@ -19805,7 +19805,7 @@
     "anchor_date": "2015-11-30 00:00:00",
     "da": 59.16666666666667,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-12-07 00:00:00",
@@ -19821,7 +19821,7 @@
     "anchor_date": "2015-11-30 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-12-07 00:00:00",
@@ -19837,7 +19837,7 @@
     "anchor_date": "2015-11-30 00:00:00",
     "da": 37.55555555555556,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-14 00:00:00",
@@ -19901,7 +19901,7 @@
     "anchor_date": "2015-12-07 00:00:00",
     "da": 38.333333333333336,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-21 00:00:00",
@@ -19917,7 +19917,7 @@
     "anchor_date": "2015-12-14 00:00:00",
     "da": 5.808333333333334,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-12-21 00:00:00",
@@ -19925,7 +19925,7 @@
     "anchor_date": "2015-12-14 00:00:00",
     "da": 95.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-21 00:00:00",
@@ -19933,7 +19933,7 @@
     "anchor_date": "2015-12-14 00:00:00",
     "da": 10.833333333333332,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2015-12-21 00:00:00",
@@ -19949,7 +19949,7 @@
     "anchor_date": "2015-12-14 00:00:00",
     "da": 15.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2015-12-21 00:00:00",
@@ -19973,7 +19973,7 @@
     "anchor_date": "2015-12-14 00:00:00",
     "da": 30.666666666666668,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-28 00:00:00",
@@ -19989,7 +19989,7 @@
     "anchor_date": "2015-12-21 00:00:00",
     "da": 113.66666666666667,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2015-12-28 00:00:00",
@@ -20069,7 +20069,7 @@
     "anchor_date": "2016-01-04 00:00:00",
     "da": 150.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-01-11 00:00:00",
@@ -20109,7 +20109,7 @@
     "anchor_date": "2016-01-11 00:00:00",
     "da": 8.166666666666668,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-01-18 00:00:00",
@@ -20141,7 +20141,7 @@
     "anchor_date": "2016-01-18 00:00:00",
     "da": 88.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-01-25 00:00:00",
@@ -20197,7 +20197,7 @@
     "anchor_date": "2016-01-25 00:00:00",
     "da": 71.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-02-01 00:00:00",
@@ -20229,7 +20229,7 @@
     "anchor_date": "2016-02-01 00:00:00",
     "da": 55.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-02-08 00:00:00",
@@ -20253,7 +20253,7 @@
     "anchor_date": "2016-02-01 00:00:00",
     "da": 13.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-02-08 00:00:00",
@@ -20293,7 +20293,7 @@
     "anchor_date": "2016-02-08 00:00:00",
     "da": 56.25,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-02-15 00:00:00",
@@ -20333,7 +20333,7 @@
     "anchor_date": "2016-02-15 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-02-22 00:00:00",
@@ -20357,7 +20357,7 @@
     "anchor_date": "2016-02-15 00:00:00",
     "da": 29.666666666666668,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-02-29 00:00:00",
@@ -20381,7 +20381,7 @@
     "anchor_date": "2016-02-22 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-02-29 00:00:00",
@@ -20421,7 +20421,7 @@
     "anchor_date": "2016-02-29 00:00:00",
     "da": 60.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-03-07 00:00:00",
@@ -20445,7 +20445,7 @@
     "anchor_date": "2016-02-29 00:00:00",
     "da": 9.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-03-07 00:00:00",
@@ -20469,7 +20469,7 @@
     "anchor_date": "2016-03-07 00:00:00",
     "da": 14.9375,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-03-14 00:00:00",
@@ -20533,7 +20533,7 @@
     "anchor_date": "2016-03-14 00:00:00",
     "da": 7.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-03-21 00:00:00",
@@ -20573,7 +20573,7 @@
     "anchor_date": "2016-03-21 00:00:00",
     "da": 11.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-03-28 00:00:00",
@@ -20597,7 +20597,7 @@
     "anchor_date": "2016-03-28 00:00:00",
     "da": 6.855555555555556,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-04 00:00:00",
@@ -20605,7 +20605,7 @@
     "anchor_date": "2016-03-28 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-04 00:00:00",
@@ -20621,7 +20621,7 @@
     "anchor_date": "2016-03-28 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-04-04 00:00:00",
@@ -20637,7 +20637,7 @@
     "anchor_date": "2016-04-04 00:00:00",
     "da": 8.533333333333333,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-11 00:00:00",
@@ -20645,7 +20645,7 @@
     "anchor_date": "2016-04-04 00:00:00",
     "da": 19.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-04-11 00:00:00",
@@ -20669,7 +20669,7 @@
     "anchor_date": "2016-04-04 00:00:00",
     "da": 8.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-11 00:00:00",
@@ -20685,7 +20685,7 @@
     "anchor_date": "2016-04-11 00:00:00",
     "da": 0.4875,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-04-18 00:00:00",
@@ -20733,7 +20733,7 @@
     "anchor_date": "2016-04-18 00:00:00",
     "da": 48.5,
     "da-category": 3,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-25 00:00:00",
@@ -20741,7 +20741,7 @@
     "anchor_date": "2016-04-18 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-25 00:00:00",
@@ -20765,7 +20765,7 @@
     "anchor_date": "2016-04-18 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-04-25 00:00:00",
@@ -20781,7 +20781,7 @@
     "anchor_date": "2016-04-25 00:00:00",
     "da": 3.9,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-02 00:00:00",
@@ -20789,7 +20789,7 @@
     "anchor_date": "2016-04-25 00:00:00",
     "da": 2.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-02 00:00:00",
@@ -20813,7 +20813,7 @@
     "anchor_date": "2016-04-25 00:00:00",
     "da": 4.75,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-02 00:00:00",
@@ -20837,7 +20837,7 @@
     "anchor_date": "2016-05-02 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-09 00:00:00",
@@ -20845,7 +20845,7 @@
     "anchor_date": "2016-05-02 00:00:00",
     "da": 4.5,
     "da-category": 0,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-09 00:00:00",
@@ -20861,7 +20861,7 @@
     "anchor_date": "2016-05-02 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-05-09 00:00:00",
@@ -20869,7 +20869,7 @@
     "anchor_date": "2016-05-02 00:00:00",
     "da": 6.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-16 00:00:00",
@@ -20877,7 +20877,7 @@
     "anchor_date": "2016-05-09 00:00:00",
     "da": 2.8,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-05-16 00:00:00",
@@ -20893,7 +20893,7 @@
     "anchor_date": "2016-05-09 00:00:00",
     "da": 8.25,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-16 00:00:00",
@@ -20901,7 +20901,7 @@
     "anchor_date": "2016-05-09 00:00:00",
     "da": 17.833333333333332,
     "da-category": 1,
-    "Predicted_da-category": 2
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-23 00:00:00",
@@ -20909,7 +20909,7 @@
     "anchor_date": "2016-05-16 00:00:00",
     "da": 2.6,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-05-23 00:00:00",
@@ -20917,7 +20917,7 @@
     "anchor_date": "2016-05-16 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-23 00:00:00",
@@ -20933,7 +20933,7 @@
     "anchor_date": "2016-05-16 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-23 00:00:00",
@@ -20949,7 +20949,7 @@
     "anchor_date": "2016-05-16 00:00:00",
     "da": 10.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -20957,7 +20957,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 4.05,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -20965,7 +20965,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 23.25,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -20973,7 +20973,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 4.25,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -20989,7 +20989,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 3.75,
     "da-category": 0,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -21013,7 +21013,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 8.75,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-05-30 00:00:00",
@@ -21021,7 +21021,7 @@
     "anchor_date": "2016-05-23 00:00:00",
     "da": 19.27777777777778,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-06 00:00:00",
@@ -21045,7 +21045,7 @@
     "anchor_date": "2016-05-30 00:00:00",
     "da": 22.5,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-06-06 00:00:00",
@@ -21061,7 +21061,7 @@
     "anchor_date": "2016-06-06 00:00:00",
     "da": 3.35,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-06-13 00:00:00",
@@ -21085,7 +21085,7 @@
     "anchor_date": "2016-06-06 00:00:00",
     "da": 6.25,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-13 00:00:00",
@@ -21093,7 +21093,7 @@
     "anchor_date": "2016-06-06 00:00:00",
     "da": 17.5,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-20 00:00:00",
@@ -21109,7 +21109,7 @@
     "anchor_date": "2016-06-13 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-20 00:00:00",
@@ -21117,7 +21117,7 @@
     "anchor_date": "2016-06-13 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-06-20 00:00:00",
@@ -21125,7 +21125,7 @@
     "anchor_date": "2016-06-13 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-06-20 00:00:00",
@@ -21133,7 +21133,7 @@
     "anchor_date": "2016-06-13 00:00:00",
     "da": 15.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21149,7 +21149,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 1.25,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21165,7 +21165,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21173,7 +21173,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 3.333333333333333,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21181,7 +21181,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 0.725,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21189,7 +21189,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 4.4,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-06-27 00:00:00",
@@ -21197,7 +21197,7 @@
     "anchor_date": "2016-06-20 00:00:00",
     "da": 12.666666666666666,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-07-04 00:00:00",
@@ -21205,7 +21205,7 @@
     "anchor_date": "2016-06-27 00:00:00",
     "da": 19.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-04 00:00:00",
@@ -21229,7 +21229,7 @@
     "anchor_date": "2016-06-27 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-07-04 00:00:00",
@@ -21237,7 +21237,7 @@
     "anchor_date": "2016-06-27 00:00:00",
     "da": 3.8,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-07-11 00:00:00",
@@ -21253,7 +21253,7 @@
     "anchor_date": "2016-07-04 00:00:00",
     "da": 18.75,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-11 00:00:00",
@@ -21277,7 +21277,7 @@
     "anchor_date": "2016-07-04 00:00:00",
     "da": 3.2,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-11 00:00:00",
@@ -21285,7 +21285,7 @@
     "anchor_date": "2016-07-04 00:00:00",
     "da": 8.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-07-18 00:00:00",
@@ -21301,7 +21301,7 @@
     "anchor_date": "2016-07-11 00:00:00",
     "da": 18.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-18 00:00:00",
@@ -21317,7 +21317,7 @@
     "anchor_date": "2016-07-11 00:00:00",
     "da": 3.9,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-07-18 00:00:00",
@@ -21325,7 +21325,7 @@
     "anchor_date": "2016-07-11 00:00:00",
     "da": 2.6,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-07-18 00:00:00",
@@ -21357,7 +21357,7 @@
     "anchor_date": "2016-07-18 00:00:00",
     "da": 17.25,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-25 00:00:00",
@@ -21365,7 +21365,7 @@
     "anchor_date": "2016-07-18 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-25 00:00:00",
@@ -21381,7 +21381,7 @@
     "anchor_date": "2016-07-18 00:00:00",
     "da": 2.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-07-25 00:00:00",
@@ -21397,7 +21397,7 @@
     "anchor_date": "2016-07-18 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-07-25 00:00:00",
@@ -21701,7 +21701,7 @@
     "anchor_date": "2016-09-05 00:00:00",
     "da": 16.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2016-09-12 00:00:00",
@@ -21725,7 +21725,7 @@
     "anchor_date": "2016-09-05 00:00:00",
     "da": 8.0,
     "da-category": 1,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-09-19 00:00:00",
@@ -21781,7 +21781,7 @@
     "anchor_date": "2016-09-12 00:00:00",
     "da": 0.6,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-09-19 00:00:00",
@@ -22173,7 +22173,7 @@
     "anchor_date": "2016-11-14 00:00:00",
     "da": 97.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2016-11-21 00:00:00",
@@ -22421,7 +22421,7 @@
     "anchor_date": "2016-12-12 00:00:00",
     "da": 17.166666666666668,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2016-12-26 00:00:00",
@@ -22525,7 +22525,7 @@
     "anchor_date": "2017-01-02 00:00:00",
     "da": 180.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2017-01-09 00:00:00",
@@ -22573,7 +22573,7 @@
     "anchor_date": "2017-01-02 00:00:00",
     "da": 17.833333333333332,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-01-16 00:00:00",
@@ -22645,7 +22645,7 @@
     "anchor_date": "2017-01-16 00:00:00",
     "da": 48.5,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2017-01-23 00:00:00",
@@ -22997,7 +22997,7 @@
     "anchor_date": "2017-03-06 00:00:00",
     "da": 4.666666666666667,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-03-20 00:00:00",
@@ -23181,7 +23181,7 @@
     "anchor_date": "2017-04-03 00:00:00",
     "da": 13.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-04-10 00:00:00",
@@ -23213,7 +23213,7 @@
     "anchor_date": "2017-04-10 00:00:00",
     "da": 14.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-04-17 00:00:00",
@@ -23325,7 +23325,7 @@
     "anchor_date": "2017-04-24 00:00:00",
     "da": 26.333333333333332,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-05-08 00:00:00",
@@ -23645,7 +23645,7 @@
     "anchor_date": "2017-06-12 00:00:00",
     "da": 25.25,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2017-06-19 00:00:00",
@@ -23685,7 +23685,7 @@
     "anchor_date": "2017-06-12 00:00:00",
     "da": 11.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-06-26 00:00:00",
@@ -23701,7 +23701,7 @@
     "anchor_date": "2017-06-19 00:00:00",
     "da": 27.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-06-26 00:00:00",
@@ -23821,7 +23821,7 @@
     "anchor_date": "2017-07-10 00:00:00",
     "da": 21.0,
     "da-category": 2,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 2
   },
   {
     "date": "2017-07-17 00:00:00",
@@ -23829,7 +23829,7 @@
     "anchor_date": "2017-07-10 00:00:00",
     "da": 11.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-07-17 00:00:00",
@@ -23845,7 +23845,7 @@
     "anchor_date": "2017-07-10 00:00:00",
     "da": 8.75,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-07-17 00:00:00",
@@ -23885,7 +23885,7 @@
     "anchor_date": "2017-07-17 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-07-24 00:00:00",
@@ -23925,7 +23925,7 @@
     "anchor_date": "2017-07-24 00:00:00",
     "da": 16.75,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-07-31 00:00:00",
@@ -23965,7 +23965,7 @@
     "anchor_date": "2017-07-31 00:00:00",
     "da": 9.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-08-07 00:00:00",
@@ -24045,7 +24045,7 @@
     "anchor_date": "2017-08-14 00:00:00",
     "da": 10.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-08-21 00:00:00",
@@ -24053,7 +24053,7 @@
     "anchor_date": "2017-08-14 00:00:00",
     "da": 44.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2017-08-21 00:00:00",
@@ -24069,7 +24069,7 @@
     "anchor_date": "2017-08-14 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-08-21 00:00:00",
@@ -24101,7 +24101,7 @@
     "anchor_date": "2017-08-21 00:00:00",
     "da": 9.25,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-08-28 00:00:00",
@@ -24141,7 +24141,7 @@
     "anchor_date": "2017-08-21 00:00:00",
     "da": 10.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-09-04 00:00:00",
@@ -24157,7 +24157,7 @@
     "anchor_date": "2017-08-28 00:00:00",
     "da": 15.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2017-09-04 00:00:00",
@@ -24277,7 +24277,7 @@
     "anchor_date": "2017-09-11 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-09-18 00:00:00",
@@ -24301,7 +24301,7 @@
     "anchor_date": "2017-09-18 00:00:00",
     "da": 11.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-09-25 00:00:00",
@@ -24389,7 +24389,7 @@
     "anchor_date": "2017-10-02 00:00:00",
     "da": 7.1000000000000005,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-10-09 00:00:00",
@@ -24437,7 +24437,7 @@
     "anchor_date": "2017-10-09 00:00:00",
     "da": 5.975,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-10-16 00:00:00",
@@ -24485,7 +24485,7 @@
     "anchor_date": "2017-10-16 00:00:00",
     "da": 4.85,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-10-23 00:00:00",
@@ -24525,7 +24525,7 @@
     "anchor_date": "2017-10-16 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-10-23 00:00:00",
@@ -24581,7 +24581,7 @@
     "anchor_date": "2017-10-23 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-11-06 00:00:00",
@@ -24621,7 +24621,7 @@
     "anchor_date": "2017-11-06 00:00:00",
     "da": 2.675,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-11-13 00:00:00",
@@ -24645,7 +24645,7 @@
     "anchor_date": "2017-11-06 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-11-13 00:00:00",
@@ -24685,7 +24685,7 @@
     "anchor_date": "2017-11-13 00:00:00",
     "da": 1.3,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-11-20 00:00:00",
@@ -24717,7 +24717,7 @@
     "anchor_date": "2017-11-13 00:00:00",
     "da": 16.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2017-11-20 00:00:00",
@@ -25173,7 +25173,7 @@
     "anchor_date": "2018-01-22 00:00:00",
     "da": 4.714285714285714,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-01-29 00:00:00",
@@ -25389,7 +25389,7 @@
     "anchor_date": "2018-02-19 00:00:00",
     "da": 4.142857142857143,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-02-26 00:00:00",
@@ -25397,7 +25397,7 @@
     "anchor_date": "2018-02-19 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-02-26 00:00:00",
@@ -25453,7 +25453,7 @@
     "anchor_date": "2018-02-26 00:00:00",
     "da": 5.666666666666667,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-03-05 00:00:00",
@@ -25541,7 +25541,7 @@
     "anchor_date": "2018-03-19 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-03-26 00:00:00",
@@ -25589,7 +25589,7 @@
     "anchor_date": "2018-03-26 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-04-02 00:00:00",
@@ -26045,7 +26045,7 @@
     "anchor_date": "2018-05-28 00:00:00",
     "da": 3.1176470588235294,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-06-04 00:00:00",
@@ -26237,7 +26237,7 @@
     "anchor_date": "2018-06-18 00:00:00",
     "da": 3.3333333333333335,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-02 00:00:00",
@@ -26245,7 +26245,7 @@
     "anchor_date": "2018-06-25 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-02 00:00:00",
@@ -26253,7 +26253,7 @@
     "anchor_date": "2018-06-25 00:00:00",
     "da": 1.1666666666666667,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-02 00:00:00",
@@ -26277,7 +26277,7 @@
     "anchor_date": "2018-06-25 00:00:00",
     "da": 2.1764705882352944,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-02 00:00:00",
@@ -26309,7 +26309,7 @@
     "anchor_date": "2018-07-02 00:00:00",
     "da": 2.3333333333333335,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-09 00:00:00",
@@ -26365,7 +26365,7 @@
     "anchor_date": "2018-07-09 00:00:00",
     "da": 15.333333333333334,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-16 00:00:00",
@@ -26381,7 +26381,7 @@
     "anchor_date": "2018-07-09 00:00:00",
     "da": 1.7058823529411766,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-16 00:00:00",
@@ -26453,7 +26453,7 @@
     "anchor_date": "2018-07-16 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-07-23 00:00:00",
@@ -26517,7 +26517,7 @@
     "anchor_date": "2018-07-30 00:00:00",
     "da": 10.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-08-06 00:00:00",
@@ -26605,7 +26605,7 @@
     "anchor_date": "2018-08-06 00:00:00",
     "da": 1.8571428571428572,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-08-20 00:00:00",
@@ -26709,7 +26709,7 @@
     "anchor_date": "2018-08-27 00:00:00",
     "da": 7.1,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-03 00:00:00",
@@ -26765,7 +26765,7 @@
     "anchor_date": "2018-09-03 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-10 00:00:00",
@@ -26773,7 +26773,7 @@
     "anchor_date": "2018-09-03 00:00:00",
     "da": 6.871428571428571,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-10 00:00:00",
@@ -26813,7 +26813,7 @@
     "anchor_date": "2018-09-10 00:00:00",
     "da": 6.642857142857142,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-17 00:00:00",
@@ -26837,7 +26837,7 @@
     "anchor_date": "2018-09-10 00:00:00",
     "da": 1.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-17 00:00:00",
@@ -26861,7 +26861,7 @@
     "anchor_date": "2018-09-17 00:00:00",
     "da": 6.414285714285714,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-09-24 00:00:00",
@@ -26997,7 +26997,7 @@
     "anchor_date": "2018-10-08 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-10-15 00:00:00",
@@ -27021,7 +27021,7 @@
     "anchor_date": "2018-10-08 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-10-15 00:00:00",
@@ -27053,7 +27053,7 @@
     "anchor_date": "2018-10-15 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-10-22 00:00:00",
@@ -27061,7 +27061,7 @@
     "anchor_date": "2018-10-15 00:00:00",
     "da": 5.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-10-22 00:00:00",
@@ -27197,7 +27197,7 @@
     "anchor_date": "2018-11-05 00:00:00",
     "da": 1.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-11-12 00:00:00",
@@ -27245,7 +27245,7 @@
     "anchor_date": "2018-11-12 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-11-19 00:00:00",
@@ -27293,7 +27293,7 @@
     "anchor_date": "2018-11-19 00:00:00",
     "da": 4.357142857142857,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2018-11-26 00:00:00",
@@ -27309,7 +27309,7 @@
     "anchor_date": "2018-11-19 00:00:00",
     "da": 1.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-11-26 00:00:00",
@@ -27341,7 +27341,7 @@
     "anchor_date": "2018-11-26 00:00:00",
     "da": 4.128571428571428,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2018-12-03 00:00:00",
@@ -27405,7 +27405,7 @@
     "anchor_date": "2018-12-03 00:00:00",
     "da": 1.6666666666666665,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-12-10 00:00:00",
@@ -27533,7 +27533,7 @@
     "anchor_date": "2018-12-17 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2018-12-24 00:00:00",
@@ -27573,7 +27573,7 @@
     "anchor_date": "2018-12-24 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2018-12-31 00:00:00",
@@ -27645,7 +27645,7 @@
     "anchor_date": "2018-12-31 00:00:00",
     "da": 3.2,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-01-07 00:00:00",
@@ -27829,7 +27829,7 @@
     "anchor_date": "2019-02-04 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-02-11 00:00:00",
@@ -27877,7 +27877,7 @@
     "anchor_date": "2019-02-11 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 1
+    "Predicted_da-category": 3
   },
   {
     "date": "2019-02-18 00:00:00",
@@ -27885,7 +27885,7 @@
     "anchor_date": "2019-02-11 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-02-18 00:00:00",
@@ -27893,7 +27893,7 @@
     "anchor_date": "2019-02-11 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-02-18 00:00:00",
@@ -27941,7 +27941,7 @@
     "anchor_date": "2019-02-18 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-02-25 00:00:00",
@@ -28349,7 +28349,7 @@
     "anchor_date": "2019-04-15 00:00:00",
     "da": 4.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-04-29 00:00:00",
@@ -28485,7 +28485,7 @@
     "anchor_date": "2019-05-13 00:00:00",
     "da": 18.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 2
   },
   {
     "date": "2019-05-20 00:00:00",
@@ -28653,7 +28653,7 @@
     "anchor_date": "2019-06-03 00:00:00",
     "da": 2.7142857142857144,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-06-17 00:00:00",
@@ -28733,7 +28733,7 @@
     "anchor_date": "2019-06-17 00:00:00",
     "da": 0.725,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-06-24 00:00:00",
@@ -28757,7 +28757,7 @@
     "anchor_date": "2019-06-17 00:00:00",
     "da": 1.5714285714285714,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-06-24 00:00:00",
@@ -28765,7 +28765,7 @@
     "anchor_date": "2019-06-17 00:00:00",
     "da": 3.975,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-06-24 00:00:00",
@@ -28941,7 +28941,7 @@
     "anchor_date": "2019-07-08 00:00:00",
     "da": 1.2857142857142858,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-07-22 00:00:00",
@@ -29005,7 +29005,7 @@
     "anchor_date": "2019-07-22 00:00:00",
     "da": 8.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-07-29 00:00:00",
@@ -29053,7 +29053,7 @@
     "anchor_date": "2019-07-29 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-08-05 00:00:00",
@@ -29117,7 +29117,7 @@
     "anchor_date": "2019-08-05 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-08-12 00:00:00",
@@ -29197,7 +29197,7 @@
     "anchor_date": "2019-08-19 00:00:00",
     "da": 6.333333333333333,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-08-26 00:00:00",
@@ -29341,7 +29341,7 @@
     "anchor_date": "2019-09-09 00:00:00",
     "da": 13.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-09-16 00:00:00",
@@ -29349,7 +29349,7 @@
     "anchor_date": "2019-09-09 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-09-16 00:00:00",
@@ -29397,7 +29397,7 @@
     "anchor_date": "2019-09-16 00:00:00",
     "da": 15.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-09-23 00:00:00",
@@ -29461,7 +29461,7 @@
     "anchor_date": "2019-09-23 00:00:00",
     "da": 17.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-09-30 00:00:00",
@@ -29485,7 +29485,7 @@
     "anchor_date": "2019-09-30 00:00:00",
     "da": 1.975,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-10-07 00:00:00",
@@ -29533,7 +29533,7 @@
     "anchor_date": "2019-10-07 00:00:00",
     "da": 3.95,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-10-14 00:00:00",
@@ -29541,7 +29541,7 @@
     "anchor_date": "2019-10-07 00:00:00",
     "da": 25.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-10-14 00:00:00",
@@ -29629,7 +29629,7 @@
     "anchor_date": "2019-10-21 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-10-28 00:00:00",
@@ -29717,7 +29717,7 @@
     "anchor_date": "2019-11-04 00:00:00",
     "da": 8.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-11-11 00:00:00",
@@ -29741,7 +29741,7 @@
     "anchor_date": "2019-11-04 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2019-11-11 00:00:00",
@@ -30085,7 +30085,7 @@
     "anchor_date": "2019-12-30 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-01-06 00:00:00",
@@ -30165,7 +30165,7 @@
     "anchor_date": "2020-01-13 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-01-20 00:00:00",
@@ -30285,7 +30285,7 @@
     "anchor_date": "2020-01-27 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-02-03 00:00:00",
@@ -30293,7 +30293,7 @@
     "anchor_date": "2020-01-27 00:00:00",
     "da": 4.333333333333333,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-02-10 00:00:00",
@@ -30325,7 +30325,7 @@
     "anchor_date": "2020-02-03 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-02-10 00:00:00",
@@ -31453,7 +31453,7 @@
     "anchor_date": "2020-07-27 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-08-03 00:00:00",
@@ -31501,7 +31501,7 @@
     "anchor_date": "2020-08-03 00:00:00",
     "da": 4.025,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-08-10 00:00:00",
@@ -31541,7 +31541,7 @@
     "anchor_date": "2020-08-10 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-08-17 00:00:00",
@@ -31717,7 +31717,7 @@
     "anchor_date": "2020-09-07 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-09-14 00:00:00",
@@ -31949,7 +31949,7 @@
     "anchor_date": "2020-10-05 00:00:00",
     "da": 7.333333333333334,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-10-12 00:00:00",
@@ -32349,7 +32349,7 @@
     "anchor_date": "2020-12-07 00:00:00",
     "da": 110.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2020-12-14 00:00:00",
@@ -32973,7 +32973,7 @@
     "anchor_date": "2021-03-01 00:00:00",
     "da": 17.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-03-08 00:00:00",
@@ -33285,7 +33285,7 @@
     "anchor_date": "2021-04-19 00:00:00",
     "da": 14.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-04-26 00:00:00",
@@ -33733,7 +33733,7 @@
     "anchor_date": "2021-06-14 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-06-21 00:00:00",
@@ -33853,7 +33853,7 @@
     "anchor_date": "2021-06-28 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-07-05 00:00:00",
@@ -33893,7 +33893,7 @@
     "anchor_date": "2021-07-05 00:00:00",
     "da": 11.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-07-12 00:00:00",
@@ -34381,7 +34381,7 @@
     "anchor_date": "2021-09-06 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-09-13 00:00:00",
@@ -34549,7 +34549,7 @@
     "anchor_date": "2021-09-27 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-10-11 00:00:00",
@@ -34909,7 +34909,7 @@
     "anchor_date": "2021-11-22 00:00:00",
     "da": 2.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2021-11-29 00:00:00",
@@ -35333,7 +35333,7 @@
     "anchor_date": "2022-01-17 00:00:00",
     "da": 3.5,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2022-01-24 00:00:00",
@@ -36549,7 +36549,7 @@
     "anchor_date": "2022-07-25 00:00:00",
     "da": 3.85,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2022-08-01 00:00:00",
@@ -36613,7 +36613,7 @@
     "anchor_date": "2022-08-01 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2022-08-08 00:00:00",
@@ -37485,7 +37485,7 @@
     "anchor_date": "2022-12-05 00:00:00",
     "da": 25.666666666666668,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2022-12-19 00:00:00",
@@ -37997,7 +37997,7 @@
     "anchor_date": "2023-02-20 00:00:00",
     "da": 13.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-02-27 00:00:00",
@@ -38037,7 +38037,7 @@
     "anchor_date": "2023-02-20 00:00:00",
     "da": 12.666666666666666,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-02-27 00:00:00",
@@ -38077,7 +38077,7 @@
     "anchor_date": "2023-02-27 00:00:00",
     "da": 9.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-03-06 00:00:00",
@@ -38085,7 +38085,7 @@
     "anchor_date": "2023-02-27 00:00:00",
     "da": 13.166666666666666,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-03-13 00:00:00",
@@ -38293,7 +38293,7 @@
     "anchor_date": "2023-04-03 00:00:00",
     "da": 74.0,
     "da-category": 3,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-04-10 00:00:00",
@@ -38837,7 +38837,7 @@
     "anchor_date": "2023-06-26 00:00:00",
     "da": 23.5,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-03 00:00:00",
@@ -38901,7 +38901,7 @@
     "anchor_date": "2023-07-10 00:00:00",
     "da": 21.0,
     "da-category": 2,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-17 00:00:00",
@@ -38917,7 +38917,7 @@
     "anchor_date": "2023-07-10 00:00:00",
     "da": 13.1,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-17 00:00:00",
@@ -38981,7 +38981,7 @@
     "anchor_date": "2023-07-17 00:00:00",
     "da": 12.5,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-31 00:00:00",
@@ -38997,7 +38997,7 @@
     "anchor_date": "2023-07-24 00:00:00",
     "da": 5.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-31 00:00:00",
@@ -39013,7 +39013,7 @@
     "anchor_date": "2023-07-24 00:00:00",
     "da": 9.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-07-31 00:00:00",
@@ -39037,7 +39037,7 @@
     "anchor_date": "2023-07-24 00:00:00",
     "da": 14.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-08-07 00:00:00",
@@ -39069,7 +39069,7 @@
     "anchor_date": "2023-07-31 00:00:00",
     "da": 10.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-08-07 00:00:00",
@@ -39557,7 +39557,7 @@
     "anchor_date": "2023-10-23 00:00:00",
     "da": 13.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-10-30 00:00:00",
@@ -39565,7 +39565,7 @@
     "anchor_date": "2023-10-23 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-10-30 00:00:00",
@@ -39589,7 +39589,7 @@
     "anchor_date": "2023-10-23 00:00:00",
     "da": 7.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-11-06 00:00:00",
@@ -39757,7 +39757,7 @@
     "anchor_date": "2023-11-20 00:00:00",
     "da": 3.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-11-27 00:00:00",
@@ -39773,7 +39773,7 @@
     "anchor_date": "2023-11-20 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-12-04 00:00:00",
@@ -39821,7 +39821,7 @@
     "anchor_date": "2023-11-27 00:00:00",
     "da": 1.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-12-11 00:00:00",
@@ -39837,7 +39837,7 @@
     "anchor_date": "2023-12-04 00:00:00",
     "da": 6.0,
     "da-category": 1,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-12-11 00:00:00",
@@ -39877,7 +39877,7 @@
     "anchor_date": "2023-12-04 00:00:00",
     "da": 4.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 1
   },
   {
     "date": "2023-12-18 00:00:00",
@@ -39957,7 +39957,7 @@
     "anchor_date": "2023-12-18 00:00:00",
     "da": 0.0,
     "da-category": 0,
-    "Predicted_da-category": 0
+    "Predicted_da-category": 3
   },
   {
     "date": "2023-12-25 00:00:00",

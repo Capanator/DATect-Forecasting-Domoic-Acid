@@ -38,6 +38,7 @@ python dataset-creation.py
 - `FORECAST_MODE`: "retrospective" or "realtime"
 - `FORECAST_TASK`: "regression" or "classification"  
 - `FORECAST_MODEL`: "xgboost" or "linear"
+- `USE_LAG_FEATURES`: Enable/disable time series lag features (default: True)
 - `TEMPORAL_BUFFER_DAYS`: Minimum train/test gap (default: 1)
 - `SATELLITE_BUFFER_DAYS`: Satellite processing delay (default: 7)
 
@@ -57,8 +58,9 @@ The system runs 7 critical temporal tests on startup and will refuse to operate 
 
 ### Adding New Features
 1. Features must respect temporal ordering - check `forecasting/core/data_processor.py`
-2. Update lag configurations in `config.py` if adding time-series features
-3. Ensure satellite/climate data respects appropriate buffer delays
+2. Control lag feature usage via `USE_LAG_FEATURES` in `config.py` (set to False to disable)
+3. Update lag configurations in `LAG_FEATURES` if adding time-series features
+4. Ensure satellite/climate data respects appropriate buffer delays
 
 ### Modifying Models
 1. Models are in `forecasting/core/model_factory.py`

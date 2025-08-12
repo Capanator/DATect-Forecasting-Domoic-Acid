@@ -202,9 +202,12 @@ N_RANDOM_ANCHORS = 500
 
 # Lag Feature Configuration
 
+# Enable/disable lag features for time series modeling
+USE_LAG_FEATURES = False
+
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
-LAG_FEATURES = [1, 3]
+LAG_FEATURES = [1, 3] if USE_LAG_FEATURES else []
 
 # DA Category Configuration
 

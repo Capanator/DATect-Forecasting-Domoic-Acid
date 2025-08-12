@@ -202,11 +202,19 @@ class DATectLauncher:
                 self.print_colored("⚠️  Warning: RANDOM_SEED not set - results may not be reproducible", 'yellow')
             
             if hasattr(config, 'LAG_FEATURES'):
-                if not isinstance(config.LAG_FEATURES, list) or len(config.LAG_FEATURES) == 0:
-                    self.print_colored("❌ LAG_FEATURES must be a non-empty list", 'red')
+                if not isinstance(config.LAG_FEATURES, list):
+                    self.print_colored("❌ LAG_FEATURES must be a list", 'red')
                     return False
                 
-                if any(lag < 1 for lag in config.LAG_FEATURES):
+                # Allow empty list when USE_LAG_FEATURES is False
+                if hasattr(config, 'USE_LAG_FEATURES') and not config.USE_LAG_FEATURES:
+                    if len(config.LAG_FEATURES) > 0:
+                        self.print_colored("⚠️  Warning: LAG_FEATURES should be empty when USE_LAG_FEATURES is False", 'yellow')
+                elif len(config.LAG_FEATURES) == 0:
+                    self.print_colored("❌ LAG_FEATURES must be non-empty when USE_LAG_FEATURES is True", 'red')
+                    return False
+                
+                if len(config.LAG_FEATURES) > 0 and any(lag < 1 for lag in config.LAG_FEATURES):
                     self.print_colored("❌ All LAG_FEATURES must be ≥ 1", 'red')
                     return False
             

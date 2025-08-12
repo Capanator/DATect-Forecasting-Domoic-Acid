@@ -342,7 +342,10 @@ MIN_TRAINING_SAMPLES = 3        # Minimum training data required
 # Performance tuning
 N_RANDOM_ANCHORS = 500          # Retrospective evaluation points
 RANDOM_SEED = 42               # Reproducible results
-LAG_FEATURES = [1, 3]          # Temporal lag configuration
+
+# Lag feature configuration
+USE_LAG_FEATURES = True        # Enable/disable lag features
+LAG_FEATURES = [1, 3]          # Temporal lag configuration (when enabled)
 ```
 
 ## Scientific Guarantees

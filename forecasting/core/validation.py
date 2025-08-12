@@ -47,12 +47,24 @@ def validate_configuration():
         raise ValueError(f"Invalid FORECAST_TASK: {config.FORECAST_TASK}. Must be one of: {valid_tasks}")
         
     # Validate lag features
-    if not config.LAG_FEATURES or not isinstance(config.LAG_FEATURES, list):
-        raise ValueError("LAG_FEATURES must be a non-empty list")
-    if any(lag <= 0 for lag in config.LAG_FEATURES):
-        raise ValueError("All LAG_FEATURES must be positive integers")
-    if max(config.LAG_FEATURES) > 100:  # Reasonable upper bound
-        raise ValueError("LAG_FEATURES values too large (max recommended: 100)")
+    if not isinstance(config.LAG_FEATURES, list):
+        raise ValueError("LAG_FEATURES must be a list")
+    
+    # Allow empty list when USE_LAG_FEATURES is False
+    if hasattr(config, 'USE_LAG_FEATURES') and not config.USE_LAG_FEATURES:
+        if len(config.LAG_FEATURES) > 0:
+            logger.warning("LAG_FEATURES should be empty when USE_LAG_FEATURES is False")
+    else:
+        # When USE_LAG_FEATURES is True or not set, require non-empty list
+        if not config.LAG_FEATURES:
+            raise ValueError("LAG_FEATURES must be non-empty when USE_LAG_FEATURES is True")
+    
+    # Only validate lag values if list is non-empty
+    if len(config.LAG_FEATURES) > 0:
+        if any(lag <= 0 for lag in config.LAG_FEATURES):
+            raise ValueError("All LAG_FEATURES must be positive integers")
+        if max(config.LAG_FEATURES) > 100:  # Reasonable upper bound
+            raise ValueError("LAG_FEATURES values too large (max recommended: 100)")
         
     # Validate DA categories
     if len(config.DA_CATEGORY_BINS) != len(config.DA_CATEGORY_LABELS) + 1:
