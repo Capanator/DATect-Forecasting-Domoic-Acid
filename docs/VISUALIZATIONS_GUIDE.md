@@ -317,7 +317,7 @@ Actual DA (μg/g)
          Predicted DA (μg/g)
          
     ─ Perfect prediction (y=x)
-    R² = 0.37, MAE = 6.2 μg/g
+    R² = 0.37, MAE = 5.9-7.7 μg/g
 ```
 
 **How to Interpret**:

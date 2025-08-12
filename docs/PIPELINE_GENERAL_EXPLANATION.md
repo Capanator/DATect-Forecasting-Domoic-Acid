@@ -144,8 +144,8 @@ The system generates standardized visualizations for scientific interpretation:
 #### Performance Validation Metrics
 Rigorous retrospective testing demonstrates:
 - **Coefficient of determination (R²) ≈ 0.37**: Substantial explanatory power given environmental complexity and observational constraints
-- **Classification accuracy ≈ 79.8%**: Reliable categorical risk assessment for management decisions
-- **Mean absolute error ≈ 6.2 μg/g**: Prediction uncertainty within actionable ranges for public health protection
+- **Classification accuracy ≈ 77-82%**: Reliable categorical risk assessment for management decisions
+- **Mean absolute error ≈ 5.9-7.7 μg/g**: Prediction uncertainty within actionable ranges for public health protection
 
 **Scientific Significance**: These metrics represent genuine forecasting skill under operational constraints, with all validation performed using strict temporal segregation and realistic data availability assumptions.
 

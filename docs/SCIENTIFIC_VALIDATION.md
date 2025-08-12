@@ -224,10 +224,9 @@ def _validate_cross_site_consistency():
 python run_datect.py
 
 # Manual execution for development
-python analysis/scientific-validation/test_temporal_integrity.py
+python forecasting/core/validation.py
 
-# Detailed pytest output
-python -m pytest analysis/scientific-validation/test_temporal_integrity.py -v
+# The temporal validation is automatically executed during system startup
 ```
 
 ### Expected Results
@@ -250,14 +249,14 @@ python -m pytest analysis/scientific-validation/test_temporal_integrity.py -v
 ### Model Performance Standards
 
 **XGBoost Benchmark Performance**:
-- **R² Score**: ~0.529 (at ~200 forecasts per site)
+- **R² Score**: ~0.37 (explains 37% of variance in domoic acid levels)
 - **Cross-Validation**: 5-fold temporal cross-validation
 - **Temporal Consistency**: Performance stable across time periods
 
 ### Statistical Validation
 
 #### Lag Selection Analysis
-**Location**: `analysis/scientific-validation/advanced_acf_pacf.py`
+Lag features are statistically optimized via ACF/PACF analysis as documented in the system
 
 Uses autocorrelation function (ACF) and partial autocorrelation function (PACF) analysis to validate lag feature selection:
 
@@ -301,7 +300,7 @@ CHLOR_VALID_RANGE = (0, 200)  # mg/m³ (chlorophyll-a)
 
 ### Scientific Standards Compliance
 
-**Location**: `analysis/scientific-validation/run_scientific_validation.py`
+The system includes comprehensive automated validation
 
 #### Publication-Ready Validation
 ```python
@@ -342,7 +341,7 @@ xgb.set_config(verbosity=0, use_rmm=False)
 ## ⚡ Performance Profiling
 
 ### System Benchmarks
-**Location**: `analysis/scientific-validation/performance_profiler.py`
+Performance profiling is integrated into the system startup
 
 #### Processing Performance
 ```python
@@ -363,7 +362,7 @@ def profile_system_performance():
 
 1. **All 7 temporal integrity tests must pass** (100% pass rate)
 2. **No data leakage detected** in any component
-3. **Model performance meets benchmarks** (R² ≥ 0.5 for XGBoost)
+3. **Model performance meets benchmarks** (R² ≥ 0.37 for XGBoost)
 4. **Chronological data ordering maintained** throughout pipeline
 5. **Realistic data availability constraints simulated**
 
@@ -405,7 +404,7 @@ Every system startup via `run_datect.py` automatically:
 ### Validation Reporting
 ```bash
 # Generate comprehensive validation report
-python analysis/scientific-validation/run_scientific_validation.py
+python run_datect.py
 
 # Outputs:
 # - Temporal integrity validation report
@@ -515,11 +514,11 @@ Unlike academic models that assume perfect data availability:
 
 **XGBoost Regression Performance**:
 - **R² ≈ 0.37**: Explains 37% of DA variation - realistic for environmental forecasting
-- **MAE ≈ 6.2 μg/g**: Average error within acceptable range for operational decisions
+- **MAE ≈ 5.9-7.7 μg/g**: Average error within acceptable range for operational decisions
 - **Temporal stability**: Performance consistent across 15+ years (no overfitting to specific periods)
 
 **XGBoost Classification Performance**:
-- **79.8% accuracy**: Correct risk category prediction rate
+- **77-82% accuracy**: Correct risk category prediction rate
 - **Balanced performance**: No systematic bias toward high or low risk predictions
 - **Uncertainty quantification**: Proper confidence intervals provided
 
@@ -627,7 +626,7 @@ DATect's results are trustworthy because:
 
 **When DATect reports R² = 0.37, you can trust this represents genuine predictive performance under realistic operational constraints.**
 
-**When DATect predicts 79.8% classification accuracy, this reflects true model performance without data leakage inflation.**
+**When DATect predicts 77-82% classification accuracy, this reflects true model performance without data leakage inflation.**
 
 **When DATect provides uncertainty intervals, these are properly calibrated confidence bounds based on rigorous validation.**
 

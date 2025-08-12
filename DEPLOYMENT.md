@@ -76,7 +76,7 @@ cat ./cache/manifest.json
 #### Step 2: Deploy with Google Cloud Build
 
 ```bash
-# Deploy using Google Cloud Build (handles container build automatically)
+# Deploy using deploy script (handles container build automatically)
 export PROJECT_ID=your-project-id
 export REGION=us-west1
 ./deploy_gcloud.sh
