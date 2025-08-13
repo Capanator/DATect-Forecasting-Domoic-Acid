@@ -1,0 +1,133 @@
+{
+  "timestamp": "2025-08-12T12:09:44.896850",
+  "tests": {
+    "chronological_split": {
+      "test_name": "Chronological Split Validation",
+      "passed": true,
+      "samples_checked": 5000,
+      "violations_found": 0,
+      "violation_rate": 0.0,
+      "details": [],
+      "message": "\u2705 PASSED: 0 chronological violations in 5000 samples"
+    },
+    "temporal_buffer": {
+      "test_name": "Temporal Buffer Enforcement",
+      "passed": true,
+      "required_buffer_days": 1,
+      "average_gap_days": 7.0,
+      "minimum_gap_days": 7,
+      "violations_found": 0,
+      "details": [],
+      "message": "\u2705 PASSED: 0 buffer violations (required: 1 days)"
+    },
+    "future_information": {
+      "test_name": "Future Information Quarantine",
+      "passed": true,
+      "features_checked": 0,
+      "suspicious_features": [],
+      "message": "\u2705 PASSED: 0 suspicious features found"
+    },
+    "category_isolation": {
+      "test_name": "Per-Forecast Category Creation",
+      "passed": true,
+      "sites_checked": 10,
+      "violations": [],
+      "message": "\u2705 PASSED: Category creation appears independent"
+    },
+    "satellite_delays": {
+      "test_name": "Satellite Delay Validation",
+      "passed": true,
+      "configured_buffer_days": 7,
+      "required_minimum": 7,
+      "satellite_features_found": 0,
+      "violations": [],
+      "message": "\u2705 PASSED: Satellite buffer = 7 days (required: \u22657)"
+    },
+    "climate_delays": {
+      "test_name": "Climate Data Delay Validation",
+      "passed": true,
+      "configured_buffer_months": 2,
+      "required_minimum": 2,
+      "climate_features_found": 0,
+      "violations": [],
+      "message": "\u2705 PASSED: Climate buffer = 2 months (required: \u22652)"
+    },
+    "cross_site_consistency": {
+      "test_name": "Cross-Site Consistency",
+      "passed": true,
+      "sites_analyzed": 10,
+      "temporal_gap_variance": 0.0,
+      "violations": [],
+      "site_statistics": {
+        "Copalis": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Long Beach": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Newport": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Twin Harbors": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Coos Bay": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Gold Beach": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Cannon Beach": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Kalaloch": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Clatsop Beach": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        },
+        "Quinault": {
+          "mean_gap": 7.0,
+          "min_gap": "7",
+          "max_gap": "7",
+          "std_gap": 0.0
+        }
+      },
+      "message": "\u2705 PASSED: Consistent temporal rules across sites"
+    }
+  },
+  "summary": {
+    "total_tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "violations": []
+  },
+  "overall_status": "PASSED"
+}

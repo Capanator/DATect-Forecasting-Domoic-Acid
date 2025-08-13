@@ -444,7 +444,7 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
         is_anomaly_var = "anom" in var_name.lower()
 
         if is_anomaly_var:
-            # FIXED: Use data from at least 2 months before target to avoid leakage
+            # Use data from at least 2 months before target to avoid leakage
             current_month_period = target_ts.to_period('M')
             # Use data from 2 months prior to ensure no temporal overlap
             safe_month_period = current_month_period - 2
@@ -467,7 +467,7 @@ def find_best_satellite_match(target_row, sat_pivot_indexed):
                     chosen_ts = data_before_cutoff.index.max()
                     result_series[var_name] = data_before_cutoff.loc[chosen_ts]
         else:
-            # FIXED: For regular satellite data, use strict temporal cutoff (1 week minimum)
+            # For regular satellite data, use strict temporal cutoff (1 week minimum)
             cutoff_date = target_ts - pd.Timedelta(days=7)
             data_on_or_before = non_nan_var_series[non_nan_var_series.index <= cutoff_date]
 
