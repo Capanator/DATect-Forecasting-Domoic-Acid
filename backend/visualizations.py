@@ -262,20 +262,16 @@ def generate_correlation_heatmap(data, site=None):
 
 
 def generate_sensitivity_analysis(data, site=None):
-    """Generate sensitivity analysis plots - complex for all sites, simple for single sites."""
+    """Generate sensitivity analysis plots including Sobol indices if possible."""
     
     if site:
-        # SINGLE SITE: Use simplified, fast analysis
-        return _generate_single_site_sensitivity(data, site)
+        # Filter by site
+        df_processed = data[data['site'] == site].copy()
+        title_suffix = f" - {site}"
     else:
-        # ALL SITES: Use complex analysis with Sobol, temporal splits, etc.
-        return _generate_all_sites_sensitivity(data)
-
-def _generate_single_site_sensitivity(data, site):
-    """Complex sensitivity analysis for single site with all advanced features."""
-    # Filter by site
-    df_processed = data[data['site'] == site].copy()
-    title_suffix = f" - {site}"
+        # Use all data
+        df_processed = data.copy()
+        title_suffix = " - All Sites"
     
     # Maintain temporal ordering if date column exists
     if 'date' in df_processed.columns:
@@ -285,47 +281,18 @@ def _generate_single_site_sensitivity(data, site):
     # Remove samples with NaN target values
     df_clean = df_processed.dropna(subset=['da']).copy()
     
-    # Check if we have sufficient data
-    if len(df_clean) < 20:
-        return [{
-            "data": [{
-                "type": "bar",
-                "x": ["Insufficient Data"],
-                "y": [0],
-                "marker": {"color": "gray"}
-            }],
-            "layout": {
-                "title": f"Sensitivity Analysis: Insufficient Data{title_suffix} ({len(df_clean)} samples)",
-                "height": 500
-            }
-        }]
-    
     # Identify feature columns
     exclude_cols = ['da', 'date', 'site', 'lon', 'lat']
     numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
     feature_cols = [col for col in numeric_cols if col not in exclude_cols]
     
-    if not feature_cols:
-        return [{
-            "data": [{
-                "type": "bar",
-                "x": ["No Features"],
-                "y": [0],
-                "marker": {"color": "gray"}
-            }],
-            "layout": {
-                "title": f"Sensitivity Analysis: No Features Available{title_suffix}",
-                "height": 500
-            }
-        }]
-    
-    # Use median imputation for features
-    imputer = SimpleImputer(strategy="median")
-    df_clean[feature_cols] = imputer.fit_transform(df_clean[feature_cols])
+    if feature_cols:
+        # Use median imputation for features
+        imputer = SimpleImputer(strategy="median")
+        df_clean[feature_cols] = imputer.fit_transform(df_clean[feature_cols])
     
     # Compute absolute Pearson correlation with DA
     correlations = df_clean[feature_cols + ['da']].corr()['da'].drop('da').abs().sort_values(ascending=False)
-    correlations = correlations.dropna()
     
     # Plot 1: Correlation Sensitivity Analysis
     plot1 = {
@@ -336,21 +303,32 @@ def _generate_single_site_sensitivity(data, site):
             "marker": {"color": "steelblue"}
         }],
         "layout": {
-            "title": f"Correlation Sensitivity Analysis: Impact on DA Levels{title_suffix}",
-            "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-            "yaxis": {"title": "Absolute Pearson Correlation", "titlefont": {"size": 14}},
+            "title": {
+                "text": f"Correlation Sensitivity Analysis: Impact on DA Levels{title_suffix}",
+                "font": {"size": 16}
+            },
+            "xaxis": {
+                "title": "Input Variables",
+                "tickangle": -45,
+                "tickfont": {"size": 12}
+            },
+            "yaxis": {
+                "title": "Absolute Pearson Correlation",
+                "titlefont": {"size": 14}
+            },
             "height": 500
         }
     }
     
     plots = [plot1]
     
-    # Prepare data for model-based methods using complex temporal splits
+    # Prepare data for model-based methods
     X = df_clean[feature_cols]
     y = df_clean['da']
     
-    # Complex temporal split: 75% earliest data for training, 25% latest for testing
+    # Split data for training using temporal ordering (prevent data leakage)
     if 'date' in df_clean.columns:
+        # Use temporal split: 75% earliest data for training, 25% latest for testing
         split_idx = int(len(df_clean) * 0.75)
         train_indices = df_clean.index[:split_idx]
         test_indices = df_clean.index[split_idx:]
@@ -360,191 +338,7 @@ def _generate_single_site_sensitivity(data, site):
         y_train = y.loc[train_indices]
         y_test = y.loc[test_indices]
     else:
-        # Fallback to chronological split by index order
-        split_idx = int(len(X) * 0.75)
-        X_train = X.iloc[:split_idx]
-        X_test = X.iloc[split_idx:]
-        y_train = y.iloc[:split_idx]
-        y_test = y.iloc[split_idx:]
-    
-    # Train a simple linear regression model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    
-    # Try Sobol analysis if we have SALib and enough data
-    try:
-        from SALib.sample import saltelli
-        from SALib.analyze import sobol
-        
-        if len(X) >= 50:  # Threshold for Sobol analysis for single sites
-            # Define the problem for SALib
-            problem = {
-                'num_vars': len(feature_cols),
-                'names': feature_cols,
-                'bounds': [[float(X[col].min()), float(X[col].max())] for col in feature_cols]
-            }
-            
-            # Generate samples using Saltelli's sampling scheme
-            N = min(64, max(8, len(X) // 20))  # Adaptive base sample size
-            param_values = saltelli.sample(problem, N, calc_second_order=False)
-            
-            # Evaluate the model for all generated samples
-            Y = model.predict(param_values)
-            
-            # Ensure Y is the correct shape
-            if Y.ndim > 1:
-                Y = Y.flatten()
-            
-            # Compute Sobol sensitivity indices
-            sobol_indices = sobol.analyze(problem, Y, calc_second_order=False, print_to_console=False)
-            first_order = sobol_indices['S1']
-            
-            # Sort by importance
-            sorted_idx = np.argsort(first_order)[::-1]
-            sorted_features_sobol = [feature_cols[i] for i in sorted_idx]
-            sorted_sobol = first_order[sorted_idx]
-            
-            # Plot: Sobol First Order Sensitivity
-            plot_sobol = {
-                "data": [{
-                    "type": "bar",
-                    "x": sorted_features_sobol[:10],  # Top 10 for clarity
-                    "y": sorted_sobol[:10].tolist(),
-                    "marker": {"color": "green"}
-                }],
-                "layout": {
-                    "title": f"Sobol First Order Sensitivity Indices (Top 10){title_suffix}",
-                    "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-                    "yaxis": {"title": "First Order Sobol Index", "titlefont": {"size": 14}},
-                    "height": 500
-                }
-            }
-            plots.append(plot_sobol)
-    except ImportError:
-        pass  # SALib not installed
-    except Exception as e:
-        pass  # Sobol analysis failed, skip it
-    
-    # Compute permutation feature importance with high iterations
-    try:
-        perm_result = permutation_importance(model, X_train, y_train, n_repeats=30, random_state=42)
-        perm_importances = perm_result.importances_mean
-        
-        # Sort by importance
-        sorted_idx = np.argsort(perm_importances)[::-1]
-        sorted_features = [feature_cols[i] for i in sorted_idx]
-        sorted_importances = perm_importances[sorted_idx]
-        
-        # Plot: Permutation Feature Importance
-        plot2 = {
-            "data": [{
-                "type": "bar",
-                "x": sorted_features,
-                "y": sorted_importances.tolist(),
-                "marker": {"color": "orange"}
-            }],
-            "layout": {
-                "title": f"Permutation Feature Importance{title_suffix}",
-                "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-                "yaxis": {"title": "Decrease in Model Score", "titlefont": {"size": 14}},
-                "height": 500
-            }
-        }
-        plots.append(plot2)
-    except Exception as e:
-        logger.warning(f"Error computing permutation importance{title_suffix}: {str(e)}")
-    
-    return plots
-
-def _generate_all_sites_sensitivity(data):
-    """Complex sensitivity analysis for all sites with Sobol, temporal splits, etc."""
-    df_processed = data.copy()
-    title_suffix = " - All Sites"
-    
-    # Maintain temporal ordering if date column exists
-    if 'date' in df_processed.columns:
-        df_processed['date'] = pd.to_datetime(df_processed['date'])
-        df_processed = df_processed.sort_values(['date']).reset_index(drop=True)
-    
-    # Remove samples with NaN target values
-    df_clean = df_processed.dropna(subset=['da']).copy()
-    
-    # Check if we have sufficient data
-    if len(df_clean) < 50:
-        return [{
-            "data": [{
-                "type": "bar",
-                "x": ["Insufficient Data"],
-                "y": [0],
-                "marker": {"color": "gray"}
-            }],
-            "layout": {
-                "title": f"Sensitivity Analysis: Insufficient Data{title_suffix} ({len(df_clean)} samples)",
-                "height": 500
-            }
-        }]
-    
-    # Identify feature columns
-    exclude_cols = ['da', 'date', 'site', 'lon', 'lat']
-    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-    feature_cols = [col for col in numeric_cols if col not in exclude_cols]
-    
-    if not feature_cols:
-        return [{
-            "data": [{
-                "type": "bar",
-                "x": ["No Features"],
-                "y": [0],
-                "marker": {"color": "gray"}
-            }],
-            "layout": {
-                "title": f"Sensitivity Analysis: No Features Available{title_suffix}",
-                "height": 500
-            }
-        }]
-    
-    # Use median imputation for features
-    imputer = SimpleImputer(strategy="median")
-    df_clean[feature_cols] = imputer.fit_transform(df_clean[feature_cols])
-    
-    # Compute absolute Pearson correlation with DA
-    correlations = df_clean[feature_cols + ['da']].corr()['da'].drop('da').abs().sort_values(ascending=False)
-    correlations = correlations.dropna()
-    
-    # Plot 1: Correlation Sensitivity Analysis
-    plot1 = {
-        "data": [{
-            "type": "bar",
-            "x": correlations.index.tolist(),
-            "y": correlations.values.tolist(),
-            "marker": {"color": "steelblue"}
-        }],
-        "layout": {
-            "title": f"Correlation Sensitivity Analysis: Impact on DA Levels{title_suffix}",
-            "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-            "yaxis": {"title": "Absolute Pearson Correlation", "titlefont": {"size": 14}},
-            "height": 500
-        }
-    }
-    
-    plots = [plot1]
-    
-    # Prepare data for model-based methods using complex temporal splits
-    X = df_clean[feature_cols]
-    y = df_clean['da']
-    
-    # Complex temporal split: 75% earliest data for training, 25% latest for testing
-    if 'date' in df_clean.columns:
-        split_idx = int(len(df_clean) * 0.75)
-        train_indices = df_clean.index[:split_idx]
-        test_indices = df_clean.index[split_idx:]
-        
-        X_train = X.loc[train_indices]
-        X_test = X.loc[test_indices]
-        y_train = y.loc[train_indices]
-        y_test = y.loc[test_indices]
-    else:
-        # Fallback to chronological split by index order
+        # Fallback to chronological split by index order if no date column
         split_idx = int(len(X) * 0.75)
         X_train = X.iloc[:split_idx]
         X_test = X.iloc[split_idx:]
@@ -597,46 +391,64 @@ def _generate_all_sites_sensitivity(data):
                     "marker": {"color": "green"}
                 }],
                 "layout": {
-                    "title": f"Sobol First Order Sensitivity Indices (Top 15){title_suffix}",
-                    "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-                    "yaxis": {"title": "First Order Sobol Index", "titlefont": {"size": 14}},
+                    "title": {
+                        "text": f"Sobol First Order Sensitivity Indices (Top 15){title_suffix}",
+                        "font": {"size": 16}
+                    },
+                    "xaxis": {
+                        "title": "Input Variables",
+                        "tickangle": -45,
+                        "tickfont": {"size": 12}
+                    },
+                    "yaxis": {
+                        "title": "First Order Sobol Index",
+                        "titlefont": {"size": 14}
+                    },
                     "height": 500
                 }
             }
             plots.append(plot_sobol)
     except ImportError:
         pass  # SALib not installed
-    except Exception as e:
-        pass  # Sobol analysis failed, skip it
+    except Exception:
+        pass  # Sobol analysis failed, skip it silently
     
-    # Compute permutation feature importance with lots of iterations
-    try:
-        perm_result = permutation_importance(model, X_train, y_train, n_repeats=50, random_state=42)
-        perm_importances = perm_result.importances_mean
-        
-        # Sort by importance
-        sorted_idx = np.argsort(perm_importances)[::-1]
-        sorted_features = [feature_cols[i] for i in sorted_idx]
-        sorted_importances = perm_importances[sorted_idx]
-        
-        # Plot: Permutation Feature Importance
-        plot2 = {
-            "data": [{
-                "type": "bar",
-                "x": sorted_features,
-                "y": sorted_importances.tolist(),
-                "marker": {"color": "orange"}
-            }],
-            "layout": {
-                "title": f"Permutation Feature Importance{title_suffix}",
-                "xaxis": {"title": "Input Variables", "tickangle": -45, "tickfont": {"size": 12}},
-                "yaxis": {"title": "Decrease in Model Score", "titlefont": {"size": 14}},
-                "height": 500
-            }
+    # Compute permutation feature importance
+    # IMPORTANT: Calculate on training data to get meaningful positive importances
+    perm_result = permutation_importance(model, X_train, y_train, n_repeats=50, random_state=42)
+    perm_importances = perm_result.importances_mean
+    
+    # Sort by importance
+    sorted_idx = np.argsort(perm_importances)[::-1]
+    sorted_features = [feature_cols[i] for i in sorted_idx]
+    sorted_importances = perm_importances[sorted_idx]
+    
+    # Plot: Permutation Feature Importance
+    plot2 = {
+        "data": [{
+            "type": "bar",
+            "x": sorted_features,
+            "y": sorted_importances.tolist(),
+            "marker": {"color": "orange"}
+        }],
+        "layout": {
+            "title": {
+                "text": f"Permutation Feature Importance{title_suffix}",
+                "font": {"size": 16}
+            },
+            "xaxis": {
+                "title": "Input Variables",
+                "tickangle": -45,
+                "tickfont": {"size": 12}
+            },
+            "yaxis": {
+                "title": "Decrease in Model Score",
+                "titlefont": {"size": 14}
+            },
+            "height": 500
         }
-        plots.append(plot2)
-    except Exception as e:
-        logger.warning(f"Error computing permutation importance{title_suffix}: {str(e)}")
+    }
+    plots.append(plot2)
     
     return plots
 
