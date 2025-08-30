@@ -81,7 +81,9 @@ const Historical = () => {
           ? `/api/visualizations/correlation/${selectedSite.value}` 
           : '/api/visualizations/correlation/all'
       } else if (visualizationType === 'sensitivity') {
-        endpoint = '/api/visualizations/sensitivity'
+        endpoint = siteScope === 'single' && selectedSite 
+          ? `/api/visualizations/sensitivity/${selectedSite.value}` 
+          : '/api/visualizations/sensitivity/all'
       } else if (visualizationType === 'comparison') {
         // DA vs Pseudo-nitzschia only supports single site
         endpoint = selectedSite
@@ -250,7 +252,7 @@ const Historical = () => {
   }
 
   // Check if current visualization supports site scope selection
-  const supportsSiteScope = ['correlation', 'spectral'].includes(visualizationType)
+  const supportsSiteScope = ['correlation', 'spectral', 'sensitivity'].includes(visualizationType)
   // DA vs Pseudo-nitzschia only supports single site
   const forceSingleSite = visualizationType === 'comparison'
   // Waterfall plot is all-sites only; hide site controls

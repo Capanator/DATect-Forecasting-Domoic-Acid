@@ -573,14 +573,30 @@ async def get_correlation_heatmap_single(site: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate correlation heatmap: {str(e)}")
 
-@app.get("/api/visualizations/sensitivity")
-async def get_sensitivity_analysis():
-    """Generate sensitivity analysis plots."""
+@app.get("/api/visualizations/sensitivity/all")
+async def get_sensitivity_analysis_all():
+    """Generate sensitivity analysis plots for all sites combined."""
     try:
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        plots = generate_sensitivity_analysis(data)
+        plots = generate_sensitivity_analysis(data, site=None)
         return {"success": True, "plots": plots}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate sensitivity analysis: {str(e)}")
+
+@app.get("/api/visualizations/sensitivity/{site}")
+async def get_sensitivity_analysis_single(site: str):
+    """Generate sensitivity analysis plots for a single site."""
+    try:
+        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
+        
+        # Handle site name mapping the same way as correlation endpoint
+        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        actual_site = site_mapping.get(site.lower(), site)
+        
+        plots = generate_sensitivity_analysis(data, actual_site)
+        return {"success": True, "plots": plots}
+    except Exception as e:
+        logging.error(f"Error in sensitivity analysis: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate sensitivity analysis: {str(e)}")
 
 @app.get("/api/visualizations/comparison/all")
