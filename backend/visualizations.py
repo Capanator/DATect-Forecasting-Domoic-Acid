@@ -10,13 +10,11 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.inspection import permutation_importance
 from scipy import signal
-from scipy.stats import pearsonr
 import warnings
 import os
 import sys
 import logging
 import plotly.graph_objs as go
-import plotly.io as pio
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
@@ -143,7 +141,7 @@ def sophisticated_nan_handling_for_correlation(df, preserve_temporal=True):
 
 
 def generate_correlation_heatmap(data, site=None):
-    """Generate correlation heatmap matching the original Python implementation."""
+    """Generate correlation heatmap."""
     
     if site:
         # Filter by site
@@ -154,45 +152,12 @@ def generate_correlation_heatmap(data, site=None):
         df = data.copy()
         title = 'Overall Correlation Heatmap'
     
-    # Check if we have data
-    if df.empty or len(df) < 2:
-        # Return empty plot
-        return {
-            "data": [{
-                "type": "heatmap",
-                "z": [[0]],
-                "x": ["No Data"],
-                "y": ["No Data"],
-                "colorscale": [
-                    [0.0, "rgb(178, 24, 43)"],
-                    [0.5, "rgb(255, 255, 255)"],
-                    [1.0, "rgb(33, 102, 172)"]
-                ],
-                "showscale": False
-            }],
-            "layout": {
-                "title": title + " - Insufficient Data",
-                "height": 600,
-                "width": 800
-            }
-        }
-    
     # Apply sophisticated NaN handling
     df = sophisticated_nan_handling_for_correlation(df)
     
-    # Drop non-numeric columns
-    if 'site' in df.columns:
-        df = df.drop(columns=['site'])
-    if 'date' in df.columns:
-        df = df.drop(columns=['date'])
-    
-    # Drop spatial columns
-    cols_to_drop = [col for col in ['lon', 'lat'] if col in df.columns]
-    if cols_to_drop:
-        df = df.drop(columns=cols_to_drop)
-    
-    # Select numeric columns only
-    numeric_df = df.select_dtypes(include=['number'])
+    # Select numeric columns only, dropping non-relevant columns
+    exclude_cols = ['site', 'date', 'lon', 'lat']
+    numeric_df = df.select_dtypes(include=['number']).drop(columns=[col for col in exclude_cols if col in df.columns], errors='ignore')
     
     # Compute correlation matrix using pandas default (pairwise deletion)
     corr_matrix = numeric_df.corr(method='pearson')
@@ -273,25 +238,24 @@ def generate_sensitivity_analysis(data, site=None):
         df_processed = data.copy()
         title_suffix = " - All Sites"
     
-    # Maintain temporal ordering if date column exists
-    if 'date' in df_processed.columns:
-        df_processed['date'] = pd.to_datetime(df_processed['date'])
-        df_processed = df_processed.sort_values(['date']).reset_index(drop=True)
+    # Apply same sophisticated NaN handling as correlation heatmap
+    df_processed = sophisticated_nan_handling_for_correlation(df_processed)
+    
+    # Select numeric columns only, dropping non-relevant columns (same as correlation heatmap)
+    exclude_cols = ['site', 'date', 'lon', 'lat']
+    numeric_df = df_processed.select_dtypes(include=['number']).drop(columns=[col for col in exclude_cols if col in df_processed.columns], errors='ignore')
     
     # Remove samples with NaN target values
-    df_clean = df_processed.dropna(subset=['da']).copy()
+    df_clean = numeric_df.dropna(subset=['da']).copy()
     
     # Identify feature columns
-    exclude_cols = ['da', 'date', 'site', 'lon', 'lat']
-    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-    feature_cols = [col for col in numeric_cols if col not in exclude_cols]
+    feature_cols = [col for col in df_clean.columns if col != 'da']
     
-    if feature_cols:
-        # Use median imputation for features
-        imputer = SimpleImputer(strategy="median")
-        df_clean[feature_cols] = imputer.fit_transform(df_clean[feature_cols])
+    # Use all data for trend analysis - this is historical analysis, not forecasting
+    X = df_clean[feature_cols]
+    y = df_clean['da']
     
-    # Compute absolute Pearson correlation with DA
+    # Compute absolute Pearson correlation with DA (same as correlation heatmap)
     correlations = df_clean[feature_cols + ['da']].corr()['da'].drop('da').abs().sort_values(ascending=False)
     
     # Plot 1: Correlation Sensitivity Analysis
@@ -322,39 +286,16 @@ def generate_sensitivity_analysis(data, site=None):
     
     plots = [plot1]
     
-    # Prepare data for model-based methods
-    X = df_clean[feature_cols]
-    y = df_clean['da']
-    
-    # Split data for training using temporal ordering (prevent data leakage)
-    if 'date' in df_clean.columns:
-        # Use temporal split: 75% earliest data for training, 25% latest for testing
-        split_idx = int(len(df_clean) * 0.75)
-        train_indices = df_clean.index[:split_idx]
-        test_indices = df_clean.index[split_idx:]
-        
-        X_train = X.loc[train_indices]
-        X_test = X.loc[test_indices]
-        y_train = y.loc[train_indices]
-        y_test = y.loc[test_indices]
-    else:
-        # Fallback to chronological split by index order if no date column
-        split_idx = int(len(X) * 0.75)
-        X_train = X.iloc[:split_idx]
-        X_test = X.iloc[split_idx:]
-        y_train = y.iloc[:split_idx]
-        y_test = y.iloc[split_idx:]
-    
-    # Train a simple linear regression model
+    # Train a simple linear regression model on all data for trend analysis
     model = LinearRegression()
-    model.fit(X_train, y_train)
+    model.fit(X, y)
     
     # Try Sobol analysis if we have SALib and enough data
     try:
         from SALib.sample import saltelli
         from SALib.analyze import sobol
         
-        if len(X) >= 100:  # Higher threshold for Sobol analysis
+        if len(X) >= 50:  # Need sufficient data for Sobol
             # Define the problem for SALib
             problem = {
                 'num_vars': len(feature_cols),
@@ -363,7 +304,7 @@ def generate_sensitivity_analysis(data, site=None):
             }
             
             # Generate samples using Saltelli's sampling scheme
-            N = min(128, max(16, len(X) // 15))  # More samples for better analysis
+            N = min(64, max(8, len(X) // 20))  # Adaptive base sample size
             param_values = saltelli.sample(problem, N, calc_second_order=False)
             
             # Evaluate the model for all generated samples
@@ -386,13 +327,13 @@ def generate_sensitivity_analysis(data, site=None):
             plot_sobol = {
                 "data": [{
                     "type": "bar",
-                    "x": sorted_features_sobol[:15],  # Top 15 for clarity
-                    "y": sorted_sobol[:15].tolist(),
+                    "x": sorted_features_sobol[:10],  # Top 10 for clarity
+                    "y": sorted_sobol[:10].tolist(),
                     "marker": {"color": "green"}
                 }],
                 "layout": {
                     "title": {
-                        "text": f"Sobol First Order Sensitivity Indices (Top 15){title_suffix}",
+                        "text": f"Sobol First Order Sensitivity Indices (Top 10){title_suffix}",
                         "font": {"size": 16}
                     },
                     "xaxis": {
@@ -414,8 +355,7 @@ def generate_sensitivity_analysis(data, site=None):
         pass  # Sobol analysis failed, skip it silently
     
     # Compute permutation feature importance
-    # IMPORTANT: Calculate on training data to get meaningful positive importances
-    perm_result = permutation_importance(model, X_train, y_train, n_repeats=50, random_state=42)
+    perm_result = permutation_importance(model, X, y, n_repeats=30, random_state=42)
     perm_importances = perm_result.importances_mean
     
     # Sort by importance
@@ -684,57 +624,25 @@ def generate_spectral_analysis(data, site=None):
     if len(da_values) < 20:
         return []
     
-    # Always enable XGBoost comparison in spectral analysis
-    if True:  # Always enabled
-        # Use cached XGBoost retrospective results instead of recomputing
-        try:
-            from pathlib import Path
+    # Try to load cached XGBoost results for comparison
+    try:
+        from pathlib import Path
+        cache_file = Path("cache/retrospective/regression_xgboost.parquet")
+        
+        if cache_file.exists():
+            results_df = pd.read_parquet(cache_file)
+            if site:
+                results_df = results_df[results_df['site'] == site]
             
-            # Try to load cached retrospective results
-            cache_dir = Path("cache/retrospective")
-            cache_file = cache_dir / "regression_xgboost.parquet"
-            
-            if cache_file.exists():
-                # Load cached results
-                results_df = pd.read_parquet(cache_file)
-                
-                if site and not results_df.empty:
-                    results_df = results_df[results_df['site'] == site]
-                
-                if not results_df.empty:
-                    results_df = results_df.sort_values('date')
-                    xgb_predictions = results_df['Predicted_da'].dropna().values
-                    actual_for_comparison = results_df['da'].dropna().values
-                else:
-                    xgb_predictions = None
-                    actual_for_comparison = da_values
+            if not results_df.empty:
+                results_df = results_df.sort_values('date')
+                xgb_predictions = results_df['Predicted_da'].dropna().values
             else:
-                # Fallback: compute if cache doesn't exist
-                from forecasting.core.forecast_engine import ForecastEngine
-                import config
-                
-                engine = ForecastEngine()
-                n_anchors = int(os.getenv('SPECTRAL_N_ANCHORS', getattr(config, 'N_RANDOM_ANCHORS', 200)))
-                results_df = engine.run_retrospective_evaluation(
-                    task="regression",
-                    model_type="xgboost",
-                    n_anchors=n_anchors
-                )
-                
-                if site and results_df is not None and not results_df.empty:
-                    results_df = results_df[results_df['site'] == site]
-                
-                if results_df is not None and not results_df.empty:
-                    results_df = results_df.sort_values('date')
-                    xgb_predictions = results_df['Predicted_da'].dropna().values
-                    actual_for_comparison = results_df['da'].dropna().values
-                else:
-                    xgb_predictions = None
-                    actual_for_comparison = da_values
-        except Exception as e:
-            logger.error(f"Loading XGBoost results failed: {e}")
+                xgb_predictions = None
+        else:
             xgb_predictions = None
-            actual_for_comparison = da_values
+    except Exception:
+        xgb_predictions = None
     
     plots = []
     
