@@ -20,16 +20,19 @@ from sklearn.metrics import (
 from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
+from forecasting.spike_timing_optimizer import SpikeTimingOptimizer
 
 warnings.filterwarnings('ignore')
 
 class DATectStatisticalAnalysis:
     """Comprehensive statistical analysis of DATect model performance."""
     
-    def __init__(self, cache_dir="./cache/retrospective"):
+    def __init__(self, cache_dir="./cache/retrospective", spike_threshold=20.0):
         self.cache_dir = Path(cache_dir)
         self.results = {}
         self.analysis = {}
+        self.spike_threshold = spike_threshold
+        self.spike_optimizer = SpikeTimingOptimizer(spike_threshold=spike_threshold)
         
     def load_cached_results(self):
         """Load all cached retrospective results."""
@@ -93,6 +96,31 @@ class DATectStatisticalAnalysis:
             print(f"  MSE: {mse:.4f}")
             print(f"  RMSE: {rmse:.4f}")
             
+            # Add spike detection performance metrics
+            print(f"\n  🎯 SPIKE DETECTION PERFORMANCE (DA > {self.spike_threshold} ppm):")
+            spike_metrics = self.spike_optimizer.evaluate_spike_timing_performance(valid_df)
+            
+            if spike_metrics['spike_detection']:
+                spike_det = spike_metrics['spike_detection']
+                print(f"    Spike F1 Score: {spike_det['f1_score']:.4f}")
+                print(f"    Spike Precision: {spike_det['precision']:.4f}")
+                print(f"    Spike Recall: {spike_det['recall']:.4f}")
+                print(f"    True Positives: {spike_det['true_positives']}")
+                print(f"    False Positives: {spike_det['false_positives']}")
+                print(f"    False Negatives: {spike_det['false_negatives']}")
+            
+            if spike_metrics['spike_magnitude']:
+                spike_mag = spike_metrics['spike_magnitude']
+                print(f"    Spike MAE: {spike_mag.get('spike_mae', 0):.4f} ppm")
+                print(f"    Spike RMSE: {spike_mag.get('spike_rmse', 0):.4f} ppm")
+                print(f"    Spike Bias: {spike_mag.get('spike_bias', 0):+.4f} ppm")
+                print(f"    Spike R²: {spike_mag.get('spike_r2', 0):.4f}")
+            
+            print(f"    Total Spikes: {spike_metrics['n_actual_spikes']} actual, {spike_metrics['n_predicted_spikes']} predicted")
+            
+            # Store spike metrics for later analysis
+            spike_performance = spike_metrics
+            
             # Distribution analysis
             print(f"\n  Target Distribution:")
             print(f"    Min: {actual.min():.3f}, Max: {actual.max():.3f}")
@@ -144,16 +172,32 @@ class DATectStatisticalAnalysis:
                 if len(site_data) >= 5:  # Minimum samples for reliable metrics
                     site_r2 = r2_score(site_data['da'], site_data['Predicted_da'])
                     site_mae = mean_absolute_error(site_data['da'], site_data['Predicted_da'])
-                    site_metrics.append({'site': site, 'n': len(site_data), 'r2': site_r2, 'mae': site_mae})
-                    print(f"    {site}: n={len(site_data)}, R²={site_r2:.3f}, MAE={site_mae:.3f}")
+                    
+                    # Add spike metrics for site
+                    site_spike_metrics = self.spike_optimizer.evaluate_spike_timing_performance(site_data)
+                    site_spike_f1 = 0.0
+                    if site_spike_metrics['spike_detection']:
+                        site_spike_f1 = site_spike_metrics['spike_detection']['f1_score']
+                    
+                    site_metrics.append({
+                        'site': site, 
+                        'n': len(site_data), 
+                        'r2': site_r2, 
+                        'mae': site_mae,
+                        'spike_f1': site_spike_f1,
+                        'n_spikes': site_spike_metrics['n_actual_spikes']
+                    })
+                    print(f"    {site}: n={len(site_data)}, R²={site_r2:.3f}, MAE={site_mae:.3f}, Spike F1={site_spike_f1:.3f} ({site_spike_metrics['n_actual_spikes']} spikes)")
             
             # Check for systematic biases
             site_df = pd.DataFrame(site_metrics)
             if len(site_df) > 1:
                 r2_std = site_df['r2'].std()
                 mae_std = site_df['mae'].std()
+                spike_f1_std = site_df['spike_f1'].std()
                 print(f"    Site R² variability (std): {r2_std:.3f}")
                 print(f"    Site MAE variability (std): {mae_std:.3f}")
+                print(f"    Site Spike F1 variability (std): {spike_f1_std:.3f}")
             
             # Temporal consistency analysis
             valid_df['date'] = pd.to_datetime(valid_df['date'])
@@ -177,6 +221,7 @@ class DATectStatisticalAnalysis:
                 'mae': mae,
                 'mse': mse,
                 'rmse': rmse,
+                'spike_performance': spike_performance,  # Add spike metrics
                 'residual_stats': {
                     'mean': residuals.mean(),
                     'std': residuals.std(),

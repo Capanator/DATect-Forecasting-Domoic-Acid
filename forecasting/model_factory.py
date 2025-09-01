@@ -4,9 +4,12 @@ Model Factory
 
 Creates and configures machine learning models for DA forecasting.
 Supports both regression and classification tasks with multiple algorithms.
+Includes spike-optimized models with custom loss functions.
 """
 
+import numpy as np
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.base import BaseEstimator, RegressorMixin, ClassifierMixin
 # sklearn.ensemble models deprecated in favor of XGBoost
 try:
     import xgboost as xgb
@@ -15,6 +18,165 @@ except ImportError:
     HAS_XGBOOST = False
 
 import config
+from .spike_detection_models import create_spike_detection_model
+
+
+class SpikeWeightedXGBRegressor(BaseEstimator, RegressorMixin):
+    """
+    XGBoost regressor with custom loss function that heavily weights spike events.
+    Prioritizes accurate prediction of initial spike timing over gradual decline accuracy.
+    """
+    
+    def __init__(self, spike_threshold=20.0, spike_weight=5.0, early_bonus=0.8, **xgb_params):
+        self.spike_threshold = spike_threshold
+        self.spike_weight = spike_weight  # Weight multiplier for spike events
+        self.early_bonus = early_bonus    # Bonus for early vs late predictions
+        self.xgb_params = xgb_params
+        self.model = None
+        
+    def _create_sample_weights(self, y):
+        """Create sample weights that emphasize spike events."""
+        weights = np.ones(len(y))
+        spike_mask = y > self.spike_threshold
+        weights[spike_mask] *= self.spike_weight
+        return weights
+    
+    def fit(self, X, y, **fit_params):
+        """Fit model with spike-weighted samples."""
+        if not HAS_XGBOOST:
+            raise ImportError("XGBoost not installed. Run: pip install xgboost")
+        
+        # Create sample weights
+        sample_weights = self._create_sample_weights(y)
+        
+        # Set default XGBoost parameters optimized for spike detection
+        default_params = {
+            'n_estimators': 400,      # More trees for better spike pattern learning
+            'max_depth': 6,           # Slightly shallower to reduce overfitting
+            'learning_rate': 0.05,    # Lower learning rate with more trees
+            'subsample': 0.9,         # Higher sampling to preserve spike events
+            'colsample_bytree': 0.8,
+            'random_state': getattr(config, 'RANDOM_SEED', 42),
+            'n_jobs': -1,
+            'reg_alpha': 0.1,         # L1 regularization
+            'reg_lambda': 0.1,        # L2 regularization
+            'gamma': 0.1,             # Minimum split loss
+        }
+        
+        # Update with any provided parameters
+        default_params.update(self.xgb_params)
+        
+        self.model = xgb.XGBRegressor(**default_params)
+        
+        # Fit with sample weights
+        self.model.fit(X, y, sample_weight=sample_weights, **fit_params)
+        return self
+    
+    def predict(self, X):
+        """Make predictions."""
+        if self.model is None:
+            raise ValueError("Model not fitted. Call fit() first.")
+        return self.model.predict(X)
+    
+    def get_params(self, deep=True):
+        """Get parameters."""
+        params = {
+            'spike_threshold': self.spike_threshold,
+            'spike_weight': self.spike_weight,
+            'early_bonus': self.early_bonus
+        }
+        if deep:
+            params.update(self.xgb_params)
+        return params
+    
+    def set_params(self, **params):
+        """Set parameters."""
+        for key, value in params.items():
+            if key in ['spike_threshold', 'spike_weight', 'early_bonus']:
+                setattr(self, key, value)
+            else:
+                self.xgb_params[key] = value
+        return self
+
+
+class SpikeWeightedXGBClassifier(BaseEstimator, ClassifierMixin):
+    """
+    XGBoost classifier with custom sample weighting for spike class emphasis.
+    """
+    
+    def __init__(self, spike_classes=None, spike_weight=5.0, **xgb_params):
+        self.spike_classes = spike_classes or [2, 3]  # High DA categories
+        self.spike_weight = spike_weight
+        self.xgb_params = xgb_params
+        self.model = None
+        
+    def _create_sample_weights(self, y):
+        """Create sample weights that emphasize spike classes."""
+        weights = np.ones(len(y))
+        for spike_class in self.spike_classes:
+            spike_mask = y == spike_class
+            weights[spike_mask] *= self.spike_weight
+        return weights
+    
+    def fit(self, X, y, **fit_params):
+        """Fit model with spike-weighted samples."""
+        if not HAS_XGBOOST:
+            raise ImportError("XGBoost not installed. Run: pip install xgboost")
+        
+        # Create sample weights
+        sample_weights = self._create_sample_weights(y)
+        
+        # Set default XGBoost parameters optimized for spike classification
+        default_params = {
+            'n_estimators': 400,
+            'max_depth': 6,
+            'learning_rate': 0.05,
+            'subsample': 0.9,
+            'colsample_bytree': 0.8,
+            'random_state': getattr(config, 'RANDOM_SEED', 42),
+            'n_jobs': -1,
+            'eval_metric': 'logloss',
+            'reg_alpha': 0.1,
+            'reg_lambda': 0.1,
+            'gamma': 0.1,
+        }
+        
+        default_params.update(self.xgb_params)
+        
+        self.model = xgb.XGBClassifier(**default_params)
+        self.model.fit(X, y, sample_weight=sample_weights, **fit_params)
+        return self
+    
+    def predict(self, X):
+        """Make predictions."""
+        if self.model is None:
+            raise ValueError("Model not fitted. Call fit() first.")
+        return self.model.predict(X)
+    
+    def predict_proba(self, X):
+        """Predict class probabilities."""
+        if self.model is None:
+            raise ValueError("Model not fitted. Call fit() first.")
+        return self.model.predict_proba(X)
+    
+    def get_params(self, deep=True):
+        """Get parameters."""
+        params = {
+            'spike_classes': self.spike_classes,
+            'spike_weight': self.spike_weight
+        }
+        if deep:
+            params.update(self.xgb_params)
+        return params
+    
+    def set_params(self, **params):
+        """Set parameters."""
+        for key, value in params.items():
+            if key in ['spike_classes', 'spike_weight']:
+                setattr(self, key, value)
+            else:
+                self.xgb_params[key] = value
+        return self
 
 
 class ModelFactory:
@@ -23,6 +185,7 @@ class ModelFactory:
     
     Supported Models:
     - XGBoost (regression & classification) - PRIMARY MODEL
+    - Spike-weighted XGBoost - OPTIMIZED FOR SPIKE TIMING
     - Linear models (Linear/Logistic) - ALTERNATIVE MODEL
     - Linear Regression (regression)
     - Logistic Regression (classification)
@@ -37,7 +200,7 @@ class ModelFactory:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost", "linear", or "logistic"
+            model_type: "xgboost", "spike_xgboost", "linear", or "logistic"
             
         Returns:
             Configured scikit-learn model
@@ -66,13 +229,42 @@ class ModelFactory:
                 random_state=self.random_seed,
                 n_jobs=-1
             )
+        elif model_type == "spike_xgboost" or model_type == "spike_xgb":
+            # Spike-optimized XGBoost with custom weighting
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            spike_weight = getattr(config, 'SPIKE_WEIGHT_MULTIPLIER', 5.0)
+            return SpikeWeightedXGBRegressor(
+                spike_threshold=spike_threshold,
+                spike_weight=spike_weight,
+                random_state=self.random_seed
+            )
+        elif model_type == "ensemble":
+            # Ensemble spike detection model
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            return create_spike_detection_model('ensemble', spike_threshold=spike_threshold)
+        elif model_type == "rate_of_change":
+            # Rate of change based spike detector
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            return create_spike_detection_model('rate_of_change', spike_threshold=spike_threshold)
+        elif model_type == "multi_horizon":
+            # Multi-step ahead forecasting
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            return create_spike_detection_model('multi_horizon', spike_threshold=spike_threshold)
+        elif model_type == "anomaly":
+            # Anomaly detection approach
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            return create_spike_detection_model('anomaly', spike_threshold=spike_threshold)
+        elif model_type == "gradient":
+            # Gradient-based spike detection
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            return create_spike_detection_model('gradient', spike_threshold=spike_threshold)
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
             )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'linear')")
+                           f"Supported: 'xgboost', 'spike_xgboost', 'ensemble', 'rate_of_change', 'multi_horizon', 'anomaly', 'gradient', 'linear')")
             
     def _get_classification_model(self, model_type):
         """Get classification model.""" 
@@ -89,6 +281,15 @@ class ModelFactory:
                 n_jobs=-1,
                 eval_metric='logloss'
             )
+        elif model_type == "spike_xgboost" or model_type == "spike_xgb":
+            # Spike-optimized XGBoost classifier
+            spike_classes = getattr(config, 'SPIKE_CLASSES', [2, 3])  # High DA categories
+            spike_weight = getattr(config, 'SPIKE_WEIGHT_MULTIPLIER', 5.0)
+            return SpikeWeightedXGBClassifier(
+                spike_classes=spike_classes,
+                spike_weight=spike_weight,
+                random_state=self.random_seed
+            )
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",
@@ -99,7 +300,7 @@ class ModelFactory:
             )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
-                           f"Supported: 'xgboost', 'logistic')")
+                           f"Supported: 'xgboost', 'spike_xgboost', 'logistic')")
             
     def get_supported_models(self, task=None):
         """
@@ -112,8 +313,8 @@ class ModelFactory:
             Dictionary of supported models by task
         """
         models = {
-            "regression": ["xgboost", "linear"],
-            "classification": ["xgboost", "logistic"]
+            "regression": ["xgboost", "spike_xgboost", "ensemble", "rate_of_change", "multi_horizon", "anomaly", "gradient", "linear"],
+            "classification": ["xgboost", "spike_xgboost", "logistic"]
         }
         
         if task is None:
@@ -136,6 +337,13 @@ class ModelFactory:
         descriptions = {
             "xgboost": "XGBoost",
             "xgb": "XGBoost",
+            "spike_xgboost": "Spike-Weighted XGBoost",
+            "spike_xgb": "Spike-Weighted XGBoost",
+            "ensemble": "Spike Detection Ensemble",
+            "rate_of_change": "Rate of Change Detector",
+            "multi_horizon": "Multi-Horizon Forecaster",
+            "anomaly": "Anomaly Detection Model",
+            "gradient": "Gradient Spike Detector",
             "linear": "Linear Regression",
             "logistic": "Logistic Regression",
         }
