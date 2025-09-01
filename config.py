@@ -184,8 +184,8 @@ FORECAST_MODE = "retrospective"
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
 FORECAST_TASK = "regression"
 
-# ML algorithm: "xgboost" (primary) or "linear" (interpretable)
-FORECAST_MODEL = "xgboost"
+# ML algorithm: "xgboost" (primary), "balanced_xgboost" (spike optimized), or "linear" (interpretable)
+FORECAST_MODEL = "balanced_xgboost"
 
 
 # Temporal Validation - prevents data leakage
@@ -228,6 +228,15 @@ ENABLE_BASELINE_COMPARISON = False  # Enable for detailed analysis
 
 # Enhanced interpolation constraints
 MAX_INTERPOLATION_WEEKS = 6  # Maximum gap size for interpolation (scientifically conservative)
+
+# Spike Detection Model Configuration
+# ==================================
+
+# Spike detection thresholds and weights
+SPIKE_THRESHOLD = 20.0  # DA level considered a "spike" (μg/g)
+SPIKE_WEIGHT_MULTIPLIER = 5.0  # Weight multiplier for spike events in spike_xgboost
+PRECISION_WEIGHT = 8.0  # Moderate weight for balanced spike detection (balanced_xgboost)
+SPIKE_CLASSES = [2, 3]  # High DA categories for classification spike weighting
 
 # Model comparison settings
 ENABLE_RESIDUAL_ANALYSIS = False  # Enable for detailed model diagnostics

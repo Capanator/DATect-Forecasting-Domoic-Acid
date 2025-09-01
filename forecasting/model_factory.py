@@ -179,6 +179,81 @@ class SpikeWeightedXGBClassifier(BaseEstimator, ClassifierMixin):
         return self
 
 
+class BalancedSpikeXGBRegressor(BaseEstimator, RegressorMixin):
+    """
+    Balanced XGBoost regressor optimizing for both R² and spike detection.
+    Achieves high precision (low false positives) while maintaining good overall performance.
+    """
+    
+    def __init__(self, spike_threshold=20.0, precision_weight=8.0, **xgb_params):
+        self.spike_threshold = spike_threshold
+        self.precision_weight = precision_weight  # Moderate weighting for balance
+        self.xgb_params = xgb_params
+        self.model = None
+        
+    def _create_sample_weights(self, y):
+        """Create balanced sample weights for spike events."""
+        weights = np.ones(len(y))
+        spike_mask = y > self.spike_threshold
+        weights[spike_mask] *= self.precision_weight
+        return weights
+    
+    def fit(self, X, y, **fit_params):
+        """Fit balanced model optimized for both tasks."""
+        if not HAS_XGBOOST:
+            raise ImportError("XGBoost not installed. Run: pip install xgboost")
+        
+        # Create balanced sample weights
+        sample_weights = self._create_sample_weights(y)
+        
+        # Balanced parameters optimizing for both R² and precision
+        default_params = {
+            'n_estimators': 800,      # More trees for stability
+            'max_depth': 6,           # Moderate depth for generalization
+            'learning_rate': 0.08,    # Moderate learning rate
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
+            'random_state': getattr(config, 'RANDOM_SEED', 42),
+            'n_jobs': -1,
+            'reg_alpha': 0.5,         # Light regularization for balance
+            'reg_lambda': 0.5,
+        }
+        
+        # Update with any provided parameters
+        default_params.update(self.xgb_params)
+        
+        self.model = xgb.XGBRegressor(**default_params)
+        
+        # Fit with balanced sample weights
+        self.model.fit(X, y, sample_weight=sample_weights, **fit_params)
+        return self
+    
+    def predict(self, X):
+        """Make predictions."""
+        if self.model is None:
+            raise ValueError("Model not fitted. Call fit() first.")
+        return self.model.predict(X)
+    
+    def get_params(self, deep=True):
+        """Get parameters."""
+        params = {
+            'spike_threshold': self.spike_threshold,
+            'precision_weight': self.precision_weight
+        }
+        if deep:
+            params.update(self.xgb_params)
+        return params
+    
+    def set_params(self, **params):
+        """Set parameters."""
+        for key, value in params.items():
+            if key in ['spike_threshold', 'precision_weight']:
+                setattr(self, key, value)
+            else:
+                self.xgb_params[key] = value
+        return self
+
+
 class ModelFactory:
     """
     Factory class for creating configured ML models.
@@ -186,6 +261,7 @@ class ModelFactory:
     Supported Models:
     - XGBoost (regression & classification) - PRIMARY MODEL
     - Spike-weighted XGBoost - OPTIMIZED FOR SPIKE TIMING
+    - Balanced Spike XGBoost - OPTIMIZED FOR BOTH R² AND SPIKE DETECTION
     - Linear models (Linear/Logistic) - ALTERNATIVE MODEL
     - Linear Regression (regression)
     - Logistic Regression (classification)
@@ -238,6 +314,15 @@ class ModelFactory:
                 spike_weight=spike_weight,
                 random_state=self.random_seed
             )
+        elif model_type == "balanced_xgboost" or model_type == "balanced_xgb":
+            # Balanced XGBoost optimizing for both R² and spike detection
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
+            precision_weight = getattr(config, 'PRECISION_WEIGHT', 8.0)
+            return BalancedSpikeXGBRegressor(
+                spike_threshold=spike_threshold,
+                precision_weight=precision_weight,
+                random_state=self.random_seed
+            )
         elif model_type == "ensemble":
             # Ensemble spike detection model
             spike_threshold = getattr(config, 'SPIKE_THRESHOLD', 20.0)
@@ -264,7 +349,7 @@ class ModelFactory:
             )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'spike_xgboost', 'ensemble', 'rate_of_change', 'multi_horizon', 'anomaly', 'gradient', 'linear')")
+                           f"Supported: 'xgboost', 'spike_xgboost', 'balanced_xgboost', 'ensemble', 'rate_of_change', 'multi_horizon', 'anomaly', 'gradient', 'linear')")
             
     def _get_classification_model(self, model_type):
         """Get classification model.""" 
@@ -313,7 +398,7 @@ class ModelFactory:
             Dictionary of supported models by task
         """
         models = {
-            "regression": ["xgboost", "spike_xgboost", "ensemble", "rate_of_change", "multi_horizon", "anomaly", "gradient", "linear"],
+            "regression": ["xgboost", "spike_xgboost", "balanced_xgboost", "ensemble", "rate_of_change", "multi_horizon", "anomaly", "gradient", "linear"],
             "classification": ["xgboost", "spike_xgboost", "logistic"]
         }
         
@@ -339,6 +424,8 @@ class ModelFactory:
             "xgb": "XGBoost",
             "spike_xgboost": "Spike-Weighted XGBoost",
             "spike_xgb": "Spike-Weighted XGBoost",
+            "balanced_xgboost": "Balanced Spike XGBoost (R² + Precision)",
+            "balanced_xgb": "Balanced Spike XGBoost (R² + Precision)",
             "ensemble": "Spike Detection Ensemble",
             "rate_of_change": "Rate of Change Detector",
             "multi_horizon": "Multi-Horizon Forecaster",
