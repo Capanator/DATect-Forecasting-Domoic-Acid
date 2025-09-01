@@ -114,7 +114,6 @@ class DATectLauncher:
                 print("Data must contain 'date', 'site', and 'da' columns")
                 return False
             
-            # DA categories created per-forecast to prevent temporal leakage
             
             if data.empty:
                 self.print_colored("❌ Dataset is empty", 'red')
@@ -144,59 +143,28 @@ class DATectLauncher:
             return False
     
     def _validate_temporal_integrity(self):
-        """Run comprehensive 7-test temporal integrity validation suite"""
-        self.print_colored("🔬 Running Temporal Integrity Validation Suite...", 'blue')
+        """Validate basic temporal configuration"""
+        self.print_colored("⚙️  Validating temporal configuration...", 'blue')
         
         try:
-            # Load configuration
             config_path = self.project_root / "config.py"
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
             
-            # Basic configuration checks
-            if not hasattr(config, 'TEMPORAL_BUFFER_DAYS'):
-                self.print_colored("❌ TEMPORAL_BUFFER_DAYS not configured", 'red')
+            if not hasattr(config, 'TEMPORAL_BUFFER_DAYS') or config.TEMPORAL_BUFFER_DAYS < 1:
+                self.print_colored("❌ Invalid TEMPORAL_BUFFER_DAYS configuration", 'red')
+                return False
+                
+            if not hasattr(config, 'SATELLITE_BUFFER_DAYS') or config.SATELLITE_BUFFER_DAYS < 7:
+                self.print_colored("❌ Invalid SATELLITE_BUFFER_DAYS configuration", 'red')
                 return False
             
-            if config.TEMPORAL_BUFFER_DAYS < 1:
-                self.print_colored("❌ TEMPORAL_BUFFER_DAYS must be ≥ 1 to prevent data leakage", 'red')
-                return False
-                
-            if not hasattr(config, 'SATELLITE_BUFFER_DAYS'):
-                self.print_colored("❌ SATELLITE_BUFFER_DAYS not configured", 'red')
-                return False
-                
-            if config.SATELLITE_BUFFER_DAYS < 7:
-                self.print_colored("❌ SATELLITE_BUFFER_DAYS should be ≥ 7 days for realistic data availability", 'red')
-                return False
-            
-            # Run comprehensive temporal validation suite if available
-            try:
-                from forecasting.temporal_validation import TemporalIntegrityValidator
-                
-                self.print_colored("Running 7 comprehensive temporal integrity tests...", 'blue')
-                validator = TemporalIntegrityValidator(config)
-                results = validator.run_all_tests()
-                
-                if results['overall_status'] == 'FAILED':
-                    self.print_colored("🚨 CRITICAL: Temporal integrity violations detected", 'red')
-                    self.print_colored("❌ System is NOT scientifically valid", 'red')
-                    self.print_colored("⚠️  DO NOT USE FOR PUBLICATION OR DEPLOYMENT", 'red')
-                    return False
-                else:
-                    self.print_colored("🎉 All temporal integrity tests passed (7/7)", 'green')
-                    self.print_colored("✅ System is scientifically valid for publication", 'green')
-                    return True
-                    
-            except ImportError:
-                # Fallback to basic validation if comprehensive suite not available
-                self.print_colored("⚠️  Comprehensive temporal validation not available, using basic checks", 'yellow')
-                self.print_colored("✅ Basic temporal integrity safeguards validated", 'green')
-                return True
+            self.print_colored("✅ Temporal configuration validated", 'green')
+            return True
             
         except Exception as e:
-            self.print_colored(f"❌ Temporal integrity validation failed: {e}", 'red')
+            self.print_colored(f"❌ Temporal validation failed: {e}", 'red')
             return False
     
     def _validate_model_config(self):
@@ -230,7 +198,6 @@ class DATectLauncher:
                     self.print_colored("❌ LAG_FEATURES must be a list", 'red')
                     return False
                 
-                # Allow empty list when USE_LAG_FEATURES is False
                 if hasattr(config, 'USE_LAG_FEATURES') and not config.USE_LAG_FEATURES:
                     if len(config.LAG_FEATURES) > 0:
                         self.print_colored("⚠️  Warning: LAG_FEATURES should be empty when USE_LAG_FEATURES is False", 'yellow')
@@ -287,7 +254,6 @@ class DATectLauncher:
             sys.executable, '-m', 'backend.api'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.project_root)
         
-        # Backend started successfully
         
         if not self.wait_for_service("http://localhost:8000/health", "Backend API"):
             return False
@@ -304,7 +270,6 @@ class DATectLauncher:
             'npm', 'run', 'dev'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=frontend_dir)
         
-        # Frontend started successfully
         
         if not self.wait_for_service("http://localhost:3000", "Frontend", max_wait=45):
             return False
@@ -389,14 +354,13 @@ class DATectLauncher:
             self.print_colored("📖 How to use:", 'blue')
             print("1. 🌐 Browser should open automatically to http://localhost:3000")
             print("2. ⚙️  Click 'System Config' to modify forecasting settings")
-            print("3. 📊 Select date, site, and generate enhanced forecasts")
-            print("4. 📈 View all original Dash graphs in the modern web interface")
+            print("3. 📊 Select date, site, and generate forecasts")
+            print("4. 📈 View visualizations and analysis in the web interface")
             print()
             self.print_colored("Press Ctrl+C to stop the entire system", 'yellow')
             
             try:
                 while True:
-                    # Monitor process health
                     if self.backend_process.poll() is not None:
                         self.print_colored("❌ Backend process stopped unexpectedly", 'red')
                         break

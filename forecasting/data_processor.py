@@ -46,12 +46,10 @@ class DataProcessor:
         if required_columns is None:
             required_columns = ['date', 'site', 'da']
         
-        # Check for required columns
         missing_cols = [col for col in required_columns if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Critical columns missing: {missing_cols}")
             
-        # Check for negative DA values (biological constraint)
         if 'da' in df.columns:
             da_values = df['da'].dropna()
             if not da_values.empty and (da_values < 0).any():
@@ -70,19 +68,16 @@ class DataProcessor:
         if site not in config.SITES:
             raise ValueError(f"Unknown site: '{site}'. Valid sites: {list(config.SITES.keys())}")
             
-        # Validate forecast date
         forecast_date = pd.Timestamp(forecast_date)
         if forecast_date < pd.Timestamp('2000-01-01'):
             raise ValueError("Forecast date too early - satellite data not available before 2000")
         if forecast_date > pd.Timestamp.now() + pd.Timedelta(days=365):
             raise ValueError("Forecast date too far in future (>1 year)")
             
-        # Validate site-specific data availability
         site_data = data[data['site'] == site] if 'site' in data.columns else data
         if site_data.empty:
             raise ValueError(f"No historical data available for site: {site}")
             
-        # Check temporal data coverage
         available_dates = site_data['date'].dropna()
         if available_dates.empty:
             raise ValueError(f"No valid dates in historical data for site: {site}")
@@ -101,28 +96,23 @@ class DataProcessor:
         """
         logger.info(f"Loading base data from {file_path}")
         
-        # Load data
         data = pd.read_parquet(file_path, engine="pyarrow")
         logger.info(f"Raw data loaded: {len(data)} records, {len(data.columns)} columns")
         
-        # Process temporal data
         data["date"] = pd.to_datetime(data["date"])
         data.sort_values(["site", "date"], inplace=True)
         data.reset_index(drop=True, inplace=True)
         logger.debug("Data sorted and indexed by site and date")
 
-        # Validate data integrity after loading - CRITICAL
         logger.info("Validating loaded data integrity")
         self.validate_data_integrity(data)
 
-        # Add temporal features (safe - no future information)
         logger.debug("Adding temporal features")
         day_of_year = data["date"].dt.dayofyear
         data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
         data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
         logger.debug("Temporal features added: sin_day_of_year, cos_day_of_year")
 
-        # DO NOT create da-category globally - this will be done per forecast
         sites_count = data['site'].nunique()
         logger.info(f"Data preparation completed: {len(data)} records across {sites_count} sites")
         print(f"[INFO] Loaded {len(data)} records across {sites_count} sites")
@@ -143,16 +133,12 @@ class DataProcessor:
             feature_name = f"{value_col}_lag_{lag}"
             logger.debug(f"Creating lag feature: {feature_name}")
             
-            # Create lag feature
             df_sorted[feature_name] = df_sorted.groupby(group_col)[value_col].shift(lag)
             
-            # CRITICAL: Only use lag values that are strictly before cutoff_date
-            # This prevents using future information in training data
             buffer_days = 1
             lag_cutoff_date = cutoff_date - pd.Timedelta(days=buffer_days)
             lag_cutoff_mask = df_sorted['date'] > lag_cutoff_date
             
-            # Apply temporal safeguard
             affected_rows = lag_cutoff_mask.sum()
             df_sorted.loc[lag_cutoff_mask, feature_name] = np.nan
             
@@ -173,12 +159,10 @@ class DataProcessor:
         """
         logger.debug(f"Creating DA categories for {len(da_values)} values")
         
-        # Handle empty input
         if da_values.empty:
             logger.warning("Empty DA values provided for categorization")
             return pd.Series([], dtype=pd.Int64Dtype())
             
-        # Check for invalid values
         invalid_mask = da_values < 0
         if invalid_mask.any():
             invalid_count = invalid_mask.sum()
@@ -186,7 +170,6 @@ class DataProcessor:
             da_values = da_values.copy()
             da_values[invalid_mask] = np.nan
             
-        # Create categories
         categories = pd.cut(
             da_values,
             bins=self.da_category_bins,
@@ -194,7 +177,6 @@ class DataProcessor:
             right=True,
         ).astype(pd.Int64Dtype())
         
-        # Log category distribution
         value_counts = categories.value_counts().sort_index()
         logger.debug(f"DA category distribution: {dict(value_counts)}")
         
@@ -215,7 +197,6 @@ class DataProcessor:
             logger.warning("No numeric columns found for feature transformation")
             raise ValueError("No numeric features available for modeling")
         
-        # Create preprocessing pipeline
         numeric_pipeline = Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
             ("scaler", MinMaxScaler()),
@@ -244,7 +225,6 @@ class DataProcessor:
         max_train_date = train_df['date'].max()
         min_test_date = test_df['date'].min()
         
-        # Training data should be strictly before test data
         is_valid = max_train_date < min_test_date
         
         if is_valid:

@@ -53,6 +53,7 @@ Thumbs.db
 tools/testing/results/
 analysis/*/outputs/
 claude.md
+.claude/
 
 # Temporary files
 *.tmp

@@ -7,7 +7,6 @@ Supports both regression and classification tasks with multiple algorithms.
 """
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
-# sklearn.ensemble models deprecated in favor of XGBoost
 try:
     import xgboost as xgb
     HAS_XGBOOST = True

@@ -773,31 +773,25 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Use enhanced forecasting with uncertainty quantification
-        enable_uncertainty = getattr(config, 'ENABLE_UNCERTAINTY_QUANTIFICATION', True)
-        enable_baseline_comparison = getattr(config, 'ENABLE_BASELINE_COMPARISON', False)
+        # Use standard forecasting for speed
         
         # For realtime forecasting, always use XGBoost regardless of UI selection  
-        regression_result = get_forecast_engine().generate_enhanced_forecast(
+        regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            "xgboost",  # Force XGBoost for realtime
-            include_uncertainty=enable_uncertainty,
-            include_comparison=enable_baseline_comparison
+            "xgboost"  # Force XGBoost for realtime
         )
         
         
-        # For classification, also force XGBoost with uncertainty
-        classification_result = get_forecast_engine().generate_enhanced_forecast(
+        # For classification, also force XGBoost
+        classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "classification",
-            "xgboost",  # Force XGBoost for realtime
-            include_uncertainty=enable_uncertainty,
-            include_comparison=enable_baseline_comparison
+            "xgboost"  # Force XGBoost for realtime
         )
         
         # Helper function to make results JSON serializable
@@ -966,101 +960,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "error": str(e)
         }
 
-@app.get("/api/model-comparison")
-async def get_model_comparison():
-    """Generate comprehensive model comparison analysis."""
-    try:
-        from forecasting.model_comparison import ModelComparator
-        
-        # Try to load cached retrospective results for comparison
-        cache_files = [
-            "cache/retrospective/regression_xgboost.parquet",
-            "cache/retrospective/regression_linear.parquet", 
-            "cache/retrospective/classification_xgboost.parquet",
-            "cache/retrospective/classification_logistic.parquet"
-        ]
-        
-        # Load available cached results
-        all_results = []
-        for cache_file in cache_files:
-            try:
-                if Path(cache_file).exists():
-                    df = pd.read_parquet(cache_file)
-                    if not df.empty:
-                        # Add model type identifier
-                        model_type = cache_file.split('/')[-1].replace('.parquet', '')
-                        task_type, model_name = model_type.split('_', 1)
-                        
-                        # Add model-specific prediction columns
-                        if task_type == 'regression':
-                            if model_name == 'linear':
-                                df['linear_predicted_da'] = df['Predicted_da']
-                        elif task_type == 'classification':
-                            if model_name == 'logistic':
-                                df['logistic_predicted_category'] = df['Predicted_da-category']
-                        
-                        all_results.append(df)
-            except Exception as e:
-                logger.warning(f"Could not load {cache_file}: {e}")
-        
-        if not all_results:
-            return {
-                "success": False,
-                "error": "No cached retrospective results found. Run retrospective analysis first."
-            }
-        
-        # Merge all results on common columns (date, site, da)
-        merged_df = all_results[0]
-        for df in all_results[1:]:
-            # Merge on key columns, keeping all prediction columns
-            common_cols = ['date', 'site', 'da']
-            if 'da-category' in df.columns:
-                common_cols.append('da-category')
-            
-            # Only merge new prediction columns
-            new_cols = [col for col in df.columns if col.startswith(('Predicted_', 'linear_', 'logistic_'))]
-            merge_cols = common_cols + new_cols
-            
-            merged_df = merged_df.merge(
-                df[merge_cols], 
-                on=common_cols, 
-                how='outer', 
-                suffixes=('', '_dup')
-            )
-        
-        # Run comprehensive comparison
-        comparator = ModelComparator()
-        comparison_results = comparator.run_comprehensive_comparison(merged_df)
-        
-        # Create visualization data
-        viz_data = comparator.create_comparison_visualization_data(comparison_results)
-        
-        response_data = {
-            "success": True,
-            "comparison_results": comparison_results,
-            "visualization_data": viz_data,
-            "data_summary": {
-                "total_predictions": len(merged_df),
-                "date_range": {
-                    "min": str(merged_df['date'].min()),
-                    "max": str(merged_df['date'].max())
-                },
-                "sites": merged_df['site'].nunique(),
-                "available_models": list(comparison_results.get('overall_summary', {}).keys())
-            }
-        }
-        
-        # Clean all float values for JSON serialization
-        return clean_float_for_json(response_data)
-        
-    except Exception as e:
-        logger.error(f"Error in model comparison: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-# Removed streaming progress functionality
+# Streaming progress functionality removed
 
 @app.post("/api/retrospective")
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):

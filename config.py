@@ -179,7 +179,7 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "retrospective"
+FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
 FORECAST_TASK = "regression"
@@ -215,19 +215,6 @@ LAG_FEATURES = [1, 3] if USE_LAG_FEATURES else []
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
-# Statistical Enhancement Settings
-# ================================
-
-# Bootstrap confidence intervals
-ENABLE_UNCERTAINTY_QUANTIFICATION = False
-BOOTSTRAP_ITERATIONS = 5  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
-CONFIDENCE_LEVEL = 0.95
-
-# Baseline model comparisons
-ENABLE_BASELINE_COMPARISON = False  # Enable for detailed analysis
-
-# Enhanced interpolation constraints
-MAX_INTERPOLATION_WEEKS = 6  # Maximum gap size for interpolation (scientifically conservative)
-
-# Model comparison settings
-ENABLE_RESIDUAL_ANALYSIS = False  # Enable for detailed model diagnostics
+# Statistical Enhancement Settings - REMOVED FOR PERFORMANCE
+# All statistical analysis features have been removed to improve forecast speed
+# The UI does not display bootstrap confidence intervals, baseline comparisons, or residual analysis
