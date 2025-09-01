@@ -1,6 +1,6 @@
 """
 Backend visualization module for DATect web application.
-Implements visualization logic from original analysis scripts.
+Provides visualization functions for DATect web application.
 """
 
 import pandas as pd
@@ -12,7 +12,6 @@ from sklearn.inspection import permutation_importance
 from scipy import signal
 import warnings
 import os
-import sys
 import logging
 import plotly.graph_objs as go
 import plotly.io as pio
@@ -33,19 +32,17 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
     range_width = q95 - q05
     max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
     if max_distance <= 1e-6:
-        max_distance = 1  # Avoid division by zero
+        max_distance = 1
     
-    base_color = (70, 130, 180)  # Steel blue
+    base_color = (70, 130, 180)
     
-    # Generate gradient confidence bands
     for i in range(n_segments):
         x0 = q05 + (i / n_segments) * range_width
         x1 = q05 + ((i + 1) / n_segments) * range_width
         midpoint = (x0 + x1) / 2
         
-        # Calculate opacity based on distance from median
         opacity = 1 - (abs(midpoint - q50) / max_distance) ** 0.5 if max_distance > 1e-6 else 0.8
-        opacity = max(0.1, min(0.9, opacity))  # Ensure valid opacity range
+        opacity = max(0.1, min(0.9, opacity))
         
         fig.add_shape(
             type="rect",
@@ -56,7 +53,6 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
             layer='below'
         )
     
-    # Add gradient boosting median line (q50)
     fig.add_trace(go.Scatter(
         x=[q50, q50], y=[0.35, 0.65],
         mode='lines',
@@ -65,7 +61,6 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         hovertemplate='GB Median: %{x:.2f}<extra></extra>'
     ))
     
-    # Add quantile range endpoints
     fig.add_trace(go.Scatter(
         x=[q05, q95], y=[0.5, 0.5],
         mode='markers',
@@ -74,7 +69,6 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         hovertemplate='GB Range: %{x:.2f}<extra></extra>'
     ))
     
-    # Add XGBoost point prediction
     fig.add_trace(go.Scatter(
         x=[xgboost_prediction], y=[0.5],
         mode='markers',
@@ -88,7 +82,6 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         hovertemplate='XGBoost: %{x:.2f}<extra></extra>'
     ))
     
-    # Add actual value if available
     if actual_da is not None:
         fig.add_trace(go.Scatter(
             x=[actual_da], y=[0.5],
@@ -98,7 +91,6 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
             hovertemplate='Actual: %{x:.2f}<extra></extra>'
         ))
     
-    # Update layout
     fig.update_layout(
         title="Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
         xaxis_title="DA Level (μg/L)",
@@ -112,28 +104,24 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
     return pio.to_json(fig)
 
 
-def sophisticated_nan_handling_for_correlation(df, preserve_temporal=True):
+def sophisticated_nan_handling_for_correlation(df):
     """
-    Implements sophisticated NaN handling strategy from modular-forecast.
+    Implements sophisticated NaN handling strategy.
     """
     if df.empty:
         return df
         
     df_processed = df.copy()
     
-    # Sort by date if available to maintain temporal integrity
     if 'date' in df_processed.columns:
         df_processed['date'] = pd.to_datetime(df_processed['date'])
         df_processed = df_processed.sort_values(['date']).reset_index(drop=True)
     
-    # Separate target variable (DA) from features
     if 'da' in df_processed.columns:
-        # Identify numeric columns for imputation (excluding target)
         numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
         feature_cols = [col for col in numeric_cols if col != 'da']
         
         if feature_cols and len(df_processed) > 0:
-            # Use median imputation for feature variables only
             imputer = SimpleImputer(strategy="median")
             df_processed[feature_cols] = imputer.fit_transform(df_processed[feature_cols])
     
@@ -144,30 +132,23 @@ def generate_correlation_heatmap(data, site=None):
     """Generate correlation heatmap."""
     
     if site:
-        # Filter by site
         df = data[data['site'] == site].copy()
         title = f'Correlation Heatmap - {site}'
     else:
-        # Use all data
         df = data.copy()
         title = 'Overall Correlation Heatmap'
     
-    # Apply sophisticated NaN handling
     df = sophisticated_nan_handling_for_correlation(df)
     
-    # Select numeric columns only, dropping non-relevant columns
     exclude_cols = ['site', 'date', 'lon', 'lat']
     numeric_df = df.select_dtypes(include=['number']).drop(columns=[col for col in exclude_cols if col in df.columns], errors='ignore')
     
-    # Compute correlation matrix using pandas default (pairwise deletion)
     corr_matrix = numeric_df.corr(method='pearson')
     
-    # Create annotations for each cell
     annotations = []
     for i in range(len(corr_matrix.index)):
         for j in range(len(corr_matrix.columns)):
             value = corr_matrix.iloc[i, j]
-            # Use white text for dark cells (strong correlations), black otherwise
             color = "white" if abs(value) > 0.7 else "black"
             annotations.append({
                 "x": corr_matrix.columns[j],
@@ -177,7 +158,6 @@ def generate_correlation_heatmap(data, site=None):
                 "showarrow": False
             })
     
-    # Create plotly heatmap matching original style
     plot_data = {
         "data": [{
             "type": "heatmap",
@@ -230,35 +210,27 @@ def generate_sensitivity_analysis(data, site=None):
     """Generate sensitivity analysis plots including Sobol indices if possible."""
     
     if site:
-        # Filter by site
         df_processed = data[data['site'] == site].copy()
         title_suffix = f" - {site}"
     else:
-        # Use all data
         df_processed = data.copy()
         title_suffix = " - All Sites"
     
-    # Apply same sophisticated NaN handling as correlation heatmap
     df_processed = sophisticated_nan_handling_for_correlation(df_processed)
     
     # Select numeric columns only, dropping non-relevant columns (same as correlation heatmap)
     exclude_cols = ['site', 'date', 'lon', 'lat']
     numeric_df = df_processed.select_dtypes(include=['number']).drop(columns=[col for col in exclude_cols if col in df_processed.columns], errors='ignore')
     
-    # Remove samples with NaN target values
     df_clean = numeric_df.dropna(subset=['da']).copy()
     
-    # Identify feature columns
     feature_cols = [col for col in df_clean.columns if col != 'da']
     
-    # Use all data for trend analysis - this is historical analysis, not forecasting
     X = df_clean[feature_cols]
     y = df_clean['da']
     
-    # Compute absolute Pearson correlation with DA (same as correlation heatmap)
     correlations = df_clean[feature_cols + ['da']].corr()['da'].drop('da').abs().sort_values(ascending=False)
     
-    # Plot 1: Correlation Sensitivity Analysis
     plot1 = {
         "data": [{
             "type": "bar",
@@ -286,48 +258,39 @@ def generate_sensitivity_analysis(data, site=None):
     
     plots = [plot1]
     
-    # Train a simple linear regression model on all data for trend analysis
     model = LinearRegression()
     model.fit(X, y)
     
-    # Try Sobol analysis if we have SALib and enough data
     try:
         from SALib.sample import saltelli
         from SALib.analyze import sobol
         
-        if len(X) >= 50:  # Need sufficient data for Sobol
-            # Define the problem for SALib
+        if len(X) >= 50:
             problem = {
                 'num_vars': len(feature_cols),
                 'names': feature_cols,
                 'bounds': [[float(X[col].min()), float(X[col].max())] for col in feature_cols]
             }
             
-            # Generate samples using Saltelli's sampling scheme
-            N = min(64, max(8, len(X) // 20))  # Adaptive base sample size
+            N = min(64, max(8, len(X) // 20))
             param_values = saltelli.sample(problem, N, calc_second_order=False)
             
-            # Evaluate the model for all generated samples
             Y = model.predict(param_values)
             
-            # Ensure Y is the correct shape
             if Y.ndim > 1:
                 Y = Y.flatten()
             
-            # Compute Sobol sensitivity indices
             sobol_indices = sobol.analyze(problem, Y, calc_second_order=False, print_to_console=False)
             first_order = sobol_indices['S1']
             
-            # Sort by importance
             sorted_idx = np.argsort(first_order)[::-1]
             sorted_features_sobol = [feature_cols[i] for i in sorted_idx]
             sorted_sobol = first_order[sorted_idx]
             
-            # Plot: Sobol First Order Sensitivity
             plot_sobol = {
                 "data": [{
                     "type": "bar",
-                    "x": sorted_features_sobol[:10],  # Top 10 for clarity
+                    "x": sorted_features_sobol[:10],
                     "y": sorted_sobol[:10].tolist(),
                     "marker": {"color": "green"}
                 }],
@@ -350,11 +313,10 @@ def generate_sensitivity_analysis(data, site=None):
             }
             plots.append(plot_sobol)
     except ImportError:
-        pass  # SALib not installed
+        pass
     except Exception:
-        pass  # Sobol analysis failed, skip it silently
+        pass
     
-    # Compute permutation feature importance
     perm_result = permutation_importance(model, X, y, n_repeats=30, random_state=42)
     perm_importances = perm_result.importances_mean
     
@@ -363,7 +325,6 @@ def generate_sensitivity_analysis(data, site=None):
     sorted_features = [feature_cols[i] for i in sorted_idx]
     sorted_importances = perm_importances[sorted_idx]
     
-    # Plot: Permutation Feature Importance
     plot2 = {
         "data": [{
             "type": "bar",
@@ -400,33 +361,23 @@ def generate_time_series_comparison(data, site=None):
     data['date'] = pd.to_datetime(data['date'])
     
     if site:
-        # Filter by site
         site_data = data[data['site'] == site].copy()
         title = f'DA vs Pseudo-nitzschia Time Series - {site}'
     else:
-        # Aggregate all sites
         site_data = data.groupby('date').agg({
             'da': 'mean',
-            'pn': 'mean' if 'pn' in data.columns else lambda x: np.nan
+            'pn': 'mean' if 'pn' in data.columns else lambda _: np.nan
         }).reset_index()
         title = 'DA vs Pseudo-nitzschia Time Series - All Sites Average'
     
-    # Sort by date
     site_data = site_data.sort_values('date')
     
-    # Check if we have PN data
     has_pn = 'pn' in site_data.columns and not site_data['pn'].isna().all()
     
-    # Normalize data for comparison
     scaler = MinMaxScaler()
     traces = []
     
-    # Add DA trace
     if 'da' in site_data.columns:
-        da_values = site_data['da'].values.reshape(-1, 1)
-        da_normalized = scaler.fit_transform(np.nan_to_num(da_values)).flatten()
-        
-        # Cap DA at 80 for visualization (as in original)
         da_capped = np.minimum(site_data['da'].fillna(0), 80)
         da_capped_normalized = scaler.fit_transform(da_capped.values.reshape(-1, 1)).flatten()
         
@@ -439,7 +390,6 @@ def generate_time_series_comparison(data, site=None):
             "line": {"color": "red", "width": 2}
         })
     
-    # Add PN trace if available
     if has_pn:
         pn_values = site_data['pn'].values.reshape(-1, 1)
         pn_normalized = scaler.fit_transform(np.nan_to_num(pn_values)).flatten()
@@ -452,7 +402,6 @@ def generate_time_series_comparison(data, site=None):
             "line": {"color": "blue", "width": 2}
         })
     else:
-        # Use MODIS chlorophyll as proxy if no PN data
         if 'modis-chla' in site_data.columns:
             chla_values = site_data['modis-chla'].values.reshape(-1, 1)
             chla_normalized = scaler.fit_transform(np.nan_to_num(chla_values)).flatten()
@@ -480,25 +429,22 @@ def generate_time_series_comparison(data, site=None):
         }
     }
     
-    return plot_data  # Already in correct format for direct use
+    return plot_data
 
 
 def generate_waterfall_plot(data):
-    """Generate waterfall plot matching the original implementation."""
+    """Generate waterfall plot visualization."""
     
     # Ensure date column is datetime
     data['date'] = pd.to_datetime(data['date'])
     
-    # Sort by latitude and date
     data = data.sort_values(['lat', 'date'])
     
-    # Get latitude to site mapping
     lat_to_site = data.groupby('lat')['site'].first().to_dict()
     unique_lats = sorted(data['lat'].unique(), reverse=True)
     
     traces = []
     
-    # Configuration from original
     LATITUDE_BASELINE_MULTIPLIER = 3
     DA_SCALING_FACTOR = 0.01
     
@@ -506,10 +452,8 @@ def generate_waterfall_plot(data):
         site_name = lat_to_site.get(lat, f"Lat {lat:.2f}")
         site_data = data[data['lat'] == lat].sort_values('date')
         
-        # Calculate y-baseline for this latitude (represents DA = 0)
         baseline_y = lat * LATITUDE_BASELINE_MULTIPLIER
         
-        # Scale DA values and add to baseline
         y_values = baseline_y + DA_SCALING_FACTOR * site_data['da'].fillna(0)
         
         traces.append({
@@ -523,24 +467,18 @@ def generate_waterfall_plot(data):
             "customdata": [float(v) if pd.notna(v) else None for v in site_data['da']]
         })
         
-        # Add reference bars for this site
-        # These show reference DA levels of 20, 50, 100 μg/g
         bar_da_levels = [20, 50, 100]
-        bar_spacing_days = 120  # Spacing between bars
+        bar_spacing_days = 120
         bar_target_date = pd.to_datetime('2012-01-01')
         
         for idx, da_level in enumerate(bar_da_levels):
-            # Calculate x position for each bar (spread them out)
-            # Shift every other row to the right to avoid overlap
-            row_offset_days = 500 if i % 2 == 1 else 0  # Odd rows shifted 500 days right
+            row_offset_days = 500 if i % 2 == 1 else 0
             bar_offset_days = (idx - 1) * bar_spacing_days + row_offset_days  # -120, 0, +120 days plus row offset
             bar_date = bar_target_date + pd.Timedelta(days=bar_offset_days)
             
-            # Calculate y positions
-            y_bar_base = baseline_y  # Bottom of bar (DA=0)
-            y_bar_top = baseline_y + DA_SCALING_FACTOR * da_level  # Top of bar
+            y_bar_base = baseline_y
+            y_bar_top = baseline_y + DA_SCALING_FACTOR * da_level
             
-            # Draw vertical line for reference bar
             traces.append({
                 "x": [bar_date.strftime('%Y-%m-%d'), bar_date.strftime('%Y-%m-%d')],
                 "y": [y_bar_base, y_bar_top],
@@ -551,7 +489,6 @@ def generate_waterfall_plot(data):
                 "hovertemplate": f"Reference: {da_level} μg/g<extra></extra>"
             })
             
-            # Add label at top of bar
             traces.append({
                 "x": [bar_date.strftime('%Y-%m-%d')],
                 "y": [y_bar_top],
@@ -564,9 +501,8 @@ def generate_waterfall_plot(data):
                 "hoverinfo": "skip"
             })
     
-    # Create y-axis labels for sites - handle NaN values
     y_tick_positions = [float(lat * LATITUDE_BASELINE_MULTIPLIER) if pd.notna(lat) else 0 for lat in unique_lats]
-    y_tick_labels = [f"{lat:.2f}°N" for lat in unique_lats]  # Just show latitude, site names are in legend
+    y_tick_labels = [f"{lat:.2f}°N" for lat in unique_lats]
     
     plot_data = {
         "data": traces,
@@ -579,19 +515,19 @@ def generate_waterfall_plot(data):
             "yaxis": {
                 "title": {
                     "text": "Latitude (°N) - Baseline represents DA=0",
-                    "standoff": 30  # Add more space between title and labels
+                    "standoff": 30
                 },
                 "tickmode": "array",
                 "tickvals": y_tick_positions,
                 "ticktext": y_tick_labels,
-                "ticksuffix": "    ",  # Add more spacing after tick labels
-                "ticklen": 10,  # Longer tick marks
+                "ticksuffix": "    ",
+                "ticklen": 10,
                 "tickwidth": 1
             },
             "height": 700,
             "hovermode": "x unified",
             "showlegend": True,
-            "margin": {"l": 120}  # Increase left margin more for y-axis labels
+            "margin": {"l": 120}
         }
     }
     
@@ -599,21 +535,18 @@ def generate_waterfall_plot(data):
 
 
 def generate_spectral_analysis(data, site=None):
-    """Generate comprehensive spectral analysis with XGBoost comparison."""
+    """Generate spectral analysis with optional XGBoost comparison."""
     
     # Ensure date column is datetime
     data['date'] = pd.to_datetime(data['date'])
     
     if site:
-        # Filter by site
         site_data = data[data['site'] == site].copy()
         site_name = site
     else:
-        # Aggregate by date for all sites
         site_data = data.groupby('date')['da'].mean().reset_index()
         site_name = "All Sites"
     
-    # Sort by date and remove NaN values
     site_data = site_data.sort_values('date')
     
     if 'da' in site_data.columns:
@@ -624,18 +557,14 @@ def generate_spectral_analysis(data, site=None):
     if len(da_values) < 20:
         return []
     
-    # Always enable XGBoost comparison in spectral analysis
-    if True:  # Always enabled
-        # Use cached XGBoost retrospective results instead of recomputing
+    if True:
         try:
             from pathlib import Path
             
-            # Try to load cached retrospective results
             cache_dir = Path("cache/retrospective")
             cache_file = cache_dir / "regression_xgboost.parquet"
             
             if cache_file.exists():
-                # Load cached results
                 results_df = pd.read_parquet(cache_file)
                 
                 if site and not results_df.empty:
@@ -649,7 +578,6 @@ def generate_spectral_analysis(data, site=None):
                     xgb_predictions = None
                     actual_for_comparison = da_values
             else:
-                # Fallback: compute if cache doesn't exist
                 from forecasting.forecast_engine import ForecastEngine
                 import config
                 
@@ -681,9 +609,8 @@ def generate_spectral_analysis(data, site=None):
     # 1. Power Spectral Density - Actual vs XGBoost
     freqs, psd = signal.welch(da_values, fs=1.0, nperseg=min(256, len(da_values)//4))
     
-    # Find dominant frequencies
-    dominant_idx = np.argsort(psd[1:])[-3:][::-1]  # Top 3 frequencies
-    periods = 1 / freqs[1:]  # Convert to periods
+    dominant_idx = np.argsort(psd[1:])[-3:][::-1]
+    periods = 1 / freqs[1:]
     dominant_periods = periods[dominant_idx]
     
     traces = [{
@@ -695,7 +622,6 @@ def generate_spectral_analysis(data, site=None):
         "line": {"color": "blue", "width": 2}
     }]
     
-    # Add XGBoost PSD if available
     if xgb_predictions is not None and len(xgb_predictions) >= 20:
         freqs_xgb, psd_xgb = signal.welch(xgb_predictions, fs=1.0, nperseg=min(256, len(xgb_predictions)//4))
         traces.append({
@@ -746,7 +672,6 @@ def generate_spectral_analysis(data, site=None):
         "line": {"color": "blue", "width": 2}
     }]
     
-    # Add XGBoost periodogram if available
     if xgb_predictions is not None and len(xgb_predictions) >= 20:
         freqs_p_xgb, pgram_xgb = signal.periodogram(xgb_predictions, fs=1.0)
         traces2.append({
@@ -786,7 +711,7 @@ def generate_spectral_analysis(data, site=None):
                 "type": "heatmap",
                 "x": t.tolist(),
                 "y": f.tolist(),
-                "z": np.log10(Sxx + 1e-10).tolist(),  # Log scale for better visualization
+                "z": np.log10(Sxx + 1e-10).tolist(),
                 "colorscale": "Viridis",
                 "colorbar": {"title": "log(Power)"}
             }],
@@ -801,12 +726,10 @@ def generate_spectral_analysis(data, site=None):
     
     # 4. Coherence plot if XGBoost predictions available
     if xgb_predictions is not None and len(xgb_predictions) >= 20 and len(actual_for_comparison) >= 20:
-        # Ensure equal length
         min_len = min(len(actual_for_comparison), len(xgb_predictions))
         actual_trimmed = actual_for_comparison[:min_len]
         xgb_trimmed = xgb_predictions[:min_len]
         
-        # Compute coherence
         freqs_coh, coherence = signal.coherence(actual_trimmed, xgb_trimmed, fs=1.0, nperseg=min(256, min_len//4))
         
         plot_coherence = {
