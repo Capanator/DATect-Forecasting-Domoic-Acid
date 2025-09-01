@@ -1,43 +1,16 @@
 """
-Domoic Acid Forecasting System
-========================================
+Core Forecasting Components
+===========================
 
-A modular, temporally-safe forecasting system for predicting harmful algal bloom
-concentrations along the Pacific Coast.
+This module contains the core logic for domoic acid forecasting:
 
-Key Features:
-- Complete elimination of data leakage
-- Temporal validation for all features
-- Per-forecast DA category creation
-- Strict train/test split ordering
-- Configurable ML models and evaluation metrics
-
-Usage:
-    from forecasting import ForecastEngine
-    
-    # Create forecasting engine
-    engine = ForecastEngine(data_file="final_output.parquet")
-    
-    # Generate single forecast
-    result = engine.generate_single_forecast(
-        data_path="final_output.parquet",
-        forecast_date="2015-06-15", 
-        site="Santa Cruz Wharf",
-        task="regression",
-        model_type="xgboost"
-    )
+- ForecastEngine: Main forecasting logic with temporal safeguards
+- DataProcessor: Data cleaning and feature engineering
+- ModelFactory: ML model creation and management
 """
 
-__version__ = "2.0.0"
-__author__ = "DATect Team"
-__date__ = "2025-01-08"
+from .forecast_engine import ForecastEngine
+from .data_processor import DataProcessor  
+from .model_factory import ModelFactory
 
-# Import main classes for easy access
-from .core.forecast_engine import ForecastEngine
-from .core.model_factory import ModelFactory
-# Dashboard components removed - using web interface only
-
-__all__ = [
-    'ForecastEngine',
-    'ModelFactory'
-]
+__all__ = ['ForecastEngine', 'DataProcessor', 'ModelFactory']

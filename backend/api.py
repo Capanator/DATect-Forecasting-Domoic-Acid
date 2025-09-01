@@ -27,8 +27,8 @@ from sklearn.compose import ColumnTransformer
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from forecasting.core.forecast_engine import ForecastEngine
-from forecasting.core.model_factory import ModelFactory
+from forecasting.forecast_engine import ForecastEngine
+from forecasting.model_factory import ModelFactory
 import config
 from backend.visualizations import (
     generate_correlation_heatmap,
@@ -906,7 +906,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             # Fallback: Create category graph from regression prediction if classification failed
             if regression_result and 'predicted_da' in regression_result:
                 try:
-                    from forecasting.core.data_processor import DataProcessor
+                    from forecasting.data_processor import DataProcessor
                     
                     predicted_da = float(regression_result['predicted_da'])
                     data_processor = DataProcessor()

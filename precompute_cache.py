@@ -27,7 +27,7 @@ import sys
 sys.path.append('.')
 
 import config
-from forecasting.core.forecast_engine import ForecastEngine
+from forecasting.forecast_engine import ForecastEngine
 from backend.visualizations import generate_spectral_analysis
 
 class DATectCacheGenerator:

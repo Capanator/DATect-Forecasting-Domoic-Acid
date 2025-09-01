@@ -173,7 +173,7 @@ class DATectLauncher:
             
             # Run comprehensive temporal validation suite if available
             try:
-                from forecasting.core.temporal_validation import TemporalIntegrityValidator
+                from forecasting.temporal_validation import TemporalIntegrityValidator
                 
                 self.print_colored("Running 7 comprehensive temporal integrity tests...", 'blue')
                 validator = TemporalIntegrityValidator(config)

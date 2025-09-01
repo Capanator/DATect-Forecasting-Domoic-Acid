@@ -25,7 +25,7 @@ import warnings
 import shutil
 import config
 
-from forecasting.core.logging_config import setup_logging, get_logger
+from forecasting.logging_config import setup_logging, get_logger
 
 setup_logging(log_level='INFO', enable_file_logging=True)
 logger = get_logger(__name__)
