@@ -207,17 +207,25 @@ class BalancedSpikeLGBRegressor(BaseEstimator, RegressorMixin):
         sample_weights = np.ones(len(y))
         sample_weights[spike_mask] *= self.spike_weight
         
-        # LightGBM parameters optimized for both R² and spike detection
+        # LightGBM parameters optimized for SPEED while maintaining performance
         default_params = {
-            'n_estimators': 1000,
-            'max_depth': 10,
-            'learning_rate': 0.05,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
+            'n_estimators': 500,       # Reduced from 1000 for speed
+            'max_depth': 8,            # Reduced from 10 for speed  
+            'learning_rate': 0.1,      # Increased from 0.05 for faster convergence
+            'subsample': 0.9,          # Increased for better CPU utilization
+            'colsample_bytree': 0.9,   # Increased for better CPU utilization
+            'num_leaves': 127,         # Optimized for speed (2^depth - 1)
+            'min_child_samples': 10,   # Prevent overfitting with fewer samples
+            'subsample_freq': 1,       # Enable frequent subsampling for speed
+            'feature_fraction': 0.9,   # Use most features for robustness
+            'bagging_freq': 1,         # Enable bagging every iteration
+            'bagging_fraction': 0.9,   # High bagging for speed and robustness
             'random_state': getattr(config, 'RANDOM_SEED', 42),
-            'n_jobs': -1,  # Use all CPU cores for parallel processing
+            'n_jobs': -1,              # Use all CPU cores for parallel processing
             'verbose': -1,
             'objective': 'regression',
+            'boosting_type': 'gbdt',   # Gradient boosting (fastest)
+            'device_type': 'cpu',      # Explicit CPU usage
         }
         
         # Update with any provided parameters

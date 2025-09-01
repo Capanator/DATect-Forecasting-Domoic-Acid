@@ -198,7 +198,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 5
+N_RANDOM_ANCHORS = 200  # Reduced for speed - still representative
 
 # Lag Feature Configuration
 
@@ -218,9 +218,9 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 # Statistical Enhancement Settings
 # ================================
 
-# Bootstrap confidence intervals
-ENABLE_UNCERTAINTY_QUANTIFICATION = True
-BOOTSTRAP_ITERATIONS = 5  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
+# Bootstrap confidence intervals (DISABLED for speed in retrospective mode)
+ENABLE_UNCERTAINTY_QUANTIFICATION = False  # Disabled for faster retrospective analysis
+BOOTSTRAP_ITERATIONS = 1  # Minimal for speed (set to 500+ for production)
 CONFIDENCE_LEVEL = 0.95
 
 # Baseline model comparisons

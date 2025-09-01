@@ -437,7 +437,7 @@ class ForecastEngine:
                 logger.warning("No valid classification results for evaluation")
     
     def generate_enhanced_forecast(self, data_path, forecast_date, site, task, model_type, 
-                                 include_uncertainty=True, include_comparison=False):
+                                 include_uncertainty=None, include_comparison=False):
         """
         Generate enhanced forecast with bootstrap uncertainty quantification and optional baseline comparison.
         
@@ -454,6 +454,10 @@ class ForecastEngine:
             Dictionary with enhanced forecast results including uncertainty bounds
         """
         logger.info(f"Generating enhanced forecast for {site} on {forecast_date} using {model_type}")
+        
+        # Use config setting if not explicitly specified
+        if include_uncertainty is None:
+            include_uncertainty = getattr(config, 'ENABLE_UNCERTAINTY_QUANTIFICATION', True)
         
         # Get base forecast
         base_result = self.generate_single_forecast(data_path, forecast_date, site, task, model_type)
