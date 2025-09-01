@@ -208,7 +208,7 @@ class DATectLauncher:
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
-            valid_models = ['xgboost', 'linear']
+            valid_models = ['xgboost', 'linear', 'balanced_xgboost', 'balanced_lightgbm']
             if not hasattr(config, 'FORECAST_MODEL') or config.FORECAST_MODEL not in valid_models:
                 self.print_colored(f"❌ Invalid FORECAST_MODEL. Must be one of: {valid_models}", 'red')
                 return False
@@ -256,7 +256,7 @@ class DATectLauncher:
         print("Installing Python dependencies...")
         python_packages = [
             'fastapi', 'uvicorn', 'pydantic', 'pandas', 'numpy', 
-            'scikit-learn', 'plotly', 'requests', 'xgboost', 'dash'
+            'scikit-learn', 'plotly', 'requests', 'xgboost', 'lightgbm', 'dash'
         ]
         
         try:

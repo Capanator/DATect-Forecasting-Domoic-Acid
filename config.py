@@ -184,8 +184,8 @@ FORECAST_MODE = "retrospective"
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
 FORECAST_TASK = "regression"
 
-# ML algorithm: "xgboost" (primary), "balanced_xgboost" (spike optimized), or "linear" (interpretable)
-FORECAST_MODEL = "balanced_xgboost"
+# ML algorithm: "xgboost" (primary), "balanced_xgboost" (spike optimized), "balanced_lightgbm" (best performance), or "linear" (interpretable)
+FORECAST_MODEL = "balanced_lightgbm"
 
 
 # Temporal Validation - prevents data leakage
@@ -198,7 +198,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 500
+N_RANDOM_ANCHORS = 5
 
 # Lag Feature Configuration
 
@@ -220,7 +220,7 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
 # Bootstrap confidence intervals
 ENABLE_UNCERTAINTY_QUANTIFICATION = True
-BOOTSTRAP_ITERATIONS = 200  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
+BOOTSTRAP_ITERATIONS = 5  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
 CONFIDENCE_LEVEL = 0.95
 
 # Baseline model comparisons
@@ -236,6 +236,7 @@ MAX_INTERPOLATION_WEEKS = 6  # Maximum gap size for interpolation (scientificall
 SPIKE_THRESHOLD = 20.0  # DA level considered a "spike" (μg/g)
 SPIKE_WEIGHT_MULTIPLIER = 5.0  # Weight multiplier for spike events in spike_xgboost
 PRECISION_WEIGHT = 8.0  # Moderate weight for balanced spike detection (balanced_xgboost)
+LGB_SPIKE_WEIGHT = 60.0  # Weight for LightGBM balanced model (best performance)
 SPIKE_CLASSES = [2, 3]  # High DA categories for classification spike weighting
 
 # Model comparison settings

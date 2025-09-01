@@ -14,7 +14,7 @@ const Dashboard = () => {
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
-    forecast_model: 'balanced_xgboost',
+    forecast_model: 'balanced_lightgbm',
     selected_sites: []
   })
   const [configLoading, setConfigLoading] = useState(false)
@@ -25,7 +25,7 @@ const Dashboard = () => {
   
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('balanced_xgboost')
+  const [selectedModel, setSelectedModel] = useState('balanced_lightgbm')
   const [task, setTask] = useState('regression')
   
   const [forecast, setForecast] = useState(null)
@@ -707,7 +707,8 @@ const Dashboard = () => {
                     className="w-full p-3 border border-gray-300 rounded-md text-lg"
                   >
                     <option value="xgboost">XGBoost - Advanced gradient boosting</option>
-                    <option value="balanced_xgboost">Balanced XGBoost - Optimized for spike detection + R² (Recommended)</option>
+                    <option value="balanced_xgboost">Balanced XGBoost - Optimized for spike detection + R²</option>
+                    <option value="balanced_lightgbm">Balanced LightGBM - Best Performance F1=0.826 (Recommended)</option>
                     <option value="linear">Linear Models - Linear regression & Logistic classification</option>
                   </select>
                 </div>

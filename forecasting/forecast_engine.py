@@ -71,7 +71,7 @@ class ForecastEngine:
         logger.info("ForecastEngine initialization completed successfully")
         
     def run_retrospective_evaluation(self, task="regression", model_type="xgboost", 
-                                   n_anchors=50, min_test_date="2008-01-01"):
+                                   n_anchors=None, min_test_date="2008-01-01"):
         """
         Run leak-free retrospective evaluation matching original behavior.
         
@@ -84,10 +84,14 @@ class ForecastEngine:
         Returns:
             DataFrame with evaluation results matching original format
         """
+        # Use config value if n_anchors not specified
+        if n_anchors is None:
+            n_anchors = getattr(config, 'N_RANDOM_ANCHORS', 50)
+        
         # Validate runtime parameters
         validate_runtime_parameters(n_anchors, min_test_date)
         
-        logger.info(f"Running LEAK-FREE {task} evaluation with {model_type}")
+        logger.info(f"Running LEAK-FREE {task} evaluation with {model_type} ({n_anchors} anchors)")
         
         # Load data using original method
         self.data = self.data_processor.load_and_prepare_base_data(self.data_file)

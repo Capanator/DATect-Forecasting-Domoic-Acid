@@ -115,12 +115,17 @@ def get_actual_model_name(ui_model: str, task: str) -> str:
             return "linear"
         else:
             return "logistic"
+    elif ui_model == "balanced_lightgbm":
+        if task == "regression":
+            return "balanced_lightgbm"
+        else:
+            return "xgboost"  # LightGBM not supported for classification
     else:
         return ui_model
 
-def get_realtime_model_name(task: str) -> str:
-    """Force XGBoost for all realtime forecasting"""
-    return "xgboost"
+def get_realtime_model_name(task: str, requested_model: str = "xgboost") -> str:
+    """Get model name for realtime forecasting (now supports all models)"""
+    return get_actual_model_name(requested_model, task)
 
 def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
     """Generate quantile predictions using Gradient Boosting and point predictions"""
@@ -338,8 +343,8 @@ async def generate_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
-        actual_model = get_realtime_model_name(request.task)
+        # For realtime forecasting, use requested model (LightGBM now supported)
+        actual_model = get_realtime_model_name(request.task, request.model)
         result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
@@ -729,12 +734,12 @@ async def get_gradient_uncertainty_visualization(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # Generate quantile predictions - always use XGBoost for realtime
+        # Generate quantile predictions - use requested model
         quantile_result = generate_quantile_predictions(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
-            "xgboost"  # Force XGBoost for realtime forecasting
+            get_realtime_model_name(request.task, request.model)
         )
         
         if not quantile_result:
@@ -777,25 +782,30 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         enable_uncertainty = getattr(config, 'ENABLE_UNCERTAINTY_QUANTIFICATION', True)
         enable_baseline_comparison = getattr(config, 'ENABLE_BASELINE_COMPARISON', False)
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection  
+        # For realtime forecasting, use requested model (LightGBM now supported)
+        actual_model = get_realtime_model_name("regression", request.model)
         regression_result = get_forecast_engine().generate_enhanced_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            "xgboost",  # Force XGBoost for realtime
+            actual_model,
             include_uncertainty=enable_uncertainty,
             include_comparison=enable_baseline_comparison
         )
         
         
-        # For classification, also force XGBoost with uncertainty
+        # For classification, use supported model (LightGBM not available for classification)
+        if request.model == "balanced_lightgbm":
+            classification_actual_model = "xgboost"  # Fallback for LightGBM
+        else:
+            classification_actual_model = get_realtime_model_name("classification", request.model)
         classification_result = get_forecast_engine().generate_enhanced_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "classification",
-            "xgboost",  # Force XGBoost for realtime
+            classification_actual_model,
             include_uncertainty=enable_uncertainty,
             include_comparison=enable_baseline_comparison
         )
