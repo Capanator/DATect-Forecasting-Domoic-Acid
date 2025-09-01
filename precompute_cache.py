@@ -24,7 +24,6 @@ warnings.filterwarnings('ignore')
 
 # Ensure imports work
 import sys
-sys.path.append('.')
 
 import config
 from forecasting.forecast_engine import ForecastEngine

@@ -25,7 +25,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from forecasting.forecast_engine import ForecastEngine
 from forecasting.model_factory import ModelFactory

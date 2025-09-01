@@ -521,7 +521,6 @@ def run_temporal_validation(config=None):
         # Import default config if not provided
         import sys
         from pathlib import Path
-        sys.path.append(str(Path(__file__).parent.parent.parent))
         import config
     
     validator = TemporalIntegrityValidator(config)

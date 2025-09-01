@@ -284,7 +284,7 @@ class DATectLauncher:
         self.print_colored("🖥️  Starting backend API server...", 'blue')
         
         self.backend_process = subprocess.Popen([
-            sys.executable, 'backend/api.py'
+            sys.executable, '-m', 'backend.api'
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.project_root)
         
         # Backend started successfully

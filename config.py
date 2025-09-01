@@ -179,10 +179,10 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "retrospective"
+FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "regression"
+FORECAST_TASK = "classification"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -198,7 +198,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 500
+N_RANDOM_ANCHORS = 5
 
 # Lag Feature Configuration
 
