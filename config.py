@@ -179,10 +179,10 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "realtime"
+FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "classification"
+FORECAST_TASK = "regression"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -198,12 +198,12 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 5
+N_RANDOM_ANCHORS = 500
 
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
-USE_LAG_FEATURES = False
+USE_LAG_FEATURES = True
 
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
@@ -214,3 +214,20 @@ LAG_FEATURES = [1, 3] if USE_LAG_FEATURES else []
 # Risk thresholds for classification: Low (0-5), Moderate (5-20), High (20-40), Extreme (>40 μg/g)
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
+
+# Statistical Enhancement Settings
+# ================================
+
+# Bootstrap confidence intervals
+ENABLE_UNCERTAINTY_QUANTIFICATION = True
+BOOTSTRAP_ITERATIONS = 200  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
+CONFIDENCE_LEVEL = 0.95
+
+# Baseline model comparisons
+ENABLE_BASELINE_COMPARISON = False  # Enable for detailed analysis
+
+# Enhanced interpolation constraints
+MAX_INTERPOLATION_WEEKS = 6  # Maximum gap size for interpolation (scientifically conservative)
+
+# Model comparison settings
+ENABLE_RESIDUAL_ANALYSIS = False  # Enable for detailed model diagnostics

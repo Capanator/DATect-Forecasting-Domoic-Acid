@@ -10,6 +10,7 @@ import re
 import sys
 import traceback
 from datetime import datetime, date
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import numpy as np
@@ -38,6 +39,9 @@ from backend.visualizations import (
     generate_gradient_uncertainty_plot
 )
 from backend.cache_manager import cache_manager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 def clean_float_for_json(value):
     """Handle inf/nan values for JSON serialization"""
@@ -769,23 +773,31 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
-        regression_result = get_forecast_engine().generate_single_forecast(
+        # Use enhanced forecasting with uncertainty quantification
+        enable_uncertainty = getattr(config, 'ENABLE_UNCERTAINTY_QUANTIFICATION', True)
+        enable_baseline_comparison = getattr(config, 'ENABLE_BASELINE_COMPARISON', False)
+        
+        # For realtime forecasting, always use XGBoost regardless of UI selection  
+        regression_result = get_forecast_engine().generate_enhanced_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "regression",
-            "xgboost"  # Force XGBoost for realtime
+            "xgboost",  # Force XGBoost for realtime
+            include_uncertainty=enable_uncertainty,
+            include_comparison=enable_baseline_comparison
         )
         
         
-        # For classification, also force XGBoost
-        classification_result = get_forecast_engine().generate_single_forecast(
+        # For classification, also force XGBoost with uncertainty
+        classification_result = get_forecast_engine().generate_enhanced_forecast(
             config.FINAL_OUTPUT_PATH,
             pd.to_datetime(request.date),
             actual_site,
             "classification",
-            "xgboost"  # Force XGBoost for realtime
+            "xgboost",  # Force XGBoost for realtime
+            include_uncertainty=enable_uncertainty,
+            include_comparison=enable_baseline_comparison
         )
         
         # Helper function to make results JSON serializable
@@ -838,38 +850,35 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "graphs": {}
         }
         
-        # Add advanced quantile-based uncertainty using Gradient Boosting + XGBoost
+        # Add bootstrap uncertainty-based visualization
         if regression_result and 'predicted_da' in regression_result:
-            # Generate quantile predictions - always use XGBoost for realtime
-            quantile_result = generate_quantile_predictions(
-                config.FINAL_OUTPUT_PATH,
-                pd.to_datetime(request.date),
-                actual_site,
-                "xgboost"  # Force XGBoost for realtime forecasting
-            )
+            predicted_da = float(regression_result['predicted_da'])
             
-            if quantile_result:
-                gb_preds = quantile_result['quantile_predictions']
-                xgb_pred = quantile_result['point_prediction']
+            # Use bootstrap uncertainty if available
+            if 'uncertainty' in regression_result:
+                uncertainty = regression_result['uncertainty']
+                bootstrap_quantiles = {
+                    "q05": float(uncertainty['lower_bound']),
+                    "q50": float(uncertainty['prediction_mean']),
+                    "q95": float(uncertainty['upper_bound'])
+                }
                 
-                # Generate advanced gradient visualization plot
+                # Generate advanced gradient visualization plot with bootstrap uncertainty
                 gradient_plot = generate_gradient_uncertainty_plot(
-                    gb_preds, xgb_pred, actual_da=None
+                    bootstrap_quantiles, predicted_da, actual_da=None
                 )
                 
                 response_data["graphs"]["level_range"] = {
-                    "gradient_quantiles": {
-                        "q05": float(gb_preds['q05']),
-                        "q50": float(gb_preds['q50']),
-                        "q95": float(gb_preds['q95'])
-                    },
-                    "xgboost_prediction": float(xgb_pred),
+                    "gradient_quantiles": bootstrap_quantiles,
+                    "xgboost_prediction": predicted_da,
                     "gradient_plot": gradient_plot,
-                    "type": "gradient_uncertainty"
+                    "type": "bootstrap_uncertainty",
+                    "confidence_level": uncertainty['confidence_level'],
+                    "n_bootstrap_iterations": uncertainty['n_iterations'],
+                    "uncertainty_method": "bootstrap"
                 }
             else:
-                # Fallback to simple approach if quantile generation fails
-                predicted_da = float(regression_result['predicted_da'])
+                # Fallback to simple approach if bootstrap uncertainty not available
                 fallback_quantiles = {
                     "q05": predicted_da * 0.7,
                     "q50": predicted_da,
@@ -883,9 +892,9 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                 
                 response_data["graphs"]["level_range"] = {
                     "gradient_quantiles": fallback_quantiles,
-                    "xgboost_prediction": float(predicted_da),
+                    "xgboost_prediction": predicted_da,
                     "gradient_plot": gradient_plot,
-                    "type": "gradient_uncertainty"
+                    "type": "fallback_uncertainty"
                 }
         
         # Add category graph data for classification  
@@ -954,6 +963,100 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "success": False,
             "forecast_date": request.date,
             "site": request.site,
+            "error": str(e)
+        }
+
+@app.get("/api/model-comparison")
+async def get_model_comparison():
+    """Generate comprehensive model comparison analysis."""
+    try:
+        from forecasting.model_comparison import ModelComparator
+        
+        # Try to load cached retrospective results for comparison
+        cache_files = [
+            "cache/retrospective/regression_xgboost.parquet",
+            "cache/retrospective/regression_linear.parquet", 
+            "cache/retrospective/classification_xgboost.parquet",
+            "cache/retrospective/classification_logistic.parquet"
+        ]
+        
+        # Load available cached results
+        all_results = []
+        for cache_file in cache_files:
+            try:
+                if Path(cache_file).exists():
+                    df = pd.read_parquet(cache_file)
+                    if not df.empty:
+                        # Add model type identifier
+                        model_type = cache_file.split('/')[-1].replace('.parquet', '')
+                        task_type, model_name = model_type.split('_', 1)
+                        
+                        # Add model-specific prediction columns
+                        if task_type == 'regression':
+                            if model_name == 'linear':
+                                df['linear_predicted_da'] = df['Predicted_da']
+                        elif task_type == 'classification':
+                            if model_name == 'logistic':
+                                df['logistic_predicted_category'] = df['Predicted_da-category']
+                        
+                        all_results.append(df)
+            except Exception as e:
+                logger.warning(f"Could not load {cache_file}: {e}")
+        
+        if not all_results:
+            return {
+                "success": False,
+                "error": "No cached retrospective results found. Run retrospective analysis first."
+            }
+        
+        # Merge all results on common columns (date, site, da)
+        merged_df = all_results[0]
+        for df in all_results[1:]:
+            # Merge on key columns, keeping all prediction columns
+            common_cols = ['date', 'site', 'da']
+            if 'da-category' in df.columns:
+                common_cols.append('da-category')
+            
+            # Only merge new prediction columns
+            new_cols = [col for col in df.columns if col.startswith(('Predicted_', 'linear_', 'logistic_'))]
+            merge_cols = common_cols + new_cols
+            
+            merged_df = merged_df.merge(
+                df[merge_cols], 
+                on=common_cols, 
+                how='outer', 
+                suffixes=('', '_dup')
+            )
+        
+        # Run comprehensive comparison
+        comparator = ModelComparator()
+        comparison_results = comparator.run_comprehensive_comparison(merged_df)
+        
+        # Create visualization data
+        viz_data = comparator.create_comparison_visualization_data(comparison_results)
+        
+        response_data = {
+            "success": True,
+            "comparison_results": comparison_results,
+            "visualization_data": viz_data,
+            "data_summary": {
+                "total_predictions": len(merged_df),
+                "date_range": {
+                    "min": str(merged_df['date'].min()),
+                    "max": str(merged_df['date'].max())
+                },
+                "sites": merged_df['site'].nunique(),
+                "available_models": list(comparison_results.get('overall_summary', {}).keys())
+            }
+        }
+        
+        # Clean all float values for JSON serialization
+        return clean_float_for_json(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in model comparison: {e}")
+        return {
+            "success": False,
             "error": str(e)
         }
 

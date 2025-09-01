@@ -18,6 +18,7 @@ from .data_processor import DataProcessor
 from .model_factory import ModelFactory
 from .validation import validate_system_startup, validate_runtime_parameters
 from .logging_config import get_logger
+from .statistical_enhancements import StatisticalEnhancer
 
 warnings.filterwarnings('ignore')
 
@@ -50,6 +51,11 @@ class ForecastEngine:
         logger.info("Initializing data processor and model factory")
         self.data_processor = DataProcessor()
         self.model_factory = ModelFactory()
+        
+        # Initialize statistical enhancements
+        n_bootstrap = getattr(config, 'BOOTSTRAP_ITERATIONS', 1000)
+        confidence_level = getattr(config, 'CONFIDENCE_LEVEL', 0.95)
+        self.statistical_enhancer = StatisticalEnhancer(n_bootstrap, confidence_level)
         
         # Configuration matching original
         self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
@@ -425,3 +431,184 @@ class ForecastEngine:
                 logger.info(f"LEAK-FREE Classification Accuracy: {accuracy:.4f}")
             else:
                 logger.warning("No valid classification results for evaluation")
+    
+    def generate_enhanced_forecast(self, data_path, forecast_date, site, task, model_type, 
+                                 include_uncertainty=True, include_comparison=False):
+        """
+        Generate enhanced forecast with bootstrap uncertainty quantification and optional baseline comparison.
+        
+        Args:
+            data_path: Path to data file
+            forecast_date: Date to forecast for
+            site: Site to forecast for
+            task: "regression" or "classification"  
+            model_type: Model type to use
+            include_uncertainty: Whether to include bootstrap confidence intervals
+            include_comparison: Whether to include baseline model comparison
+            
+        Returns:
+            Dictionary with enhanced forecast results including uncertainty bounds
+        """
+        logger.info(f"Generating enhanced forecast for {site} on {forecast_date} using {model_type}")
+        
+        # Get base forecast
+        base_result = self.generate_single_forecast(data_path, forecast_date, site, task, model_type)
+        
+        if base_result is None:
+            return None
+            
+        # If uncertainty not requested, return base result
+        if not include_uncertainty and not include_comparison:
+            return base_result
+            
+        try:
+            # Load and prepare data for uncertainty estimation
+            data = self.data_processor.load_and_prepare_base_data(data_path)
+            forecast_date = pd.Timestamp(forecast_date)
+            
+            df_site = data[data['site'] == site].copy()
+            df_site.sort_values('date', inplace=True)
+            
+            # Get training data (same logic as generate_single_forecast)
+            available_before = df_site[df_site['date'] < forecast_date]
+            if available_before.empty:
+                logger.warning("No training data available for uncertainty estimation")
+                return base_result
+            
+            anchor_date = available_before['date'].max()
+            temporal_cutoff = forecast_date - pd.Timedelta(days=self.temporal_buffer_days)
+            
+            # Training data: all available data before temporal cutoff 
+            training_cutoff = min(anchor_date, temporal_cutoff)
+            train_data = df_site[df_site['date'] <= training_cutoff].copy()
+            
+            if len(train_data) < self.min_training_samples:
+                logger.warning("Insufficient training data for uncertainty estimation")
+                return base_result
+            
+            # Use same data preparation logic as generate_single_forecast
+            df_site_with_lags = self.data_processor.create_lag_features_safe(
+                df_site, "site", "da", config.LAG_FEATURES, anchor_date
+            )
+            
+            # Get training data (everything up to and including anchor date)
+            df_train = df_site_with_lags[df_site_with_lags['date'] <= anchor_date].copy()
+            df_train_clean = df_train.dropna(subset=['da']).copy()
+            
+            if df_train_clean.empty or len(df_train_clean) < self.min_training_samples:
+                logger.warning("Insufficient clean training data for uncertainty estimation")
+                return base_result
+            
+            # Create DA categories from training data only
+            df_train_clean["da-category"] = self.data_processor.create_da_categories_safe(df_train_clean["da"])
+            
+            # Prepare features using same method as original
+            drop_cols = ["date", "site", "da", "da-category"]
+            transformer, X_train = self.data_processor.create_numeric_transformer(df_train_clean, drop_cols)
+            
+            # Transform features
+            X_train_processed = transformer.fit_transform(X_train)
+            y_train = df_train_clean["da"]
+            
+            # Create forecast point using latest available data
+            latest_data = df_train_clean.iloc[-1:].copy()
+            X_pred_processed = transformer.transform(latest_data.drop(columns=drop_cols, errors='ignore'))
+            
+            if len(X_train_processed) < self.min_training_samples:
+                logger.warning("Insufficient processed training data for uncertainty estimation")
+                return base_result
+            
+            # Create and train model using processed features
+            model = self.model_factory.get_model(task, model_type)
+            model.fit(X_train_processed, y_train)
+            
+            enhanced_result = base_result.copy()
+            
+            # Add uncertainty estimation
+            if include_uncertainty:
+                logger.info("Computing bootstrap confidence intervals...")
+                
+                # Convert to DataFrames for bootstrap method
+                X_train_df = pd.DataFrame(X_train_processed) if not isinstance(X_train_processed, pd.DataFrame) else X_train_processed
+                X_pred_df = pd.DataFrame(X_pred_processed) if not isinstance(X_pred_processed, pd.DataFrame) else X_pred_processed
+                
+                uncertainty = self.statistical_enhancer.bootstrap_prediction_interval(
+                    model, X_train_df, y_train, X_pred_df, task
+                )
+                
+                enhanced_result['uncertainty'] = {
+                    'method': 'bootstrap',
+                    'confidence_level': self.statistical_enhancer.confidence_level,
+                    'n_iterations': uncertainty['n_successful_iterations'],
+                    'prediction_mean': uncertainty['mean'],
+                    'prediction_std': uncertainty['std'],
+                    'lower_bound': uncertainty['lower_bound'],
+                    'upper_bound': uncertainty['upper_bound']
+                }
+                
+                logger.info(f"Uncertainty bounds: [{uncertainty['lower_bound']:.3f}, {uncertainty['upper_bound']:.3f}]")
+            
+            # Add baseline comparison
+            if include_comparison:
+                logger.info("Computing baseline model comparison...")
+                baseline_result = self._compute_baseline_comparison(
+                    X_train_df, y_train, X_pred_df, model, task, model_type
+                )
+                enhanced_result['baseline_comparison'] = baseline_result
+            
+            return enhanced_result
+            
+        except Exception as e:
+            logger.error(f"Error in enhanced forecast: {e}")
+            logger.warning("Falling back to base forecast result")
+            return base_result
+    
+    def _compute_baseline_comparison(self, X_train, y_train, X_pred, primary_model, task, primary_model_type):
+        """Compute comparison between primary model and baseline models."""
+        comparisons = {}
+        
+        try:
+            # Get primary model prediction
+            primary_pred = primary_model.predict(X_pred)[0]
+            
+            # Linear baseline (existing in the system)
+            baseline_model_type = 'linear' if task == 'regression' else 'logistic'
+            baseline_model = self.model_factory.get_model(task, baseline_model_type)
+            baseline_model.fit(X_train, y_train)
+            baseline_pred = baseline_model.predict(X_pred)[0]
+            
+            # Simple persistence baseline (last known value)
+            persistence_pred = y_train.iloc[-1] if task == 'regression' else y_train.mode().iloc[0]
+            
+            # Historical mean baseline
+            mean_pred = y_train.mean() if task == 'regression' else y_train.mode().iloc[0]
+            
+            comparisons = {
+                'primary_model': {
+                    'name': primary_model_type,
+                    'prediction': primary_pred
+                },
+                'baselines': {
+                    'statistical_model': {
+                        'name': baseline_model_type,
+                        'prediction': baseline_pred,
+                        'improvement_vs_primary': ((baseline_pred - primary_pred) / abs(baseline_pred) * 100) if baseline_pred != 0 else 0
+                    },
+                    'persistence': {
+                        'name': 'persistence',
+                        'prediction': persistence_pred,
+                        'improvement_vs_primary': ((persistence_pred - primary_pred) / abs(persistence_pred) * 100) if persistence_pred != 0 else 0
+                    },
+                    'historical_mean': {
+                        'name': 'historical_mean',
+                        'prediction': mean_pred,
+                        'improvement_vs_primary': ((mean_pred - primary_pred) / abs(mean_pred) * 100) if mean_pred != 0 else 0
+                    }
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error computing baseline comparison: {e}")
+            comparisons = {'error': str(e)}
+        
+        return comparisons

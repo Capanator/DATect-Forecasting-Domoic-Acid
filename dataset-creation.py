@@ -880,20 +880,41 @@ def compile_da_pn(lt_df, da_df, pn_df):
     lt_df_merged = pd.merge(lt_df_merged, pn_df_copy[['Date', 'Site', 'PN_Levels']], 
                             on=['Date', 'Site'], how='left')
         
-    # FIXED: Interpolate missing values using only forward direction to prevent future data leakage
-    print("  Interpolating missing values (forward-only to prevent leakage)...")
+    # ENHANCED: Interpolate missing values with scientifically conservative gap limits
+    print("  Interpolating missing values (forward-only with gap limits to prevent over-interpolation)...")
     lt_df_merged = lt_df_merged.sort_values(by=['Site', 'Date'])
     
-    # Interpolate DA - ONLY forward direction
+    # Enhanced interpolation with gap constraints
+    # MAX_INTERPOLATION_WEEKS from config (default 6 weeks = scientifically conservative)
+    try:
+        import config
+        max_gap_weeks = getattr(config, 'MAX_INTERPOLATION_WEEKS', 6)
+    except:
+        max_gap_weeks = 6  # Conservative default
+        
+    # Since data is typically weekly, max_gap_weeks translates directly to limit parameter
+    interpolation_limit = max_gap_weeks
+    
+    print(f"  Maximum interpolation gap: {max_gap_weeks} weeks (limit={interpolation_limit})")
+    
+    # Interpolate DA - ONLY forward direction with gap limits
     lt_df_merged['DA_Levels'] = lt_df_merged.groupby('Site')['DA_Levels_orig'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='forward')
+        lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
     )
     lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
         
-    # Interpolate PN - ONLY forward direction
+    # Interpolate PN - ONLY forward direction with gap limits
     lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='forward')
+        lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
     )
+    
+    # Report interpolation statistics
+    da_missing_before = lt_df_merged['DA_Levels'].isna().sum()
+    pn_missing_before = lt_df_merged['PN_Levels'].isna().sum()
+    
+    if da_missing_before > 0 or pn_missing_before > 0:
+        print(f"  Post-interpolation gaps remaining: DA={da_missing_before}, PN={pn_missing_before}")
+        print(f"  (Gaps larger than {max_gap_weeks} weeks are preserved to maintain scientific integrity)")
     
     return lt_df_merged
 
