@@ -214,7 +214,7 @@ class ForecastEngine:
             reg_model = self.model_factory.get_model("regression", model_type)
             
             y_train = train_df["da"]
-            spike_mask = y_train > 20.0  # spike threshold
+            spike_mask = y_train > 15.0  # spike threshold
             sample_weights = np.ones(len(y_train))
             sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
@@ -312,7 +312,7 @@ class ForecastEngine:
             model = self.model_factory.get_model("regression", model_type)
             
             y_train = df_train_clean["da"]
-            spike_mask = y_train > 20.0  # spike threshold
+            spike_mask = y_train > 15.0  # spike threshold
             sample_weights = np.ones(len(y_train))
             sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
@@ -375,7 +375,7 @@ class ForecastEngine:
                 r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
                 mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
                 
-                spike_threshold = 20.0
+                spike_threshold = 15.0
                 y_true_binary = (valid_results['da'] > spike_threshold).astype(int)
                 y_pred_binary = (valid_results['Predicted_da'] > spike_threshold).astype(int)
                 
