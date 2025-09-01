@@ -902,19 +902,28 @@ def compile_da_pn(lt_df, da_df, pn_df):
         lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
     )
     lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
+    
+    # Fill remaining DA gaps (beyond interpolation limit) with 0
+    # This assumes that extended gaps represent periods of no detectable DA
+    lt_df_merged['DA_Levels'] = lt_df_merged['DA_Levels'].fillna(0)
         
-    # Interpolate PN - ONLY forward direction with gap limits
+    # Interpolate PN - ONLY forward direction with gap limits  
     lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
         lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
     )
     
-    # Report interpolation statistics
-    da_missing_before = lt_df_merged['DA_Levels'].isna().sum()
-    pn_missing_before = lt_df_merged['PN_Levels'].isna().sum()
+    # Fill remaining PN gaps (beyond interpolation limit) with 0
+    # This assumes that extended gaps represent periods of no detectable PN
+    lt_df_merged['PN_Levels'] = lt_df_merged['PN_Levels'].fillna(0)
     
-    if da_missing_before > 0 or pn_missing_before > 0:
-        print(f"  Post-interpolation gaps remaining: DA={da_missing_before}, PN={pn_missing_before}")
-        print(f"  (Gaps larger than {max_gap_weeks} weeks are preserved to maintain scientific integrity)")
+    # Report interpolation statistics
+    da_missing_after = lt_df_merged['DA_Levels'].isna().sum()
+    pn_missing_after = lt_df_merged['PN_Levels'].isna().sum()
+    
+    print(f"  Interpolation complete:")
+    print(f"    - Weeks 1-{max_gap_weeks}: Linear interpolation from last known value → 0")
+    print(f"    - Weeks {max_gap_weeks+1}+: Direct fill with 0 (assumes no detectable toxin)")
+    print(f"    - Remaining NaN values: DA={da_missing_after}, PN={pn_missing_after}")
     
     return lt_df_merged
 
