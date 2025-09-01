@@ -198,7 +198,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 5
+N_RANDOM_ANCHORS = 500
 
 # Lag Feature Configuration
 
