@@ -1151,12 +1151,21 @@ def _compute_summary(results_json: list) -> dict:
     summary["regression_forecasts"] = len(valid_regression)
     summary["classification_forecasts"] = len(valid_classification)
     if valid_regression:
-        from sklearn.metrics import r2_score, mean_absolute_error
+        from sklearn.metrics import r2_score, mean_absolute_error, precision_score, recall_score, f1_score
         actual_vals = [r[0] for r in valid_regression]
         pred_vals = [r[1] for r in valid_regression]
         try:
             summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
             summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
+            
+            # Add F1, precision, recall for spike detection (regression as binary classification)
+            spike_threshold = 20.0
+            actual_binary = [1 if val > spike_threshold else 0 for val in actual_vals]
+            pred_binary = [1 if val > spike_threshold else 0 for val in pred_vals]
+            
+            summary["f1_score"] = float(f1_score(actual_binary, pred_binary, zero_division=0))
+            summary["precision"] = float(precision_score(actual_binary, pred_binary, zero_division=0))
+            summary["recall"] = float(recall_score(actual_binary, pred_binary, zero_division=0))
         except Exception:
             pass
     if valid_classification:

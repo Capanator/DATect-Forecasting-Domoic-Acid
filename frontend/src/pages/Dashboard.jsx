@@ -1155,6 +1155,13 @@ const Dashboard = () => {
                 <div className="text-sm text-gray-600">MAE (μg/g)</div>
               </div>
             )}
+            {filteredResults?.summary?.f1_score !== undefined && (
+              <div className="bg-orange-50 p-4 rounded-lg text-center">
+                <div className="text-2xl font-bold text-orange-600">{filteredResults.summary.f1_score.toFixed(3)}</div>
+                <div className="text-sm text-gray-600">F1 Score</div>
+                <div className="text-xs text-gray-500 mt-1">Spike Detection (&gt;20 μg/g)</div>
+              </div>
+            )}
             {filteredResults?.summary?.accuracy !== undefined && (
               <>
                 <div className="bg-purple-50 p-4 rounded-lg text-center">

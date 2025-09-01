@@ -11,7 +11,7 @@ import random
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
+from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score, precision_score, recall_score, f1_score
 
 import config
 from .data_processor import DataProcessor
@@ -246,7 +246,19 @@ class ForecastEngine:
         # Make predictions based on task (original method)
         if task == "regression" or task == "both":
             reg_model = self.model_factory.get_model("regression", model_type)
-            reg_model.fit(X_train_processed, train_df["da"])
+            
+            # Create sample weights for spike events (enhance spike detection)
+            y_train = train_df["da"]
+            spike_mask = y_train > 20.0  # spike threshold
+            sample_weights = np.ones(len(y_train))
+            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+            
+            # Fit with sample weights for XGBoost models
+            if model_type in ["xgboost", "xgb"]:
+                reg_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
+            else:
+                reg_model.fit(X_train_processed, y_train)
+            
             pred_da = reg_model.predict(X_test_processed)[0]
             # Ensure DA predictions cannot be negative (biological constraint)
             pred_da = max(0.0, float(pred_da))
@@ -355,7 +367,19 @@ class ForecastEngine:
         # Make predictions based on task
         if task == "regression":
             model = self.model_factory.get_model("regression", model_type)
-            model.fit(X_train_processed, df_train_clean["da"])
+            
+            # Create sample weights for spike events (enhance spike detection)
+            y_train = df_train_clean["da"]
+            spike_mask = y_train > 20.0  # spike threshold
+            sample_weights = np.ones(len(y_train))
+            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+            
+            # Fit with sample weights for XGBoost models
+            if model_type in ["xgboost", "xgb"]:
+                model.fit(X_train_processed, y_train, sample_weight=sample_weights)
+            else:
+                model.fit(X_train_processed, y_train)
+            
             prediction = model.predict(X_forecast)[0]
             # Ensure DA predictions cannot be negative (biological constraint)
             prediction = max(0.0, float(prediction))
@@ -419,7 +443,19 @@ class ForecastEngine:
             if not valid_results.empty:
                 r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
                 mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
-                logger.info(f"LEAK-FREE Regression R2: {r2:.4f}, MAE: {mae:.4f}")
+                
+                # Convert regression to binary classification for F1, precision, recall (spike detection)
+                spike_threshold = 20.0
+                y_true_binary = (valid_results['da'] > spike_threshold).astype(int)
+                y_pred_binary = (valid_results['Predicted_da'] > spike_threshold).astype(int)
+                
+                precision = precision_score(y_true_binary, y_pred_binary, zero_division=0)
+                recall = recall_score(y_true_binary, y_pred_binary, zero_division=0)
+                f1 = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+                
+                logger.info(f"LEAK-FREE Regression Metrics:")
+                logger.info(f"  R2: {r2:.4f}, MAE: {mae:.4f}")
+                logger.info(f"  Spike Detection (>{spike_threshold}): Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
             else:
                 logger.warning("No valid regression results for evaluation")
                 
@@ -427,8 +463,19 @@ class ForecastEngine:
             # Calculate classification metrics
             valid_results = self.results_df.dropna(subset=['da-category', 'Predicted_da-category'])
             if not valid_results.empty:
-                accuracy = accuracy_score(valid_results['da-category'], valid_results['Predicted_da-category'])
-                logger.info(f"LEAK-FREE Classification Accuracy: {accuracy:.4f}")
+                y_true = valid_results['da-category']
+                y_pred = valid_results['Predicted_da-category']
+                
+                accuracy = accuracy_score(y_true, y_pred)
+                precision = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+                recall = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+                f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
+                
+                logger.info(f"LEAK-FREE Classification Metrics:")
+                logger.info(f"  Accuracy: {accuracy:.4f}")
+                logger.info(f"  Precision: {precision:.4f}")
+                logger.info(f"  Recall: {recall:.4f}")
+                logger.info(f"  F1-Score: {f1:.4f}")
             else:
                 logger.warning("No valid classification results for evaluation")
     
@@ -520,7 +567,20 @@ class ForecastEngine:
             
             # Create and train model using processed features
             model = self.model_factory.get_model(task, model_type)
-            model.fit(X_train_processed, y_train)
+            
+            # Create sample weights for spike events if task is regression
+            if task == "regression":
+                spike_mask = y_train > 20.0  # spike threshold
+                sample_weights = np.ones(len(y_train))
+                sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+                
+                # Fit with sample weights for XGBoost models
+                if model_type in ["xgboost", "xgb"]:
+                    model.fit(X_train_processed, y_train, sample_weight=sample_weights)
+                else:
+                    model.fit(X_train_processed, y_train)
+            else:
+                model.fit(X_train_processed, y_train)
             
             enhanced_result = base_result.copy()
             

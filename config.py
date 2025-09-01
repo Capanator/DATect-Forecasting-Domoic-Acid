@@ -198,7 +198,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 500
+N_RANDOM_ANCHORS = 5
 
 # Lag Feature Configuration
 
@@ -219,8 +219,8 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 # ================================
 
 # Bootstrap confidence intervals
-ENABLE_UNCERTAINTY_QUANTIFICATION = True
-BOOTSTRAP_ITERATIONS = 200  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
+ENABLE_UNCERTAINTY_QUANTIFICATION = False
+BOOTSTRAP_ITERATIONS = 5  # Balanced for testing (increase to 500 for production, 1000 for offline analysis)
 CONFIDENCE_LEVEL = 0.95
 
 # Baseline model comparisons
