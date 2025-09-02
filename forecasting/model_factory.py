@@ -31,19 +31,6 @@ class ModelFactory:
         self.random_seed = config.RANDOM_SEED
         
     def get_model(self, task, model_type):
-        """
-        Get configured model based on task and model type.
-        
-        Args:
-            task: "regression" or "classification"
-            model_type: "xgboost", "linear", or "logistic"
-            
-        Returns:
-            Configured scikit-learn model
-            
-        Raises:
-            ValueError: If invalid task/model combination
-        """
         if task == "regression":
             return self._get_regression_model(model_type)
         elif task == "classification":
@@ -52,18 +39,17 @@ class ModelFactory:
             raise ValueError(f"Unknown task: {task}. Must be 'regression' or 'classification'")
             
     def _get_regression_model(self, model_type):
-        """Get regression model."""
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
             return xgb.XGBRegressor(
-                n_estimators=800,        # was 300
-                max_depth=6,             # was 8  
-                learning_rate=0.08,      # was 0.1
+                n_estimators=800,       
+                max_depth=6,             
+                learning_rate=0.08,     
                 subsample=0.8,
                 colsample_bytree=0.8,
-                reg_alpha=0.5,           # NEW
-                reg_lambda=0.5,          # NEW
+                reg_alpha=0.5,           
+                reg_lambda=0.5,          
                 random_state=self.random_seed,
                 n_jobs=-1
             )
@@ -76,16 +62,17 @@ class ModelFactory:
                            f"Supported: 'xgboost', 'linear')")
             
     def _get_classification_model(self, model_type):
-        """Get classification model.""" 
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
             return xgb.XGBClassifier(
-                n_estimators=300,
-                max_depth=8,
-                learning_rate=0.1,
+                n_estimators=800,
+                max_depth=6,
+                learning_rate=0.08,
                 subsample=0.8,
                 colsample_bytree=0.8,
+                reg_alpha=0.5,           
+                reg_lambda=0.5, 
                 random_state=self.random_seed,
                 n_jobs=-1,
                 eval_metric='logloss'
@@ -96,22 +83,13 @@ class ModelFactory:
                 max_iter=1000,
                 C=1.0,
                 random_state=self.random_seed,
-                n_jobs=-1  # Use all CPU cores for fair comparison with XGBoost
+                n_jobs=-1
             )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
                            f"Supported: 'xgboost', 'logistic')")
             
     def get_supported_models(self, task=None):
-        """
-        Get list of supported models for given task.
-        
-        Args:
-            task: "regression", "classification", or None for all
-            
-        Returns:
-            Dictionary of supported models by task
-        """
         models = {
             "regression": ["xgboost", "linear"],
             "classification": ["xgboost", "logistic"]
@@ -125,15 +103,6 @@ class ModelFactory:
             raise ValueError(f"Unknown task: {task}")
             
     def get_model_description(self, model_type):
-        """
-        Get human-readable description of model type.
-        
-        Args:
-            model_type: Model type code
-            
-        Returns:
-            String description of model
-        """
         descriptions = {
             "xgboost": "XGBoost",
             "xgb": "XGBoost",
@@ -144,15 +113,5 @@ class ModelFactory:
         return descriptions.get(model_type, f"Unknown model: {model_type}")
         
     def validate_model_task_combination(self, task, model_type):
-        """
-        Validate that model type is supported for given task.
-        
-        Args:
-            task: "regression" or "classification"
-            model_type: Model type to validate
-            
-        Returns:
-            Boolean indicating if combination is valid
-        """
         supported = self.get_supported_models(task)
         return task in supported and model_type in supported[task]
