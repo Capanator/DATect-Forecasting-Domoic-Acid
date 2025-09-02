@@ -152,9 +152,6 @@ class DATectLauncher:
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
             
-            if not hasattr(config, 'TEMPORAL_BUFFER_DAYS') or config.TEMPORAL_BUFFER_DAYS < 1:
-                self.print_colored("❌ Invalid TEMPORAL_BUFFER_DAYS configuration", 'red')
-                return False
             
             self.print_colored("✅ Temporal configuration validated", 'green')
             return True

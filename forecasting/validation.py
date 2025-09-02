@@ -11,8 +11,6 @@ import config
 def validate_system_startup():
     """Essential system startup validation."""
     # Check critical configuration
-    if not hasattr(config, 'TEMPORAL_BUFFER_DAYS') or config.TEMPORAL_BUFFER_DAYS < 0:
-        raise ValueError("Invalid TEMPORAL_BUFFER_DAYS configuration")
     if not hasattr(config, 'FINAL_OUTPUT_PATH') or not config.FINAL_OUTPUT_PATH:
         raise ValueError("Missing FINAL_OUTPUT_PATH configuration")
     if not hasattr(config, 'SITES') or not config.SITES:

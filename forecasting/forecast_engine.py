@@ -49,11 +49,10 @@ class ForecastEngine:
         self.model_factory = ModelFactory()
         
         
-        self.temporal_buffer_days = config.TEMPORAL_BUFFER_DAYS
         self.min_training_samples = max(1, int(getattr(config, 'MIN_TRAINING_SAMPLES', 5)))
         self.random_seed = config.RANDOM_SEED
         
-        logger.info(f"Configuration: buffer_days={self.temporal_buffer_days}, min_samples={self.min_training_samples}, seed={self.random_seed}")
+        logger.info(f"Configuration: min_samples={self.min_training_samples}, seed={self.random_seed}")
         
         random.seed(self.random_seed)
         np.random.seed(self.random_seed)
@@ -97,15 +96,15 @@ class ForecastEngine:
                 "earliest_selected_date": None
             }
             site_dates = self.data[self.data["site"] == site]["date"].sort_values().unique()
-            if len(site_dates) > self.temporal_buffer_days:  # Need enough history
+            if len(site_dates) > 1:  # Need enough history
                 # Only use dates that have sufficient history and future data
                 valid_anchors = []
                 for i, date in enumerate(site_dates[:-1]):  # Exclude last date
                     self.last_diagnostics["per_site"][site]["candidate_dates"] += 1
                     if date >= min_target_date:
-                        # Check if there's a future date with sufficient buffer
+                        # Check if there's a future date at the required forecast horizon
                         future_dates = site_dates[i+1:]
-                        valid_future = [d for d in future_dates if (d - date).days >= self.temporal_buffer_days]
+                        valid_future = [d for d in future_dates if (d - date).days >= config.FORECAST_HORIZON_DAYS]
                         if valid_future:
                             self.last_diagnostics["per_site"][site]["valid_future"] += 1
                             valid_anchors.append(date)
@@ -172,9 +171,6 @@ class ForecastEngine:
         closest_idx = test_candidates['date_diff'].idxmin()
         test_df = test_candidates.loc[[closest_idx]].copy()
         test_date = test_df["date"].iloc[0]
-        
-        if (test_date - anchor_date).days < self.temporal_buffer_days:
-            return None
         
         site_data_with_lags = self.data_processor.create_lag_features_safe(
             site_data, "site", "da", config.LAG_FEATURES, anchor_date
@@ -292,9 +288,6 @@ class ForecastEngine:
         available_before['anchor_diff'] = abs((available_before['date'] - target_anchor_date).dt.days)
         closest_idx = available_before['anchor_diff'].idxmin()
         anchor_date = available_before.loc[closest_idx, 'date']
-        
-        if (forecast_date - anchor_date).days < self.temporal_buffer_days:
-            return None
         
         df_site_with_lags = self.data_processor.create_lag_features_safe(
             df_site, "site", "da", config.LAG_FEATURES, anchor_date

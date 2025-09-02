@@ -193,8 +193,7 @@ FORECAST_HORIZON_WEEKS = 1
 FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations
 
 
-# Temporal Validation - prevents data leakage
-TEMPORAL_BUFFER_DAYS = 1  # Training/prediction gap
+# Temporal Validation - prevents data leakage (handled by forecast horizon)
 
 # Model Performance
 MIN_TRAINING_SAMPLES = 3
