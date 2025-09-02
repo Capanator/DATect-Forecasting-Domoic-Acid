@@ -7,10 +7,7 @@ import logging
 import math
 import os
 import re
-import sys
-import traceback
 from datetime import datetime, date
-from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 import numpy as np
@@ -20,11 +17,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
 
 
 from forecasting.forecast_engine import ForecastEngine
@@ -35,8 +27,7 @@ from backend.visualizations import (
     generate_sensitivity_analysis,
     generate_time_series_comparison,
     generate_waterfall_plot,
-    generate_spectral_analysis,
-    generate_gradient_uncertainty_plot
+    generate_spectral_analysis
 )
 from backend.cache_manager import cache_manager
 
@@ -45,20 +36,10 @@ logger = logging.getLogger(__name__)
 
 def clean_float_for_json(value):
     """Handle inf/nan values for JSON serialization"""
-    if value is None:
+    if value is None or (isinstance(value, float) and (math.isinf(value) or math.isnan(value))):
         return None
-    if isinstance(value, (int, bool)):
-        return value
-    if isinstance(value, (float, np.floating)):
-        if math.isinf(value) or math.isnan(value):
-            return None
-        return float(value)
-    if isinstance(value, np.integer):
-        return int(value)
-    if isinstance(value, (list, tuple)):
-        return [clean_float_for_json(item) for item in value]
-    if isinstance(value, dict):
-        return {k: clean_float_for_json(v) for k, v in value.items()}
+    if isinstance(value, (np.floating, np.integer)):
+        return float(value) if isinstance(value, np.floating) else int(value)
     return value
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -106,115 +87,14 @@ def get_model_factory() -> ModelFactory:
         model_factory = ModelFactory()
     return model_factory
 
-def get_actual_model_name(ui_model: str, task: str) -> str:
-    """Map UI model selection to actual model names"""
-    if ui_model == "xgboost":
-        return "xgboost"
-    elif ui_model == "linear":
-        if task == "regression":
-            return "linear"
-        else:
-            return "logistic"
-    else:
-        return ui_model
+def get_site_mapping(data):
+    """Get site name mapping for flexible API access"""
+    return {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
 
-def get_realtime_model_name(task: str) -> str:
-    """Force XGBoost for all realtime forecasting"""
-    return "xgboost"
+def resolve_site_name(site: str, site_mapping: dict) -> str:
+    """Resolve site name from mapping or return original"""
+    return site_mapping.get(site.lower(), site)
 
-def generate_quantile_predictions(data_file, forecast_date, site, model_type="xgboost"):
-    """Generate quantile predictions using Gradient Boosting and point predictions"""
-    try:
-        data = pd.read_parquet(data_file)
-        data['date'] = pd.to_datetime(data['date'])
-        
-        site_data = data[data['site'] == site].copy()
-        site_data.sort_values('date', inplace=True)
-        
-        # Split training and forecast data with temporal integrity
-        train_data = site_data[site_data['date'] < forecast_date].copy()
-        
-        # Remove rows with missing target values
-        train_data = train_data.dropna(subset=['da'])
-        
-        if len(train_data) < 5:  # Minimum samples check
-            return None
-            
-        # Prepare features (exclude target and metadata columns)
-        feature_cols = [col for col in train_data.columns 
-                       if col not in ['date', 'site', 'da', 'da-category']]
-        
-        X_train = train_data[feature_cols]
-        y_train = train_data['da']
-        
-        # Handle missing values in features
-        X_train = X_train.dropna()
-        if len(X_train) < 5:
-            return None
-            
-        # Align y_train with cleaned X_train
-        y_train = y_train.loc[X_train.index]
-        
-        # Create forecast row (use last available data point as template)
-        last_row = train_data.iloc[-1].copy()
-        last_row['date'] = forecast_date
-        forecast_data = pd.DataFrame([last_row])
-        X_forecast = forecast_data[feature_cols]
-        
-        # Preprocessing pipeline
-        numeric_cols = X_train.select_dtypes(include=[np.number]).columns
-        preprocessor = ColumnTransformer([
-            ('num', Pipeline([
-                ('imputer', SimpleImputer(strategy='median')),
-                ('scaler', MinMaxScaler())
-            ]), numeric_cols)
-        ], remainder='drop')
-        
-        X_train_processed = preprocessor.fit_transform(X_train)
-        X_forecast_processed = preprocessor.transform(X_forecast)
-        
-        # Generate quantile predictions using Gradient Boosting
-        quantiles = {'q05': 0.05, 'q50': 0.50, 'q95': 0.95}
-        gb_predictions = {}
-        
-        for name, alpha in quantiles.items():
-            # Enhanced gradient boosting configuration for domoic acid forecasting
-            gb_model = GradientBoostingRegressor(
-                n_estimators=300,          # More trees for better extreme event capture
-                learning_rate=0.08,        # Balanced learning rate
-                max_depth=6,               # Deeper trees to capture complex patterns
-                min_samples_split=3,       # Allow smaller splits for rare events
-                min_samples_leaf=2,        # Smaller leaf size for extreme event sensitivity  
-                subsample=0.85,            # Stochastic gradient boosting
-                max_features='sqrt',       # Feature sampling for diversity
-                loss='quantile',
-                alpha=alpha,
-                random_state=42
-            )
-            
-            # Use standard unweighted training for consistency with other models
-            gb_model.fit(X_train_processed, y_train)
-            pred_value = gb_model.predict(X_forecast_processed)[0]
-            # Ensure quantile predictions cannot be negative (biological constraint)
-            gb_predictions[name] = max(0.0, float(pred_value))
-        
-        # Generate point prediction using existing XGBoost engine
-        xgb_result = get_forecast_engine().generate_single_forecast(
-            data_file, forecast_date, site, "regression", model_type
-        )
-        
-        xgb_prediction = xgb_result.get('predicted_da') if xgb_result else gb_predictions['q50']
-        
-        return {
-            'quantile_predictions': gb_predictions,
-            'point_prediction': xgb_prediction,
-            'training_samples': len(train_data)
-        }
-        
-    except Exception as e:
-        logging.error(f"Error in quantile prediction: {str(e)}")
-        logging.error(f"Traceback: {traceback.format_exc()}")
-        return None
 
 # Pydantic models
 class ForecastRequest(BaseModel):
@@ -325,31 +205,21 @@ async def get_models():
 async def generate_forecast(request: ForecastRequest):
     """Generate a forecast for the specified parameters."""
     try:
-        # Validate inputs
         if request.task not in ["regression", "classification"]:
             raise HTTPException(status_code=400, detail="Task must be 'regression' or 'classification'")
         
-        # Handle site name mapping for forecast
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(request.site, site_mapping)
         
-        actual_site = request.site
-        if request.site.lower() in site_mapping:
-            actual_site = site_mapping[request.site.lower()]
-        elif request.site in site_mapping.values():
-            actual_site = request.site
-        
-        # Use the requested forecast date from user
         forecast_date = pd.to_datetime(request.date)
         
-        # For realtime forecasting, always use XGBoost regardless of UI selection
-        actual_model = get_realtime_model_name(request.task)
         result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
             forecast_date,
             actual_site,
             request.task,
-            actual_model
+            "xgboost"
         )
         
         if result is None:
@@ -377,9 +247,7 @@ async def generate_forecast(request: ForecastRequest):
         else:  # classification
             response_data["predicted_category"] = result.get('predicted_category')
         
-        # Add feature importance if available
         if 'feature_importance' in result and result['feature_importance'] is not None:
-            # Convert to list of dicts for JSON serialization
             importance_df = result['feature_importance']
             if hasattr(importance_df, 'to_dict'):
                 response_data["feature_importance"] = importance_df.head(10).to_dict('records')
@@ -414,15 +282,8 @@ async def get_historical_data(
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         data['date'] = pd.to_datetime(data['date'])
         
-        # Create site mapping for flexible site name handling
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        
-        # Handle site name mapping
-        actual_site = site
-        if site.lower() in site_mapping:
-            actual_site = site_mapping[site.lower()]
-        elif site in site_mapping.values():
-            actual_site = site
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(site, site_mapping)
         
         # Filter by site
         site_data = data[data['site'] == actual_site].copy()
@@ -590,9 +451,8 @@ async def get_correlation_heatmap_single(site: str):
     try:
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         
-        # Handle site name mapping
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        actual_site = site_mapping.get(site.lower(), site)
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(site, site_mapping)
         
         plot_data = generate_correlation_heatmap(data, actual_site)
         return {"success": True, "plot": plot_data}
@@ -615,9 +475,8 @@ async def get_sensitivity_analysis_single(site: str):
     try:
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         
-        # Handle site name mapping the same way as correlation endpoint
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        actual_site = site_mapping.get(site.lower(), site)
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(site, site_mapping)
         
         plots = generate_sensitivity_analysis(data, actual_site)
         return {"success": True, "plots": plots}
@@ -641,9 +500,8 @@ async def get_time_series_comparison_single(site: str):
     try:
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         
-        # Handle site name mapping
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        actual_site = site_mapping.get(site.lower(), site)
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(site, site_mapping)
         
         plot_data = generate_time_series_comparison(data, actual_site)
         return {"success": True, "plot": plot_data}  # plot_data is already in correct format
@@ -682,10 +540,9 @@ async def get_spectral_analysis_all():
 async def get_spectral_analysis_single(site: str):
     """Generate spectral analysis for a single site (uses pre-computed cache)."""
     try:
-        # Handle site name mapping first
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        actual_site = site_mapping.get(site.lower(), site)
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(site, site_mapping)
 
         # First try pre-computed cache
         plots = cache_manager.get_spectral_analysis(site=actual_site)
@@ -717,7 +574,7 @@ async def clear_cache():
     return CacheClearResponse(success=False, message="Cache directory is read-only; cannot clear.", details=details)
 
 @app.delete("/api/cache/retrospective", response_model=CacheDeleteOneResponse)
-async def delete_retrospective_cache(task: str, model: str):
+async def delete_retrospective_cache():
     """Legacy cache removed - precomputed cache is read-only."""
     return CacheDeleteOneResponse(
         success=False, 
@@ -726,7 +583,7 @@ async def delete_retrospective_cache(task: str, model: str):
     )
 
 @app.delete("/api/cache/spectral", response_model=CacheDeleteOneResponse)
-async def delete_spectral_cache(site: str = "all"):
+async def delete_spectral_cache():
     """Legacy cache removed - precomputed cache is read-only."""
     return CacheDeleteOneResponse(
         success=False, 
@@ -738,189 +595,75 @@ async def delete_spectral_cache(site: str = "all"):
 async def warm_spectral_caches_disabled():
     raise HTTPException(status_code=405, detail="Server-side spectral warm disabled. Precompute locally and bake into image.")
 
-@app.post("/api/visualizations/gradient")
-async def get_gradient_uncertainty_visualization(request: ForecastRequest):
-    """Generate gradient uncertainty visualization with quantile regression."""
-    try:
-        # Handle site name mapping
-        data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
-        
-        actual_site = request.site
-        if request.site.lower() in site_mapping:
-            actual_site = site_mapping[request.site.lower()]
-        elif request.site in site_mapping.values():
-            actual_site = request.site
-        
-        # Generate quantile predictions - always use XGBoost for realtime
-        quantile_result = generate_quantile_predictions(
-            config.FINAL_OUTPUT_PATH,
-            pd.to_datetime(request.date),
-            actual_site,
-            "xgboost"  # Force XGBoost for realtime forecasting
-        )
-        
-        if not quantile_result:
-            raise HTTPException(status_code=400, detail="Insufficient data for quantile prediction")
-        
-        gb_preds = quantile_result['quantile_predictions']
-        xgb_pred = quantile_result['point_prediction']
-        
-        # Generate gradient visualization plot
-        gradient_plot = generate_gradient_uncertainty_plot(
-            gb_preds, xgb_pred, actual_da=None
-        )
-        
-        return {
-            "success": True,
-            "plot": gradient_plot,
-            "quantile_predictions": gb_preds,
-            "xgboost_prediction": xgb_pred,
-            "training_samples": quantile_result['training_samples']
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate gradient visualization: {str(e)}")
-
 @app.post("/api/forecast/enhanced")
 async def generate_enhanced_forecast(request: ForecastRequest):
-    """Generate enhanced forecast with both regression and classification, plus all graph data."""
+    """Generate enhanced forecast with both regression and classification for frontend."""
     try:
-        # Handle site name mapping for forecast
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
-        site_mapping = {s.lower().replace(' ', '-'): s for s in data['site'].unique()}
+        site_mapping = get_site_mapping(data)
+        actual_site = resolve_site_name(request.site, site_mapping)
         
-        actual_site = request.site
-        if request.site.lower() in site_mapping:
-            actual_site = site_mapping[request.site.lower()]
-        elif request.site in site_mapping.values():
-            actual_site = request.site
-        
-        # Use the requested forecast date from user
         forecast_date = pd.to_datetime(request.date)
         
-        # Use standard forecasting for speed
-        
-        # For realtime forecasting, always use XGBoost regardless of UI selection  
+        # Generate both regression and classification forecasts
         regression_result = get_forecast_engine().generate_single_forecast(
-            config.FINAL_OUTPUT_PATH,
-            forecast_date,
-            actual_site,
-            "regression",
-            "xgboost"  # Force XGBoost for realtime
+            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "regression", "xgboost"
         )
         
-        
-        # For classification, also force XGBoost
         classification_result = get_forecast_engine().generate_single_forecast(
-            config.FINAL_OUTPUT_PATH,
-            forecast_date,
-            actual_site,
-            "classification",
-            "xgboost"  # Force XGBoost for realtime
+            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "classification", "xgboost"
         )
         
-        # Helper function to make results JSON serializable
-        def clean_result(result):
-            if not result:
-                return result
-            cleaned = {}
-            for key, value in result.items():
-                if value is None:
-                    cleaned[key] = None
-                elif isinstance(value, np.ndarray):
-                    cleaned[key] = value.tolist()
-                elif isinstance(value, (np.int64, np.int32, np.int16, np.int8)):
-                    cleaned[key] = int(value)
-                elif isinstance(value, (np.float64, np.float32, np.float16)):
-                    cleaned[key] = float(value)
-                elif isinstance(value, (np.bool_, bool)):
-                    cleaned[key] = bool(value)
-                elif isinstance(value, pd.DataFrame):
-                    # Convert DataFrame to dict or limit to top entries
-                    if key == 'feature_importance':
-                        # For feature importance, convert to list of dicts (top 10)
-                        cleaned[key] = value.head(10).to_dict('records') if not value.empty else None
-                    else:
-                        cleaned[key] = value.to_dict('records') if not value.empty else None
-                elif hasattr(value, 'isoformat'):
-                    cleaned[key] = value.isoformat()
-                elif hasattr(value, 'item'):  # Handle numpy scalars
-                    try:
-                        cleaned[key] = value.item()
-                    except:
-                        cleaned[key] = str(value)
-                elif isinstance(value, (list, tuple)):
-                    # Recursively clean lists/tuples
-                    cleaned[key] = [clean_result({'item': item})['item'] if isinstance(item, (np.ndarray, np.integer, np.floating)) else item for item in value]
-                elif isinstance(value, dict):
-                    # Recursively clean nested dicts
-                    cleaned[key] = clean_result(value)
-                else:
-                    cleaned[key] = value
-            return cleaned
+        # Clean numpy values for JSON serialization
+        def clean_numpy_values(obj):
+            if isinstance(obj, dict):
+                return {k: clean_numpy_values(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_numpy_values(item) for item in obj]
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            elif isinstance(obj, pd.DataFrame):
+                return obj.head(10).to_dict('records') if not obj.empty else []
+            elif obj is None:
+                return None
+            else:
+                try:
+                    if pd.isna(obj):
+                        return None
+                except (TypeError, ValueError):
+                    pass
+                return obj
         
-        # Create enhanced response with graph data
+        # Create response structure expected by frontend
         response_data = {
             "success": True,
             "forecast_date": forecast_date.strftime('%Y-%m-%d'),
             "site": actual_site,
-            "regression": clean_result(regression_result),
-            "classification": clean_result(classification_result),
+            "regression": clean_numpy_values(regression_result),
+            "classification": clean_numpy_values(classification_result),
             "graphs": {}
         }
         
-        # Add bootstrap uncertainty-based visualization
+        # Add level_range graph for regression
         if regression_result and 'predicted_da' in regression_result:
             predicted_da = float(regression_result['predicted_da'])
             
-            # Use bootstrap uncertainty if available
-            if 'uncertainty' in regression_result:
-                uncertainty = regression_result['uncertainty']
-                bootstrap_quantiles = {
-                    "q05": float(uncertainty['lower_bound']),
-                    "q50": float(uncertainty['prediction_mean']),
-                    "q95": float(uncertainty['upper_bound'])
-                }
-                
-                # Generate advanced gradient visualization plot with bootstrap uncertainty
-                gradient_plot = generate_gradient_uncertainty_plot(
-                    bootstrap_quantiles, predicted_da, actual_da=None
-                )
-                
-                response_data["graphs"]["level_range"] = {
-                    "gradient_quantiles": bootstrap_quantiles,
-                    "xgboost_prediction": predicted_da,
-                    "gradient_plot": gradient_plot,
-                    "type": "bootstrap_uncertainty",
-                    "confidence_level": uncertainty['confidence_level'],
-                    "n_bootstrap_iterations": uncertainty['n_iterations'],
-                    "uncertainty_method": "bootstrap"
-                }
-            else:
-                # Fallback to simple approach if bootstrap uncertainty not available
-                fallback_quantiles = {
+            # Simple uncertainty bounds (can be enhanced later)
+            response_data["graphs"]["level_range"] = {
+                "gradient_quantiles": {
                     "q05": predicted_da * 0.7,
                     "q50": predicted_da,
                     "q95": predicted_da * 1.3
-                }
-                
-                # Generate gradient plot with fallback data
-                gradient_plot = generate_gradient_uncertainty_plot(
-                    fallback_quantiles, predicted_da, actual_da=None
-                )
-                
-                response_data["graphs"]["level_range"] = {
-                    "gradient_quantiles": fallback_quantiles,
-                    "xgboost_prediction": predicted_da,
-                    "gradient_plot": gradient_plot,
-                    "type": "fallback_uncertainty"
-                }
+                },
+                "xgboost_prediction": predicted_da,
+                "type": "simple_uncertainty"
+            }
         
-        # Add category graph data for classification  
+        # Add category_range graph for classification
         if classification_result and 'predicted_category' in classification_result:
-            # Convert numpy arrays to Python lists for JSON serialization
-            class_probs = classification_result.get('class_probabilities')
+            class_probs = classification_result.get('class_probabilities', [0.25, 0.25, 0.25, 0.25])
             if isinstance(class_probs, np.ndarray):
                 class_probs = class_probs.tolist()
             
@@ -930,51 +673,6 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
             }
-        else:
-            # Fallback: Create category graph from regression prediction if classification failed
-            if regression_result and 'predicted_da' in regression_result:
-                try:
-                    from forecasting.data_processor import DataProcessor
-                    
-                    predicted_da = float(regression_result['predicted_da'])
-                    data_processor = DataProcessor()
-                    
-                    # Create categories from the predicted DA value  
-                    predicted_category_series = data_processor.create_da_categories_safe(pd.Series([predicted_da]))
-                    if not predicted_category_series.isna().iloc[0]:
-                        predicted_category = int(predicted_category_series.iloc[0])
-                        
-                        # Create fallback probabilities (high confidence for predicted category)
-                        fallback_probs = [0.1, 0.1, 0.1, 0.1]  
-                        fallback_probs[predicted_category] = 0.7
-                        
-                        response_data["graphs"]["category_range"] = {
-                            "predicted_category": predicted_category,
-                            "class_probabilities": fallback_probs,
-                            "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
-                            "type": "category_range_fallback"
-                        }
-                except Exception as fallback_error:
-                    # If fallback fails, at least provide basic category info
-                    predicted_da = float(regression_result['predicted_da'])
-                    if predicted_da <= 5:
-                        predicted_category = 0
-                    elif predicted_da <= 20:
-                        predicted_category = 1
-                    elif predicted_da <= 40:
-                        predicted_category = 2
-                    else:
-                        predicted_category = 3
-                        
-                    fallback_probs = [0.25, 0.25, 0.25, 0.25]
-                    fallback_probs[predicted_category] = 0.7
-                    
-                    response_data["graphs"]["category_range"] = {
-                        "predicted_category": predicted_category,
-                        "class_probabilities": fallback_probs,
-                        "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
-                        "type": "category_range_manual"
-                    }
         
         return response_data
         
@@ -986,14 +684,17 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "error": str(e)
         }
 
-# Streaming progress functionality removed
+
 
 @app.post("/api/retrospective")
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
     """Run complete retrospective analysis based on current config (uses pre-computed cache for production)."""
     try:
-        # Get actual model name for caching
-        actual_model = get_actual_model_name(config.FORECAST_MODEL, config.FORECAST_TASK)
+        # Map model names for API compatibility
+        if config.FORECAST_MODEL == "linear":
+            actual_model = "linear" if config.FORECAST_TASK == "regression" else "logistic"
+        else:
+            actual_model = config.FORECAST_MODEL
         
         # First try to get from pre-computed cache (for production)
         base_results = cache_manager.get_retrospective_forecast(config.FORECAST_TASK, actual_model)
@@ -1030,10 +731,9 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         else:
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
-        # Normalize cached data format to match expected API format
+        # Normalize cached data format
         if base_results and isinstance(base_results, list):
             for result in base_results:
-                # Handle different field name formats from cache vs live computation
                 if 'da' in result and 'actual_da' not in result:
                     result['actual_da'] = result.get('da')
                 if 'Predicted_da' in result and 'predicted_da' not in result:
@@ -1043,12 +743,9 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
                 if 'Predicted_da-category' in result and 'predicted_category' not in result:
                     result['predicted_category'] = result.get('Predicted_da-category')
 
-        # Filter by selected sites if provided
-        if request.selected_sites:
-            filtered = [r for r in base_results if r['site'] in request.selected_sites]
-        else:
-            filtered = base_results
-
+        # Filter by sites if specified
+        filtered = [r for r in base_results if r['site'] in request.selected_sites] if request.selected_sites else base_results
+        
         summary = _compute_summary(filtered)
         return {
             "success": True,
@@ -1068,71 +765,39 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         }
 
 def _compute_summary(results_json: list) -> dict:
-    """Compute summary metrics for retrospective results list."""
+    """Compute summary metrics for retrospective results."""
     summary = {"total_forecasts": len(results_json)}
+    
+    # Get valid pairs for regression and classification
     valid_regression = [(r['actual_da'], r['predicted_da']) for r in results_json 
                         if r.get('actual_da') is not None and r.get('predicted_da') is not None]
     valid_classification = [(r['actual_category'], r['predicted_category']) for r in results_json 
                             if r.get('actual_category') is not None and r.get('predicted_category') is not None]
+    
     summary["regression_forecasts"] = len(valid_regression)
     summary["classification_forecasts"] = len(valid_classification)
+    
+    # Regression metrics
     if valid_regression:
-        from sklearn.metrics import r2_score, mean_absolute_error, precision_score, recall_score, f1_score
+        from sklearn.metrics import r2_score, mean_absolute_error
         actual_vals = [r[0] for r in valid_regression]
         pred_vals = [r[1] for r in valid_regression]
         try:
             summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
             summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
-            
-            # Add F1, precision, recall for spike detection (regression as binary classification)
-            spike_threshold = 20.0
-            actual_binary = [1 if val > spike_threshold else 0 for val in actual_vals]
-            pred_binary = [1 if val > spike_threshold else 0 for val in pred_vals]
-            
-            summary["f1_score"] = float(f1_score(actual_binary, pred_binary, zero_division=0))
-            summary["precision"] = float(precision_score(actual_binary, pred_binary, zero_division=0))
-            summary["recall"] = float(recall_score(actual_binary, pred_binary, zero_division=0))
         except Exception:
             pass
+    
+    # Classification metrics
     if valid_classification:
-        from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support
+        from sklearn.metrics import accuracy_score
         actual_cats = [r[0] for r in valid_classification]
         pred_cats = [r[1] for r in valid_classification]
         try:
-            # Regular accuracy
             summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
-            
-            # Balanced accuracy (accounts for class imbalance)
-            summary["balanced_accuracy"] = float(balanced_accuracy_score(actual_cats, pred_cats))
-            
-            # Per-class recall (how well we detect each category)
-            precision, recall, f1, support = precision_recall_fscore_support(
-                actual_cats, pred_cats, average=None, zero_division=0
-            )
-            
-            # Store per-class metrics
-            unique_classes = sorted(set(actual_cats + pred_cats))
-            per_class_metrics = {}
-            for i, cls in enumerate(unique_classes):
-                if i < len(recall):
-                    class_name = ["Low", "Moderate", "High", "Extreme"][cls] if cls < 4 else f"Class{cls}"
-                    per_class_metrics[class_name] = {
-                        "recall": float(recall[i]),
-                        "precision": float(precision[i]),
-                        "f1": float(f1[i]),
-                        "support": int(support[i]) if i < len(support) else 0
-                    }
-            
-            summary["per_class_metrics"] = per_class_metrics
-            
-            # Macro averages (treats all classes equally)
-            summary["macro_recall"] = float(recall.mean())
-            summary["macro_precision"] = float(precision.mean())
-            summary["macro_f1"] = float(f1.mean())
-            
         except Exception as e:
             logging.error(f"Error calculating classification metrics: {e}")
-            pass
+    
     return summary
 
 # Serve built frontend if present (single-origin deploy)
