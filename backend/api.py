@@ -339,11 +339,14 @@ async def generate_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
+        # Use the requested forecast date from user
+        forecast_date = pd.to_datetime(request.date)
+        
         # For realtime forecasting, always use XGBoost regardless of UI selection
         actual_model = get_realtime_model_name(request.task)
         result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
-            pd.to_datetime(request.date),
+            forecast_date,
             actual_site,
             request.task,
             actual_model
@@ -352,7 +355,7 @@ async def generate_forecast(request: ForecastRequest):
         if result is None:
             return ForecastResponse(
                 success=False,
-                forecast_date=request.date,
+                forecast_date=forecast_date.date(),
                 site=request.site,
                 task=request.task,
                 model=request.model,
@@ -362,7 +365,7 @@ async def generate_forecast(request: ForecastRequest):
         # Format response based on task type
         response_data = {
             "success": True,
-            "forecast_date": request.date,
+            "forecast_date": forecast_date.date(),
             "site": request.site,
             "task": request.task,
             "model": request.model,
@@ -384,9 +387,14 @@ async def generate_forecast(request: ForecastRequest):
         return ForecastResponse(**response_data)
         
     except Exception as e:
+        # Use request date if forecast_date wasn't calculated due to early error
+        error_date = request.date
+        if 'forecast_date' in locals():
+            error_date = forecast_date.date()
+        
         return ForecastResponse(
             success=False,
-            forecast_date=request.date,
+            forecast_date=error_date,
             site=request.site,
             task=request.task,
             model=request.model,
@@ -788,12 +796,15 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         elif request.site in site_mapping.values():
             actual_site = request.site
         
+        # Use the requested forecast date from user
+        forecast_date = pd.to_datetime(request.date)
+        
         # Use standard forecasting for speed
         
         # For realtime forecasting, always use XGBoost regardless of UI selection  
         regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
-            pd.to_datetime(request.date),
+            forecast_date,
             actual_site,
             "regression",
             "xgboost"  # Force XGBoost for realtime
@@ -803,7 +814,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         # For classification, also force XGBoost
         classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH,
-            pd.to_datetime(request.date),
+            forecast_date,
             actual_site,
             "classification",
             "xgboost"  # Force XGBoost for realtime
@@ -852,7 +863,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         # Create enhanced response with graph data
         response_data = {
             "success": True,
-            "forecast_date": request.date,
+            "forecast_date": forecast_date.strftime('%Y-%m-%d'),
             "site": actual_site,
             "regression": clean_result(regression_result),
             "classification": clean_result(classification_result),

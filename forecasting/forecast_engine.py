@@ -153,6 +153,11 @@ class ForecastEngine:
         site_data.sort_values("date", inplace=True)
         
         train_mask = site_data["date"] <= anchor_date
+        
+        # Calculate target forecast date based on configured horizon
+        target_forecast_date = anchor_date + pd.Timedelta(days=config.FORECAST_HORIZON_DAYS)
+        
+        # Find test samples within reasonable range of target forecast date
         test_mask = (site_data["date"] > anchor_date) & (site_data["date"] >= min_target_date)
         
         train_df = site_data[train_mask].copy()
@@ -160,8 +165,12 @@ class ForecastEngine:
         
         if train_df.empty or test_candidates.empty:
             return None
-            
-        test_df = test_candidates.iloc[:1].copy()
+        
+        # Find the test sample closest to the target forecast date
+        test_candidates = test_candidates.copy()
+        test_candidates['date_diff'] = abs((test_candidates['date'] - target_forecast_date).dt.days)
+        closest_idx = test_candidates['date_diff'].idxmin()
+        test_df = test_candidates.loc[[closest_idx]].copy()
         test_date = test_df["date"].iloc[0]
         
         if (test_date - anchor_date).days < self.temporal_buffer_days:
@@ -271,11 +280,18 @@ class ForecastEngine:
         df_site = data[data['site'] == site].copy()
         df_site.sort_values('date', inplace=True)
         
+        # Calculate target anchor date based on forecast horizon
+        target_anchor_date = forecast_date - pd.Timedelta(days=config.FORECAST_HORIZON_DAYS)
+        
         available_before = df_site[df_site['date'] < forecast_date]
         if available_before.empty:
             return None
-            
-        anchor_date = available_before['date'].max()
+        
+        # Find the available data point closest to our target anchor date    
+        available_before = available_before.copy()
+        available_before['anchor_diff'] = abs((available_before['date'] - target_anchor_date).dt.days)
+        closest_idx = available_before['anchor_diff'].idxmin()
+        anchor_date = available_before.loc[closest_idx, 'date']
         
         if (forecast_date - anchor_date).days < self.temporal_buffer_days:
             return None
@@ -302,6 +318,7 @@ class ForecastEngine:
         
         result = {
             'forecast_date': forecast_date,
+            'anchor_date': anchor_date,
             'site': site,
             'task': task,
             'model_type': model_type,
