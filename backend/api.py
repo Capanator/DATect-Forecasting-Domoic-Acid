@@ -727,22 +727,40 @@ def _compute_summary(results_json: list) -> dict:
     summary = {"total_forecasts": len(results_json)}
     
     # Get valid pairs for regression and classification
-    valid_regression = [(r['actual_da'], r['predicted_da']) for r in results_json 
-                        if r.get('actual_da') is not None and r.get('predicted_da') is not None]
-    valid_classification = [(r['actual_category'], r['predicted_category']) for r in results_json 
-                            if r.get('actual_category') is not None and r.get('predicted_category') is not None]
+    # Handle both API format (actual_da, predicted_da) and cached format (da, Predicted_da)
+    valid_regression = []
+    valid_classification = []
+    
+    for r in results_json:
+        # Regression pairs - try both formats
+        actual_da = r.get('actual_da') or r.get('da')
+        predicted_da = r.get('predicted_da') or r.get('Predicted_da')
+        if actual_da is not None and predicted_da is not None:
+            valid_regression.append((actual_da, predicted_da))
+        
+        # Classification pairs - try both formats  
+        actual_cat = r.get('actual_category') or r.get('da-category')
+        predicted_cat = r.get('predicted_category') or r.get('Predicted_da-category')
+        if actual_cat is not None and predicted_cat is not None:
+            valid_classification.append((actual_cat, predicted_cat))
     
     summary["regression_forecasts"] = len(valid_regression)
     summary["classification_forecasts"] = len(valid_classification)
     
     # Regression metrics
     if valid_regression:
-        from sklearn.metrics import r2_score, mean_absolute_error
+        from sklearn.metrics import r2_score, mean_absolute_error, f1_score
         actual_vals = [r[0] for r in valid_regression]
         pred_vals = [r[1] for r in valid_regression]
         try:
             summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
             summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
+            
+            # F1 score for spike detection (15 μg/g threshold)
+            spike_threshold = 15.0
+            actual_binary = [1 if val > spike_threshold else 0 for val in actual_vals]
+            pred_binary = [1 if val > spike_threshold else 0 for val in pred_vals]
+            summary["f1_score"] = float(f1_score(actual_binary, pred_binary, zero_division=0))
         except Exception:
             pass
     
