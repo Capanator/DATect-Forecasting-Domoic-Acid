@@ -2,7 +2,7 @@
 """
 DATect Pre-computation Cache Generator
 
-Pre-computes expensive operations for deployment:
+Pre-computes expensive operations for deployment to ensure EXACT match with fresh runs:
 - Retrospective forecasts
 - Spectral analysis 
 - Visualization data
@@ -13,14 +13,12 @@ import json
 import pickle
 import pandas as pd
 import numpy as np
+import random
 from datetime import datetime
 import warnings
 from pathlib import Path
 
 warnings.filterwarnings('ignore')
-
-# Ensure imports work
-import sys
 
 import config
 from forecasting.forecast_engine import ForecastEngine
@@ -37,7 +35,7 @@ class DATectCacheGenerator:
         (self.cache_dir / "visualizations").mkdir(exist_ok=True)
         
     def precompute_retrospective_forecasts(self):
-        """Pre-compute all retrospective forecast combinations."""
+        """Pre-compute all retrospective forecast combinations - EXACT match with API."""
         print("Pre-computing retrospective forecasts...")
         
         # These combinations match exactly what the API expects
@@ -53,33 +51,85 @@ class DATectCacheGenerator:
             print(f"  {task} + {model_type}...")
             
             try:
+                # CRITICAL: Reset random seeds for each model to ensure reproducibility
+                # This matches what happens in the ForecastEngine.__init__
+                random.seed(config.RANDOM_SEED)
+                np.random.seed(config.RANDOM_SEED)
+                
                 # Create fresh engine instance for each model to avoid state contamination
-                engine = ForecastEngine()
+                # Pass validate_on_init=False to match API behavior
+                engine = ForecastEngine(validate_on_init=False)
+                engine.data_file = config.FINAL_OUTPUT_PATH
+                
+                # Use exact same parameters as API would use
                 n_anchors = getattr(config, 'N_RANDOM_ANCHORS', 500)
                 
-                results = engine.run_retrospective_evaluation(
+                # Run evaluation exactly as the API does
+                results_df = engine.run_retrospective_evaluation(
                     task=task,
                     model_type=model_type,
                     n_anchors=n_anchors,
                     min_test_date="2008-01-01"
                 )
                 
-                if results is not None and not results.empty:
+                if results_df is not None and not results_df.empty:
                     cache_file = self.cache_dir / "retrospective" / f"{task}_{model_type}"
                     
-                    results.to_parquet(f"{cache_file}.parquet", index=False)
+                    # Save parquet exactly as engine produced
+                    results_df.to_parquet(f"{cache_file}.parquet", index=False)
                     
-                    results_json = results.to_dict('records')
+                    # Convert to JSON format expected by cache_manager
+                    # This matches the exact format the API would produce
+                    results_json = []
+                    for _, row in results_df.iterrows():
+                        record = {}
+                        # Copy all fields from the DataFrame
+                        for col in results_df.columns:
+                            value = row[col]
+                            # Handle datetime columns
+                            if pd.api.types.is_datetime64_any_dtype(results_df[col]):
+                                record[col] = value.strftime('%Y-%m-%d') if pd.notnull(value) else None
+                            # Handle numeric columns with NaN/inf
+                            elif pd.api.types.is_numeric_dtype(results_df[col]):
+                                if pd.isna(value) or (isinstance(value, float) and np.isinf(value)):
+                                    record[col] = None
+                                else:
+                                    record[col] = float(value) if pd.api.types.is_float_dtype(results_df[col]) else int(value)
+                            else:
+                                record[col] = value
+                        results_json.append(record)
+                    
+                    # Save JSON in the exact format expected by the cache_manager
                     with open(f"{cache_file}.json", 'w') as f:
                         json.dump(results_json, f, default=str, indent=2)
                     
-                    print(f"    Saved {len(results)} predictions")
+                    # Calculate and display metrics to verify
+                    if task == "regression":
+                        from sklearn.metrics import r2_score, mean_absolute_error, f1_score
+                        valid_mask = results_df['da'].notna() & results_df['Predicted_da'].notna()
+                        valid_df = results_df[valid_mask]
+                        
+                        if len(valid_df) > 0:
+                            r2 = r2_score(valid_df['da'], valid_df['Predicted_da'])
+                            mae = mean_absolute_error(valid_df['da'], valid_df['Predicted_da'])
+                            
+                            spike_threshold = 15.0
+                            actual_binary = [1 if val > spike_threshold else 0 for val in valid_df['da']]
+                            pred_binary = [1 if val > spike_threshold else 0 for val in valid_df['Predicted_da']]
+                            f1 = f1_score(actual_binary, pred_binary, zero_division=0)
+                            
+                            print(f"    Saved {len(results_df)} predictions")
+                            print(f"    Metrics: R²={r2:.4f}, MAE={mae:.2f}, F1={f1:.4f}")
+                    else:
+                        print(f"    Saved {len(results_df)} predictions")
                         
                 else:
                     print("    No results generated")
                     
             except Exception as e:
                 print(f"    Error: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 
     def precompute_spectral_analysis(self):
         """Pre-compute spectral analysis for all sites."""
@@ -142,7 +192,13 @@ class DATectCacheGenerator:
         
         manifest = {
             'generated_at': datetime.now().isoformat(),
-            'cache_version': '1.0',
+            'cache_version': '2.0',  # Updated version for new cache format
+            'config': {
+                'N_RANDOM_ANCHORS': getattr(config, 'N_RANDOM_ANCHORS', 500),
+                'RANDOM_SEED': config.RANDOM_SEED,
+                'FORECAST_HORIZON_DAYS': config.FORECAST_HORIZON_DAYS,
+                'MIN_TRAINING_SAMPLES': getattr(config, 'MIN_TRAINING_SAMPLES', 5)
+            },
             'files': {}
         }
         
@@ -162,6 +218,11 @@ class DATectCacheGenerator:
         """Run all pre-computation tasks."""
         print("Starting DATect cache pre-computation")
         print("=====================================")
+        print(f"Configuration:")
+        print(f"  N_RANDOM_ANCHORS: {getattr(config, 'N_RANDOM_ANCHORS', 500)}")
+        print(f"  RANDOM_SEED: {config.RANDOM_SEED}")
+        print(f"  FORECAST_HORIZON_DAYS: {config.FORECAST_HORIZON_DAYS}")
+        print("=====================================")
         
         start_time = datetime.now()
         
@@ -178,6 +239,9 @@ class DATectCacheGenerator:
         
         total_size = sum(f.stat().st_size for f in self.cache_dir.rglob('*') if f.is_file())
         print(f"Total cache size: {total_size / (1024*1024):.1f} MB")
+        
+        print("\nIMPORTANT: Cache has been regenerated to match fresh run behavior.")
+        print("All cached results should now match what the API produces during fresh runs.")
 
 
 if __name__ == "__main__":
