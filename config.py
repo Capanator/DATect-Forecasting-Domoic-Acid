@@ -182,15 +182,15 @@ SATELLITE_DATA = {
 FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "classification"
+FORECAST_TASK = "regression"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
 
 # Forecast Horizon Configuration
 # How many weeks ahead to forecast from the data cutoff point
-FORECAST_HORIZON_WEEKS = 1  # 4 weeks ahead forecast
-FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7 * 7 * 7 * 7 * 7 * 7 * 7 * 7  # Derived days value for internal calculations
+FORECAST_HORIZON_WEEKS = 1 
+FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations
 
 
 # Temporal Validation - prevents data leakage

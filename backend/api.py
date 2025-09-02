@@ -499,8 +499,8 @@ async def update_config(config_request: ConfigUpdateRequest):
             config_content
         )
         config_content = re.sub(
-            r'FORECAST_HORIZON_DAYS = \S+',
-            f'FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7',
+            r'FORECAST_HORIZON_DAYS = .*',
+            f'FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations',
             config_content
         )
         

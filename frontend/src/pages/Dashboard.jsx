@@ -210,12 +210,31 @@ const Dashboard = () => {
             sum + Math.abs(val - predictions[i]), 0
           ) / actuals.length
           
+          // Calculate F1 score for spike detection (15 μg/g threshold)
+          const actualSpikes = actuals.map(val => val > 15 ? 1 : 0)
+          const predictedSpikes = predictions.map(val => val > 15 ? 1 : 0)
+          
+          const truePositives = actualSpikes.reduce((sum, actual, i) => 
+            sum + (actual === 1 && predictedSpikes[i] === 1 ? 1 : 0), 0
+          )
+          const falsePositives = actualSpikes.reduce((sum, actual, i) => 
+            sum + (actual === 0 && predictedSpikes[i] === 1 ? 1 : 0), 0
+          )
+          const falseNegatives = actualSpikes.reduce((sum, actual, i) => 
+            sum + (actual === 1 && predictedSpikes[i] === 0 ? 1 : 0), 0
+          )
+          
+          const precision = truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 0
+          const recall = truePositives + falseNegatives > 0 ? truePositives / (truePositives + falseNegatives) : 0
+          const f1Score = precision + recall > 0 ? 2 * (precision * recall) / (precision + recall) : 0
+          
           filtered.summary = {
             ...filtered.summary,
             total_forecasts: filtered.results.length,
             regression_forecasts: validRegression.length,
             r2_score: r2,
-            mae: mae
+            mae: mae,
+            f1_score: f1Score
           }
         }
       }
