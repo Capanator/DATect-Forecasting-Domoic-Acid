@@ -131,15 +131,6 @@ class ModelInfo(BaseModel):
     available_models: Dict[str, List[str]]
     descriptions: Dict[str, str]
 
-class CacheClearResponse(BaseModel):
-    success: bool
-    message: str
-    details: Dict[str, Any]
-
-class CacheDeleteOneResponse(BaseModel):
-    success: bool
-    message: str
-    target: Dict[str, Any]
 
 class RetrospectiveRequest(BaseModel):
     selected_sites: List[str] = []  # Empty list means all sites
@@ -557,39 +548,6 @@ async def get_spectral_analysis_single(site: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
-@app.get("/api/cache")
-async def get_cache_status():
-    """Return cache directory, file list, size, and writability."""
-    return {
-        "legacy_cache": {"dir": "legacy cache removed", "files": [], "total_size": 0, "writable": False},
-        "precomputed_cache": cache_manager.get_cache_status(),
-        "available_forecasts": cache_manager.list_available_forecasts(),
-        "available_spectral": cache_manager.list_available_spectral()
-    }
-
-@app.delete("/api/cache", response_model=CacheClearResponse)
-async def clear_cache():
-    """Clear writable cache files (no-op if cache is read-only)."""
-    details = {"dir": "legacy cache removed", "deleted_files": 0, "freed_bytes": 0, "writable": False}
-    return CacheClearResponse(success=False, message="Cache directory is read-only; cannot clear.", details=details)
-
-@app.delete("/api/cache/retrospective", response_model=CacheDeleteOneResponse)
-async def delete_retrospective_cache():
-    """Legacy cache removed - precomputed cache is read-only."""
-    return CacheDeleteOneResponse(
-        success=False, 
-        message="Legacy cache removed. Precomputed cache is read-only and baked into deployment.", 
-        target={"file": "legacy cache removed"}
-    )
-
-@app.delete("/api/cache/spectral", response_model=CacheDeleteOneResponse)
-async def delete_spectral_cache():
-    """Legacy cache removed - precomputed cache is read-only."""
-    return CacheDeleteOneResponse(
-        success=False, 
-        message="Legacy cache removed. Precomputed cache is read-only and baked into deployment.", 
-        target={"file": "legacy cache removed"}
-    )
 
 @app.post("/api/visualizations/spectral/warm")
 async def warm_spectral_caches_disabled():
