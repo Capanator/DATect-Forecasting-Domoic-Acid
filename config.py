@@ -179,7 +179,7 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "retrospective"
+FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
 FORECAST_TASK = "regression"
@@ -205,7 +205,7 @@ N_RANDOM_ANCHORS = 200
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
-USE_LAG_FEATURES = True
+USE_LAG_FEATURES = False
 
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
