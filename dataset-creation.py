@@ -98,9 +98,9 @@ def download_file(url, filename):
     except Exception as e:
         logger.error(f"Unexpected error downloading {url}: {str(e)}")
         raise
-            
-        downloaded_files.append(filename)
-        return filename
+    
+    downloaded_files.append(filename)
+    return filename
 
 def local_filename(url, ext, temp_dir=None):
     """Generate sanitized filename from URL"""
@@ -880,49 +880,78 @@ def compile_da_pn(lt_df, da_df, pn_df):
     lt_df_merged = pd.merge(lt_df_merged, pn_df_copy[['Date', 'Site', 'PN_Levels']], 
                             on=['Date', 'Site'], how='left')
         
-    # ENHANCED: Interpolate missing values with scientifically conservative gap limits
-    print("  Interpolating missing values (forward-only with gap limits to prevent over-interpolation)...")
+    # ENHANCED: Biological decay interpolation for scientifically sound gap filling
+    print("  Applying biological decay interpolation (prevents temporal leakage in retrospective tests)...")
     lt_df_merged = lt_df_merged.sort_values(by=['Site', 'Date'])
     
-    # Enhanced interpolation with gap constraints
-    # MAX_INTERPOLATION_WEEKS from config (default 6 weeks = scientifically conservative)
-    try:
-        import config
-        max_gap_weeks = getattr(config, 'MAX_INTERPOLATION_WEEKS', 6)
-    except:
-        max_gap_weeks = 6  # Conservative default
+    # Decay parameters based on raw data analysis and biological principles
+    da_max_gap_weeks = 2  # Conservative - DA data shows frequent zeros
+    da_decay_rate = 0.2   # Per week (half-life ~3.5 weeks)
+    
+    pn_max_gap_weeks = 4  # More aggressive - PN data is sparser 
+    pn_decay_rate = 0.3   # Per week (half-life ~2.3 weeks)
+    
+    print(f"  DA parameters: max_gap={da_max_gap_weeks} weeks, decay_rate={da_decay_rate}/week")
+    print(f"  PN parameters: max_gap={pn_max_gap_weeks} weeks, decay_rate={pn_decay_rate}/week")
+    
+    def biological_decay_fill(series, max_gap_weeks, decay_rate_per_week):
+        """Apply exponential decay interpolation for biological toxin data"""
+        interpolated_count = 0
+        filled_series = series.copy()
         
-    # Since data is typically weekly, max_gap_weeks translates directly to limit parameter
-    interpolation_limit = max_gap_weeks
+        for i in range(1, len(filled_series)):
+            if pd.isna(filled_series.iloc[i]) and not pd.isna(filled_series.iloc[i-1]):
+                # Found start of gap - count consecutive NaNs
+                gap_length = 0
+                for j in range(i, min(i + max_gap_weeks, len(filled_series))):
+                    if pd.isna(filled_series.iloc[j]):
+                        gap_length += 1
+                    else:
+                        break
+                
+                # Apply decay interpolation if gap is within limits
+                if 1 <= gap_length <= max_gap_weeks:
+                    last_value = filled_series.iloc[i-1]
+                    for week in range(gap_length):
+                        decay_factor = np.exp(-decay_rate_per_week * (week + 1))
+                        decayed_value = max(0, last_value * decay_factor)  # Don't go negative
+                        filled_series.iloc[i + week] = decayed_value
+                        interpolated_count += 1
+                        
+        return filled_series, interpolated_count
     
-    print(f"  Maximum interpolation gap: {max_gap_weeks} weeks (limit={interpolation_limit})")
+    # Apply decay interpolation to DA
+    da_interpolated_total = 0
+    for site in lt_df_merged['Site'].unique():
+        site_mask = lt_df_merged['Site'] == site
+        site_da = lt_df_merged.loc[site_mask, 'DA_Levels_orig'].copy()
+        filled_da, count = biological_decay_fill(site_da, da_max_gap_weeks, da_decay_rate)
+        lt_df_merged.loc[site_mask, 'DA_Levels'] = filled_da
+        da_interpolated_total += count
     
-    # Interpolate DA - ONLY forward direction with gap limits
-    lt_df_merged['DA_Levels'] = lt_df_merged.groupby('Site')['DA_Levels_orig'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
-    )
     lt_df_merged.drop(columns=['DA_Levels_orig'], inplace=True)
     
-    # Fill remaining DA gaps (beyond interpolation limit) with 0
-    # This assumes that extended gaps represent periods of no detectable DA
-    lt_df_merged['DA_Levels'] = lt_df_merged['DA_Levels'].fillna(0)
-        
-    # Interpolate PN - ONLY forward direction with gap limits  
-    lt_df_merged['PN_Levels'] = lt_df_merged.groupby('Site')['PN_Levels'].transform(
-        lambda x: x.interpolate(method='linear', limit_direction='forward', limit=interpolation_limit)
-    )
+    # Apply decay interpolation to PN  
+    pn_interpolated_total = 0
+    for site in lt_df_merged['Site'].unique():
+        site_mask = lt_df_merged['Site'] == site
+        site_pn = lt_df_merged.loc[site_mask, 'PN_Levels'].copy()
+        filled_pn, count = biological_decay_fill(site_pn, pn_max_gap_weeks, pn_decay_rate)
+        lt_df_merged.loc[site_mask, 'PN_Levels'] = filled_pn
+        pn_interpolated_total += count
     
-    # Fill remaining PN gaps (beyond interpolation limit) with 0
-    # This assumes that extended gaps represent periods of no detectable PN
+    # Fill remaining long gaps with 0 (assumes extended periods of non-detection)
+    lt_df_merged['DA_Levels'] = lt_df_merged['DA_Levels'].fillna(0)
     lt_df_merged['PN_Levels'] = lt_df_merged['PN_Levels'].fillna(0)
     
     # Report interpolation statistics
     da_missing_after = lt_df_merged['DA_Levels'].isna().sum()
     pn_missing_after = lt_df_merged['PN_Levels'].isna().sum()
     
-    print(f"  Interpolation complete:")
-    print(f"    - Weeks 1-{max_gap_weeks}: Linear interpolation from last known value → 0")
-    print(f"    - Weeks {max_gap_weeks+1}+: Direct fill with 0 (assumes no detectable toxin)")
+    print(f"  Biological decay interpolation complete:")
+    print(f"    - DA: {da_interpolated_total} values interpolated with exponential decay")
+    print(f"    - PN: {pn_interpolated_total} values interpolated with exponential decay") 
+    print(f"    - Gaps >{da_max_gap_weeks}/{pn_max_gap_weeks} weeks filled with 0")
     print(f"    - Remaining NaN values: DA={da_missing_after}, PN={pn_missing_after}")
     
     return lt_df_merged
@@ -1050,7 +1079,12 @@ def main():
     base_final_data = pd.merge(
         base_final_data, beuti_data, on=["Date", "Site"], how="left"
     )
-    base_final_data["beuti"] = base_final_data["beuti"].fillna(0)
+    # Forward-fill BEUTI (upwelling patterns persist) rather than assuming 0
+    base_final_data = base_final_data.sort_values(['Site', 'Date'])
+    base_final_data["beuti"] = base_final_data.groupby('Site')["beuti"].fillna(method='ffill')
+    # Fill any remaining NaN with median BEUTI value (preserves natural distribution)
+    beuti_median = base_final_data["beuti"].median()
+    base_final_data["beuti"] = base_final_data["beuti"].fillna(beuti_median)
 
     # Add satellite data if a valid path was determined and the file exists
     final_data = base_final_data
