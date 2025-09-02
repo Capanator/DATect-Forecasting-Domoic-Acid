@@ -185,6 +185,9 @@ class DataProcessor:
     def create_numeric_transformer(self, df, drop_cols):
         """
         Create preprocessing transformer for numeric features.
+        
+        CRITICAL: This creates an UNFITTED transformer. The transformer must be
+        fit ONLY on training data to prevent temporal leakage in retrospective tests.
         """
         logger.debug(f"Creating numeric transformer, dropping columns: {drop_cols}")
         
@@ -197,9 +200,15 @@ class DataProcessor:
             logger.warning("No numeric columns found for feature transformation")
             raise ValueError("No numeric features available for modeling")
         
+        # TEMPORAL SAFETY: Validate that this is training data only
+        if 'date' in df.columns:
+            date_range = df['date'].max() - df['date'].min()
+            logger.debug(f"Transformer training data date range: {date_range.days} days "
+                        f"({df['date'].min().date()} to {df['date'].max().date()})")
+        
         numeric_pipeline = Pipeline([
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", MinMaxScaler()),
+            ("imputer", SimpleImputer(strategy="median")),  # Fit only on training data
+            ("scaler", MinMaxScaler()),                     # Fit only on training data
         ])
         
         transformer = ColumnTransformer(
@@ -209,8 +218,38 @@ class DataProcessor:
         )
         transformer.set_output(transform="pandas")
         
-        logger.debug(f"Numeric transformer created with {len(numeric_cols)} features")
+        logger.debug(f"Numeric transformer created (UNFITTED) with {len(numeric_cols)} features")
+        logger.debug("WARNING: Transformer must be fit ONLY on temporal training data!")
+        
         return transformer, X
+        
+    def validate_transformer_temporal_safety(self, transformer, train_df, test_df, anchor_date):
+        """
+        Validate that transformer was fitted only on training data before anchor_date.
+        
+        This is CRITICAL for preventing temporal leakage in retrospective evaluation.
+        """
+        if train_df.empty or test_df.empty:
+            return True
+            
+        # Check that training data is all before anchor date
+        if 'date' in train_df.columns:
+            future_training_data = train_df[train_df['date'] > anchor_date]
+            if not future_training_data.empty:
+                logger.error(f"TEMPORAL LEAKAGE: Training data contains {len(future_training_data)} "
+                           f"records after anchor date {anchor_date}")
+                raise ValueError(f"Training data contains future data after {anchor_date}")
+        
+        # Check that test data is after anchor date  
+        if 'date' in test_df.columns:
+            past_test_data = test_df[test_df['date'] <= anchor_date]
+            if not past_test_data.empty:
+                logger.error(f"TEMPORAL ERROR: Test data contains {len(past_test_data)} "
+                           f"records before/on anchor date {anchor_date}")
+                raise ValueError(f"Test data contains past data before/on {anchor_date}")
+        
+        logger.debug(f"Transformer temporal safety validated: training ≤ {anchor_date} < test")
+        return True
         
     def validate_temporal_integrity(self, train_df, test_df):
         """

@@ -201,6 +201,11 @@ class ForecastEngine:
         
         X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
         
+        # CRITICAL: Validate temporal safety before fitting transformer
+        self.data_processor.validate_transformer_temporal_safety(
+            transformer, train_df, test_df, anchor_date
+        )
+        
         X_train_processed = transformer.fit_transform(X_train)
         X_test_processed = transformer.transform(X_test)
         
@@ -306,6 +311,14 @@ class ForecastEngine:
         
         drop_cols = ["date", "site", "da", "da-category"]
         transformer, X_train = self.data_processor.create_numeric_transformer(df_train_clean, drop_cols)
+        
+        # CRITICAL: Validate temporal safety (single forecast uses all training data)
+        if 'date' in df_train_clean.columns:
+            future_data = df_train_clean[df_train_clean['date'] > anchor_date]
+            if not future_data.empty:
+                logger.error(f"TEMPORAL LEAKAGE in single forecast: {len(future_data)} records after anchor")
+                raise ValueError(f"Training data contains future data after {anchor_date}")
+            logger.debug(f"Single forecast temporal safety: all training data ≤ {anchor_date}")
         
         X_train_processed = transformer.fit_transform(X_train)
         

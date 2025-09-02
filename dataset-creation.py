@@ -686,8 +686,8 @@ def process_da(da_files_dict):
 
             # Aggregate weekly - Use ISO week for consistency
             df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
-            # Group by week AND site (using the determined Site column)
-            weekly_da = df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
+            # Group by week AND site - use MAX for toxin safety (highest exposure matters)
+            weekly_da = df.groupby(['Year-Week', 'Site'])['DA_Levels'].max().reset_index()
 
             data_frames.append(weekly_da[['Year-Week', 'DA_Levels', 'Site']])
             print(f"    Successfully processed {len(weekly_da)} weekly DA records for {name}.")
@@ -699,7 +699,7 @@ def process_da(da_files_dict):
     final_da_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat to handle cases where different files might represent the same site-week
     if not final_da_df.empty:
-        final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].mean().reset_index()
+        final_da_df = final_da_df.groupby(['Year-Week', 'Site'])['DA_Levels'].max().reset_index()
     print(f"Combined DA data shape: {final_da_df.shape}")
     return final_da_df
 
@@ -745,8 +745,8 @@ def process_pn(pn_files_dict):
 
         # Aggregate weekly - Use ISO week for consistency
         df['Year-Week'] = df['Parsed_Date'].dt.strftime('%G-%V')
-        # Group by week AND site
-        weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
+        # Group by week AND site - use MAX for bloom detection (highest cell count matters)
+        weekly_pn = df.groupby(['Year-Week', 'Site'])['PN_Levels'].max().reset_index()
 
         data_frames.append(weekly_pn[['Year-Week', 'PN_Levels', 'Site']])
         print(f"  Successfully processed {len(weekly_pn)} weekly PN records for {name}.")
@@ -754,7 +754,7 @@ def process_pn(pn_files_dict):
     final_pn_df = pd.concat(data_frames, ignore_index=True)
     # Add a final group-by after concat
     if not final_pn_df.empty:
-        final_pn_df = final_pn_df.groupby(['Year-Week', 'Site'])['PN_Levels'].mean().reset_index()
+        final_pn_df = final_pn_df.groupby(['Year-Week', 'Site'])['PN_Levels'].max().reset_index()
     print(f"Combined PN data shape: {final_pn_df.shape}")
     return final_pn_df
 
