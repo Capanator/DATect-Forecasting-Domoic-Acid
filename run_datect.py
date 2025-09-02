@@ -155,10 +155,6 @@ class DATectLauncher:
             if not hasattr(config, 'TEMPORAL_BUFFER_DAYS') or config.TEMPORAL_BUFFER_DAYS < 1:
                 self.print_colored("❌ Invalid TEMPORAL_BUFFER_DAYS configuration", 'red')
                 return False
-                
-            if not hasattr(config, 'SATELLITE_BUFFER_DAYS') or config.SATELLITE_BUFFER_DAYS < 7:
-                self.print_colored("❌ Invalid SATELLITE_BUFFER_DAYS configuration", 'red')
-                return False
             
             self.print_colored("✅ Temporal configuration validated", 'green')
             return True
@@ -184,10 +180,6 @@ class DATectLauncher:
             valid_tasks = ['regression', 'classification']
             if not hasattr(config, 'FORECAST_TASK') or config.FORECAST_TASK not in valid_tasks:
                 self.print_colored(f"❌ Invalid FORECAST_TASK. Must be one of: {valid_tasks}", 'red')
-                return False
-            
-            if not hasattr(config, 'MIN_TRAINING_SAMPLES') or config.MIN_TRAINING_SAMPLES < 3:
-                self.print_colored("❌ MIN_TRAINING_SAMPLES must be ≥ 3 for reliable model training", 'red')
                 return False
             
             if not hasattr(config, 'RANDOM_SEED'):

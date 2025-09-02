@@ -367,7 +367,7 @@ class ForecastEngine:
             logger.warning("No results for evaluation")
             return
             
-        logger.info(f"Successfully processed {len(self.results_df)} leak-free forecasts")
+        logger.info(f"Successfully processed {len(self.results_df)} forecasts")
         
         if task == "regression" or task == "both":
             valid_results = self.results_df.dropna(subset=['da', 'Predicted_da'])
@@ -383,7 +383,7 @@ class ForecastEngine:
                 recall = recall_score(y_true_binary, y_pred_binary, zero_division=0)
                 f1 = f1_score(y_true_binary, y_pred_binary, zero_division=0)
                 
-                logger.info(f"LEAK-FREE Regression Metrics:")
+                logger.info(f"Regression Metrics:")
                 logger.info(f"  R2: {r2:.4f}, MAE: {mae:.4f}")
                 logger.info(f"  Spike Detection (>{spike_threshold}): Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
             else:
@@ -400,7 +400,7 @@ class ForecastEngine:
                 recall = recall_score(y_true, y_pred, average='weighted', zero_division=0)
                 f1 = f1_score(y_true, y_pred, average='weighted', zero_division=0)
                 
-                logger.info(f"LEAK-FREE Classification Metrics:")
+                logger.info(f"Classification Metrics:")
                 logger.info(f"  Accuracy: {accuracy:.4f}")
                 logger.info(f"  Precision: {precision:.4f}")
                 logger.info(f"  Recall: {recall:.4f}")

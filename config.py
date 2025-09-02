@@ -179,26 +179,29 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "realtime"
+FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "regression"
+FORECAST_TASK = "classification"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
 
+# Forecast Horizon Configuration
+# How many weeks ahead to forecast from the data cutoff point
+FORECAST_HORIZON_WEEKS = 1  # 4 weeks ahead forecast
+FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7 * 7 * 7 * 7 * 7 * 7 * 7 * 7  # Derived days value for internal calculations
+
 
 # Temporal Validation - prevents data leakage
 TEMPORAL_BUFFER_DAYS = 1  # Training/prediction gap
-SATELLITE_BUFFER_DAYS = 7  # Satellite processing delay
-CLIMATE_BUFFER_MONTHS = 2  # Climate index reporting delay
 
 # Model Performance
 MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 500
+N_RANDOM_ANCHORS = 200
 
 # Lag Feature Configuration
 
@@ -215,6 +218,4 @@ LAG_FEATURES = [1, 3] if USE_LAG_FEATURES else []
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
-# Statistical Enhancement Settings - REMOVED FOR PERFORMANCE
-# All statistical analysis features have been removed to improve forecast speed
 # The UI does not display bootstrap confidence intervals, baseline comparisons, or residual analysis

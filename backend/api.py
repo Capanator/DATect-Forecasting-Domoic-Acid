@@ -228,6 +228,7 @@ class ConfigUpdateRequest(BaseModel):
     forecast_task: str = "regression"  # "regression" or "classification"
     forecast_model: str = "xgboost"  # "xgboost" or "linear" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
+    forecast_horizon_weeks: int = 1  # Weeks ahead to forecast from data cutoff
 
 class ForecastResponse(BaseModel):
     success: bool
@@ -453,7 +454,9 @@ async def get_config():
     return {
         "forecast_mode": getattr(config, 'FORECAST_MODE', 'realtime'),
         "forecast_task": getattr(config, 'FORECAST_TASK', 'regression'),
-        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost')
+        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost'),
+        "forecast_horizon_weeks": getattr(config, 'FORECAST_HORIZON_WEEKS', 1),
+        "forecast_horizon_days": getattr(config, 'FORECAST_HORIZON_DAYS', 7)
     }
 
 @app.post("/api/config")
@@ -464,6 +467,8 @@ async def update_config(config_request: ConfigUpdateRequest):
         config.FORECAST_MODE = config_request.forecast_mode
         config.FORECAST_TASK = config_request.forecast_task  
         config.FORECAST_MODEL = config_request.forecast_model
+        config.FORECAST_HORIZON_WEEKS = config_request.forecast_horizon_weeks
+        config.FORECAST_HORIZON_DAYS = config_request.forecast_horizon_weeks * 7
         
         # Write changes to config.py file
         config_file_path = os.path.join(project_root, 'config.py')
@@ -486,6 +491,16 @@ async def update_config(config_request: ConfigUpdateRequest):
         config_content = re.sub(
             r'FORECAST_MODEL = ".*?"',
             f'FORECAST_MODEL = "{config_request.forecast_model}"',
+            config_content
+        )
+        config_content = re.sub(
+            r'FORECAST_HORIZON_WEEKS = \d+',
+            f'FORECAST_HORIZON_WEEKS = {config_request.forecast_horizon_weeks}',
+            config_content
+        )
+        config_content = re.sub(
+            r'FORECAST_HORIZON_DAYS = \S+',
+            f'FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7',
             config_content
         )
         
