@@ -40,20 +40,22 @@ class DATectCacheGenerator:
         """Pre-compute all retrospective forecast combinations."""
         print("Pre-computing retrospective forecasts...")
         
+        # These combinations match exactly what the API expects
+        # The API maps "linear" to either "linear" (regression) or "logistic" (classification)
         combinations = [
+            ("regression", "xgboost"),
+            ("regression", "linear"),  
             ("classification", "xgboost"),
-            ("classification", "logistic"),
-            ("regression", "xgboost"), 
-            ("regression", "linear")
+            ("classification", "logistic")
         ]
-        
-        engine = ForecastEngine()
         
         for task, model_type in combinations:
             print(f"  {task} + {model_type}...")
             
             try:
-                n_anchors = getattr(config, 'N_RANDOM_ANCHORS', 200)
+                # Create fresh engine instance for each model to avoid state contamination
+                engine = ForecastEngine()
+                n_anchors = getattr(config, 'N_RANDOM_ANCHORS', 500)
                 
                 results = engine.run_retrospective_evaluation(
                     task=task,
