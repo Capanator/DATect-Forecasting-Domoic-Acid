@@ -209,7 +209,7 @@ USE_LAG_FEATURES = False
 
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
-LAG_FEATURES = [1, 3] if USE_LAG_FEATURES else []
+LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
 
 # DA Category Configuration
 
