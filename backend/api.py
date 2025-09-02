@@ -4,6 +4,7 @@ FastAPI backend providing forecasting, visualization, and analysis endpoints
 """
 
 import logging
+import json
 import math
 import os
 import re
@@ -30,6 +31,7 @@ from backend.visualizations import (
     generate_spectral_analysis
 )
 from backend.cache_manager import cache_manager
+from pathlib import Path
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -648,6 +650,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
 async def run_retrospective_analysis(request: RetrospectiveRequest = RetrospectiveRequest()):
     """Run complete retrospective analysis based on current config (uses pre-computed cache for production)."""
     try:
+        used_cache = False
         # Map model names for API compatibility
         if config.FORECAST_MODEL == "linear":
             actual_model = "linear" if config.FORECAST_TASK == "regression" else "logistic"
@@ -666,7 +669,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             results_df = engine.run_retrospective_evaluation(
                 task=config.FORECAST_TASK,
                 model_type=actual_model,
-                n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 30)
+                n_anchors=getattr(config, 'N_RANDOM_ANCHORS', 500)
             )
 
             if results_df is None or results_df.empty:
@@ -685,9 +688,40 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
                 }
                 base_results.append(record)
 
+            # Optional: write back fresh results to cache for reproducibility in subsequent runs
+            try:
+                if os.getenv("ENABLE_CACHE_WRITEBACK", "").lower() in ("1", "true", "yes"): 
+                    cache_dir = Path(project_root) / "cache" / "retrospective"
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    cache_prefix = cache_dir / f"{config.FORECAST_TASK}_{actual_model}"
+
+                    # Save parquet exactly as engine produced
+                    try:
+                        results_df.to_parquet(f"{cache_prefix}.parquet", index=False)
+                    except Exception as e:
+                        logging.error(f"Failed to write parquet cache: {e}")
+
+                    # Save JSON in cache format expected by cache_manager (engine-style keys)
+                    try:
+                        engine_style_records = results_df.to_dict('records')
+                        # Ensure dates are serializable
+                        for rec in engine_style_records:
+                            if isinstance(rec.get('date'), (pd.Timestamp,)):
+                                rec['date'] = rec['date'].strftime('%Y-%m-%d')
+                            if isinstance(rec.get('anchor_date'), (pd.Timestamp,)):
+                                rec['anchor_date'] = rec['anchor_date'].strftime('%Y-%m-%d')
+                        with open(f"{cache_prefix}.json", 'w') as f:
+                            json.dump(engine_style_records, f, default=str, indent=2)
+                        logging.info(f"Cache write-back completed: {cache_prefix}.*")
+                    except Exception as e:
+                        logging.error(f"Failed to write JSON cache: {e}")
+            except Exception as e:
+                logging.error(f"Cache write-back error: {e}")
+
             # Results computed on-demand for local development
         else:
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
+            used_cache = True
 
         # Normalize cached data format
         if base_results and isinstance(base_results, list):
@@ -712,6 +746,8 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
                 "forecast_task": config.FORECAST_TASK,
                 "forecast_model": config.FORECAST_MODEL
             },
+            "cached": used_cache,
+            "source": "precomputed" if used_cache else "computed",
             "summary": summary,
             "results": filtered
         }

@@ -76,6 +76,15 @@ class ForecastEngine:
         validate_runtime_parameters(n_anchors, min_test_date)
         
         logger.info(f"Running LEAK-FREE {task} evaluation with {model_type}")
+
+        # Ensure deterministic anchor sampling and model behavior on every call
+        # This avoids differences between first UI run and subsequent runs
+        try:
+            random.seed(self.random_seed)
+            np.random.seed(self.random_seed)
+            logger.debug(f"Random seeds reset to {self.random_seed}")
+        except Exception:
+            pass
         
         self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
         min_target_date = pd.Timestamp(min_test_date)
