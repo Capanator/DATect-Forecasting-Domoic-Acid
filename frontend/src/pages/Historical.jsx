@@ -8,8 +8,6 @@ import { plotConfig, plotConfigSquare, getPlotFilename } from '../utils/plotConf
 const Historical = () => {
   const [sites, setSites] = useState([])
   const [selectedSite, setSelectedSite] = useState(null)
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(false)
   const [visualizationType, setVisualizationType] = useState('correlation')
   const [siteScope, setSiteScope] = useState('single') // 'single' or 'all'
   const [visualizationData, setVisualizationData] = useState(null)
@@ -46,29 +44,6 @@ const Historical = () => {
     }
   }
 
-  const loadHistoricalData = async () => {
-    if (!selectedSite && siteScope === 'single') return
-
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        limit: '10000'
-      })
-
-      if (siteScope === 'single' && selectedSite) {
-        const response = await api.get(`/api/historical/${selectedSite.value}?${params}`)
-        setData(response.data.data)
-      } else {
-        // Load data for all sites
-        const response = await api.get(`/api/historical/all?${params}`)
-        setData(response.data.data)
-      }
-    } catch (err) {
-      console.error('Failed to load historical data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadVisualizationData = async () => {
     setLoadingVisualization(true)
@@ -109,16 +84,8 @@ const Historical = () => {
     }
   }
 
-  useEffect(() => {
-    if (siteScope === 'single' && selectedSite) {
-      loadHistoricalData()
-    } else if (siteScope === 'all') {
-      loadHistoricalData()
-    }
-  }, [selectedSite, siteScope])
 
   useEffect(() => {
-    // Force single site for comparison
     if (forceSingleSite && siteScope === 'all') {
       setSiteScope('single')
     }
@@ -127,128 +94,60 @@ const Historical = () => {
 
   const siteOptions = sites.map(site => ({ value: site, label: site }))
 
-  const createTimeSeries = () => {
-    if (!data || data.length === 0) return null
-
-    if (siteScope === 'single') {
-      // Filter out null/undefined DA values
-      const validData = data.filter(d => d.da !== null && d.da !== undefined)
-      if (validData.length === 0) return null
-      
-      return {
-        data: [{
-          x: validData.map(d => d.date),
-          y: validData.map(d => d.da),
-          type: 'scatter',
-          mode: 'lines+markers',
-          name: 'DA Concentration',
-          line: { color: '#2563eb' },
-          marker: { size: 4 }
-        }],
-        layout: {
-          title: `Historical DA Concentrations - ${selectedSite?.label}`,
-          xaxis: { title: 'Date' },
-          yaxis: { title: 'DA Concentration (μg/g)' },
-          height: 500
-        }
-      }
-    } else {
-      // Group data by site for all sites view
-      const siteData = {}
-      data.forEach(d => {
-        if (d.da !== null && d.da !== undefined) {
-          if (!siteData[d.site]) {
-            siteData[d.site] = { dates: [], values: [] }
-          }
-          siteData[d.site].dates.push(d.date)
-          siteData[d.site].values.push(d.da)
-        }
-      })
-
-      if (Object.keys(siteData).length === 0) return null
-
-      const traces = Object.keys(siteData).map(site => ({
-        x: siteData[site].dates,
-        y: siteData[site].values,
-        type: 'scatter',
-        mode: 'lines',
-        name: site,
-        line: { width: 2 }
-      }))
-
-      return {
-        data: traces,
-        layout: {
-          title: 'Historical DA Concentrations - All Sites',
-          xaxis: { title: 'Date' },
-          yaxis: { title: 'DA Concentration (μg/g)' },
-          height: 500
-        }
-      }
-    }
-  }
 
   const renderVisualization = () => {
-    if (visualizationData) {
-      // Handle both single plot and multiple plots
-      if (visualizationData.plot) {
-        // Single plot visualization
-        // Center heatmaps which tend to be square
-        const isHeatmap = visualizationType === 'correlation'
-        const config = isHeatmap ? {
-          ...plotConfigSquare,
-          toImageButtonOptions: {
-            ...plotConfigSquare.toImageButtonOptions,
-            filename: getPlotFilename(`${visualizationType}_${siteScope === 'all' ? 'all-sites' : selectedSite?.value || 'plot'}`)
-          }
-        } : {
-          ...plotConfig,
-          toImageButtonOptions: {
-            ...plotConfig.toImageButtonOptions,
-            filename: getPlotFilename(`${visualizationType}_${siteScope === 'all' ? 'all-sites' : selectedSite?.value || 'plot'}`)
-          }
-        }
-        
-        return (
-          <div className={isHeatmap ? "flex justify-center" : ""}>
-            <Plot
-              data={visualizationData.plot.data}
-              layout={visualizationData.plot.layout}
-              config={config}
-              className={isHeatmap ? "" : "w-full"}
-              style={isHeatmap ? { maxWidth: '800px' } : {}}
-            />
-          </div>
-        )
-      } else if (visualizationData.plots && Array.isArray(visualizationData.plots)) {
-        // Multiple plots visualization
-        return (
-          <div className="space-y-4">
-            {visualizationData.plots.map((plot, index) => {
-              const plotConfigWithFilename = {
-                ...plotConfig,
-                toImageButtonOptions: {
-                  ...plotConfig.toImageButtonOptions,
-                  filename: getPlotFilename(`${visualizationType}_plot${index + 1}`)
-                }
-              }
-              return (
-                <div key={index} className="flex justify-center">
-                  <Plot
-                    data={plot.data}
-                    layout={plot.layout}
-                    config={plotConfigWithFilename}
-                    className="w-full"
-                    style={{ maxWidth: '1000px' }}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )
-      }
+    if (!visualizationData) {
+      return <p className="text-center text-gray-500">Loading visualization...</p>
     }
-    return <p className="text-center text-gray-500">Loading visualization...</p>
+
+    if (visualizationData.plot) {
+      const isHeatmap = visualizationType === 'correlation'
+      const config = {
+        ...(isHeatmap ? plotConfigSquare : plotConfig),
+        toImageButtonOptions: {
+          ...(isHeatmap ? plotConfigSquare : plotConfig).toImageButtonOptions,
+          filename: getPlotFilename(`${visualizationType}_${siteScope === 'all' ? 'all-sites' : selectedSite?.value || 'plot'}`)
+        }
+      }
+      
+      return (
+        <div className={isHeatmap ? "flex justify-center" : ""}>
+          <Plot
+            data={visualizationData.plot.data}
+            layout={visualizationData.plot.layout}
+            config={config}
+            className={isHeatmap ? "" : "w-full"}
+            style={isHeatmap ? { maxWidth: '800px' } : {}}
+          />
+        </div>
+      )
+    }
+
+    if (visualizationData.plots && Array.isArray(visualizationData.plots)) {
+      return (
+        <div className="space-y-4">
+          {visualizationData.plots.map((plot, index) => (
+            <div key={index} className="flex justify-center">
+              <Plot
+                data={plot.data}
+                layout={plot.layout}
+                config={{
+                  ...plotConfig,
+                  toImageButtonOptions: {
+                    ...plotConfig.toImageButtonOptions,
+                    filename: getPlotFilename(`${visualizationType}_plot${index + 1}`)
+                  }
+                }}
+                className="w-full"
+                style={{ maxWidth: '1000px' }}
+              />
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    return <p className="text-center text-gray-500">No visualization data available.</p>
   }
 
   // Check if current visualization supports site scope selection
@@ -336,7 +235,7 @@ const Historical = () => {
 
       {/* Visualization */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        {(loading || loadingVisualization) ? (
+        {loadingVisualization ? (
           <div className="text-center py-8">
             <p className="text-gray-600">Loading visualization...</p>
           </div>

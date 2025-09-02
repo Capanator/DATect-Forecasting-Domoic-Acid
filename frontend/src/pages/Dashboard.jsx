@@ -8,6 +8,19 @@ import api from '../services/api'
 import { plotConfig, getPlotFilename } from '../utils/plotConfig'
 import 'react-datepicker/dist/react-datepicker.css'
 
+const SITE_COLORS = [
+  '#1f77b4', // blue
+  '#ff7f0e', // orange  
+  '#2ca02c', // green
+  '#d62728', // red
+  '#9467bd', // purple
+  '#8c564b', // brown
+  '#e377c2', // pink
+  '#7f7f7f', // gray
+  '#bcbd22', // olive
+  '#17becf'  // cyan
+]
+
 const Dashboard = () => {
   const [currentStep, setCurrentStep] = useState('config')
   
@@ -62,7 +75,6 @@ const Dashboard = () => {
       
     } catch (err) {
       setError('Failed to load initial data')
-      // Error loading initial data
     }
   }
 
@@ -73,7 +85,7 @@ const Dashboard = () => {
       setTask(response.data.forecast_task)
       setSelectedModel(response.data.forecast_model)
     } catch (err) {
-      // Failed to load config
+      console.error('Failed to load config:', err)
     }
   }
 
@@ -109,13 +121,111 @@ const Dashboard = () => {
       }
     } catch (err) {
       setError('Failed to update configuration')
-      // Error applying configuration
     } finally {
       setConfigLoading(false)
     }
   }
 
-  // Filter results locally without re-running analysis
+  const calculateClassificationMetrics = (results) => {
+    const validClassification = results.filter(r => 
+      r.actual_category !== null && r.actual_category !== undefined &&
+      r.predicted_category !== null && r.predicted_category !== undefined
+    )
+    
+    if (validClassification.length === 0) return {}
+    
+    const correctPredictions = validClassification.filter(r => 
+      r.actual_category === r.predicted_category
+    ).length
+    const accuracy = correctPredictions / validClassification.length
+    
+    const classes = [0, 1, 2, 3]
+    const classNames = ['Low', 'Moderate', 'High', 'Extreme']
+    let balancedAccSum = 0
+    let validClasses = 0
+    const perClassMetrics = {}
+    
+    classes.forEach((cls, idx) => {
+      const actualInClass = validClassification.filter(r => r.actual_category === cls)
+      const predictedInClass = validClassification.filter(r => r.predicted_category === cls)
+      const truePositives = validClassification.filter(r => 
+        r.actual_category === cls && r.predicted_category === cls
+      ).length
+      
+      if (actualInClass.length > 0) {
+        const recall = truePositives / actualInClass.length
+        const precision = predictedInClass.length > 0 ? truePositives / predictedInClass.length : 0
+        const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0
+        
+        balancedAccSum += recall
+        validClasses += 1
+        
+        perClassMetrics[classNames[idx]] = {
+          recall, precision, f1,
+          support: actualInClass.length
+        }
+      }
+    })
+    
+    const balancedAccuracy = validClasses > 0 ? balancedAccSum / validClasses : 0
+    
+    return {
+      classification_forecasts: validClassification.length,
+      accuracy,
+      balanced_accuracy: balancedAccuracy,
+      per_class_metrics: perClassMetrics
+    }
+  }
+
+  const calculateRegressionMetrics = (results) => {
+    const validRegression = results.filter(r => 
+      r.actual_da !== null && r.predicted_da !== null
+    )
+    
+    if (validRegression.length === 0) return {}
+    
+    const actuals = validRegression.map(r => r.actual_da)
+    const predictions = validRegression.map(r => r.predicted_da)
+    
+    // R2 calculation
+    const meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length
+    const ssTotal = actuals.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0)
+    const ssResidual = actuals.reduce((sum, val, i) => 
+      sum + Math.pow(val - predictions[i], 2), 0
+    )
+    const r2 = 1 - (ssResidual / ssTotal)
+    
+    // MAE calculation
+    const mae = actuals.reduce((sum, val, i) => 
+      sum + Math.abs(val - predictions[i]), 0
+    ) / actuals.length
+    
+    // F1 score for spike detection
+    const actualSpikes = actuals.map(val => val > 15 ? 1 : 0)
+    const predictedSpikes = predictions.map(val => val > 15 ? 1 : 0)
+    
+    const truePositives = actualSpikes.reduce((sum, actual, i) => 
+      sum + (actual === 1 && predictedSpikes[i] === 1 ? 1 : 0), 0
+    )
+    const falsePositives = actualSpikes.reduce((sum, actual, i) => 
+      sum + (actual === 0 && predictedSpikes[i] === 1 ? 1 : 0), 0
+    )
+    const falseNegatives = actualSpikes.reduce((sum, actual, i) => 
+      sum + (actual === 1 && predictedSpikes[i] === 0 ? 1 : 0), 0
+    )
+    
+    const precision = truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 0
+    const recall = truePositives + falseNegatives > 0 ? truePositives / (truePositives + falseNegatives) : 0
+    const f1Score = precision + recall > 0 ? 2 * (precision * recall) / (precision + recall) : 0
+    
+    return {
+      regression_forecasts: validRegression.length,
+      r2_score: r2,
+      mae,
+      f1_score: f1Score
+    }
+  }
+
   const filterResultsBySite = (siteFilter) => {
     if (!retrospectiveResults) return
     
@@ -123,124 +233,26 @@ const Dashboard = () => {
     
     if (siteFilter === 'all') {
       setFilteredResults(retrospectiveResults)
-    } else {
-      const filtered = {
-        ...retrospectiveResults,
-        results: retrospectiveResults.results.filter(r => r.site === siteFilter)
-      }
-      
-      // Recalculate summary statistics for filtered data based on task type
-      const isClassification = config.forecast_task === 'classification'
-      
-      if (isClassification) {
-        // Recalculate classification metrics
-        const validClassification = filtered.results.filter(r => 
-          r.actual_category !== null && r.actual_category !== undefined &&
-          r.predicted_category !== null && r.predicted_category !== undefined
-        )
-        
-        if (validClassification.length > 0) {
-          const correctPredictions = validClassification.filter(r => 
-            r.actual_category === r.predicted_category
-          ).length
-          const accuracy = correctPredictions / validClassification.length
-          
-          // Calculate balanced accuracy and per-class metrics
-          const classes = [0, 1, 2, 3] // Low, Moderate, High, Extreme
-          const classNames = ['Low', 'Moderate', 'High', 'Extreme']
-          let balancedAccSum = 0
-          let validClasses = 0
-          const perClassMetrics = {}
-          
-          classes.forEach((cls, idx) => {
-            const actualInClass = validClassification.filter(r => r.actual_category === cls)
-            const predictedInClass = validClassification.filter(r => r.predicted_category === cls)
-            const truePositives = validClassification.filter(r => 
-              r.actual_category === cls && r.predicted_category === cls
-            ).length
-            
-            if (actualInClass.length > 0) {
-              const recall = truePositives / actualInClass.length
-              const precision = predictedInClass.length > 0 ? truePositives / predictedInClass.length : 0
-              const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0
-              
-              balancedAccSum += recall
-              validClasses += 1
-              
-              perClassMetrics[classNames[idx]] = {
-                recall: recall,
-                precision: precision,
-                f1: f1,
-                support: actualInClass.length
-              }
-            }
-          })
-          
-          const balancedAccuracy = validClasses > 0 ? balancedAccSum / validClasses : 0
-          
-          filtered.summary = {
-            ...filtered.summary,
-            total_forecasts: filtered.results.length,
-            classification_forecasts: validClassification.length,
-            accuracy: accuracy,
-            balanced_accuracy: balancedAccuracy,
-            per_class_metrics: perClassMetrics
-          }
-        }
-      } else {
-        // Recalculate regression metrics
-        const validRegression = filtered.results.filter(r => 
-          r.actual_da !== null && r.predicted_da !== null
-        )
-        
-        if (validRegression.length > 0) {
-          const actuals = validRegression.map(r => r.actual_da)
-          const predictions = validRegression.map(r => r.predicted_da)
-          
-          // Calculate R2
-          const meanActual = actuals.reduce((a, b) => a + b, 0) / actuals.length
-          const ssTotal = actuals.reduce((sum, val) => sum + Math.pow(val - meanActual, 2), 0)
-          const ssResidual = actuals.reduce((sum, val, i) => 
-            sum + Math.pow(val - predictions[i], 2), 0
-          )
-          const r2 = 1 - (ssResidual / ssTotal)
-          
-          // Calculate MAE
-          const mae = actuals.reduce((sum, val, i) => 
-            sum + Math.abs(val - predictions[i]), 0
-          ) / actuals.length
-          
-          // Calculate F1 score for spike detection (15 μg/g threshold)
-          const actualSpikes = actuals.map(val => val > 15 ? 1 : 0)
-          const predictedSpikes = predictions.map(val => val > 15 ? 1 : 0)
-          
-          const truePositives = actualSpikes.reduce((sum, actual, i) => 
-            sum + (actual === 1 && predictedSpikes[i] === 1 ? 1 : 0), 0
-          )
-          const falsePositives = actualSpikes.reduce((sum, actual, i) => 
-            sum + (actual === 0 && predictedSpikes[i] === 1 ? 1 : 0), 0
-          )
-          const falseNegatives = actualSpikes.reduce((sum, actual, i) => 
-            sum + (actual === 1 && predictedSpikes[i] === 0 ? 1 : 0), 0
-          )
-          
-          const precision = truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 0
-          const recall = truePositives + falseNegatives > 0 ? truePositives / (truePositives + falseNegatives) : 0
-          const f1Score = precision + recall > 0 ? 2 * (precision * recall) / (precision + recall) : 0
-          
-          filtered.summary = {
-            ...filtered.summary,
-            total_forecasts: filtered.results.length,
-            regression_forecasts: validRegression.length,
-            r2_score: r2,
-            mae: mae,
-            f1_score: f1Score
-          }
-        }
-      }
-      
-      setFilteredResults(filtered)
+      return
     }
+
+    const filtered = {
+      ...retrospectiveResults,
+      results: retrospectiveResults.results.filter(r => r.site === siteFilter)
+    }
+    
+    const isClassification = config.forecast_task === 'classification'
+    const metrics = isClassification 
+      ? calculateClassificationMetrics(filtered.results)
+      : calculateRegressionMetrics(filtered.results)
+    
+    filtered.summary = {
+      ...filtered.summary,
+      total_forecasts: filtered.results.length,
+      ...metrics
+    }
+    
+    setFilteredResults(filtered)
   }
 
   const runRetrospectiveAnalysis = async () => {
@@ -258,7 +270,6 @@ const Dashboard = () => {
       setCurrentStep('results')
     } catch (err) {
       setError('Failed to run retrospective analysis')
-      // Retrospective analysis error
     } finally {
       setLoading(false)
     }
@@ -274,8 +285,6 @@ const Dashboard = () => {
     setError(null)
     
     try {
-      // Sending forecast request
-      
       const response = await api.post('/api/forecast/enhanced', {
         date: format(selectedDate, 'yyyy-MM-dd'),
         site: selectedSite.value,
@@ -283,11 +292,9 @@ const Dashboard = () => {
         model: selectedModel
       })
       
-      // Received forecast response
       setForecast(response.data)
       setCurrentStep('results')
     } catch (err) {
-      // Forecast error
       setError(`Failed to generate forecast: ${err.response?.data?.detail || err.message}`)
     } finally {
       setLoading(false)
@@ -324,20 +331,7 @@ const Dashboard = () => {
         
         if (siteData.length === 0) return
         
-        // Use comprehensive 10-color palette for all 10 sites (no duplicates)
-        const colors = [
-          '#1f77b4', // blue
-          '#ff7f0e', // orange  
-          '#2ca02c', // green
-          '#d62728', // red
-          '#9467bd', // purple
-          '#8c564b', // brown
-          '#e377c2', // pink
-          '#7f7f7f', // gray
-          '#bcbd22', // olive
-          '#17becf'  // cyan
-        ]
-        const siteColor = colors[siteIndex % colors.length]
+        const siteColor = SITE_COLORS[siteIndex % SITE_COLORS.length]
         
         // Color logic: single site = blue/red, multiple sites = site-specific colors
         const actualColor = isSingleSite ? 'blue' : siteColor
@@ -401,20 +395,7 @@ const Dashboard = () => {
         
         if (siteData.length === 0) return
         
-        // Use comprehensive 10-color palette for all 10 sites (no duplicates)
-        const colors = [
-          '#1f77b4', // blue
-          '#ff7f0e', // orange  
-          '#2ca02c', // green
-          '#d62728', // red
-          '#9467bd', // purple
-          '#8c564b', // brown
-          '#e377c2', // pink
-          '#7f7f7f', // gray
-          '#bcbd22', // olive
-          '#17becf'  // cyan
-        ]
-        const siteColor = colors[siteIndex % colors.length]
+        const siteColor = SITE_COLORS[siteIndex % SITE_COLORS.length]
         
         // Color logic: single site = blue/red, multiple sites = site-specific colors
         const actualColor = isSingleSite ? 'blue' : siteColor
@@ -490,19 +471,6 @@ const Dashboard = () => {
         siteGroups[d.site].push(d)
       })
       
-      // Use comprehensive 10-color palette for all 10 sites (no duplicates)
-      const colors = [
-        '#1f77b4', // blue - Cannon Beach
-        '#ff7f0e', // orange - Clatsop Beach
-        '#2ca02c', // green - Coos Bay
-        '#d62728', // red - Copalis
-        '#9467bd', // purple - Gold Beach
-        '#8c564b', // brown - Kalaloch
-        '#e377c2', // pink - Long Beach
-        '#7f7f7f', // gray - Newport
-        '#bcbd22', // olive - Quinault
-        '#17becf'  // cyan - Twin Harbors
-      ]
       const traces = []
       
       // Add diagonal reference line for perfect predictions
@@ -524,7 +492,7 @@ const Dashboard = () => {
           type: 'scatter',
           name: site,
           marker: { 
-            color: colors[index % colors.length],
+            color: SITE_COLORS[index % SITE_COLORS.length],
             size: 8,
             opacity: 0.6
           },
@@ -590,19 +558,6 @@ const Dashboard = () => {
         siteGroups[d.site].push(d)
       })
 
-      // Use comprehensive 10-color palette for all 10 sites (no duplicates)
-      const colors = [
-        '#1f77b4', // blue - Cannon Beach
-        '#ff7f0e', // orange - Clatsop Beach
-        '#2ca02c', // green - Coos Bay
-        '#d62728', // red - Copalis
-        '#9467bd', // purple - Gold Beach
-        '#8c564b', // brown - Kalaloch
-        '#e377c2', // pink - Long Beach
-        '#7f7f7f', // gray - Newport
-        '#bcbd22', // olive - Quinault
-        '#17becf'  // cyan - Twin Harbors
-      ]
       const traces = []
 
       // Add diagonal reference line
@@ -624,7 +579,7 @@ const Dashboard = () => {
           type: 'scatter',
           name: site,
           marker: { 
-            color: colors[index % colors.length],
+            color: SITE_COLORS[index % SITE_COLORS.length],
             size: 8,
             opacity: 0.7
           },
