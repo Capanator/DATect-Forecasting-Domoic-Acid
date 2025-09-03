@@ -182,7 +182,7 @@ SATELLITE_DATA = {
 FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "regression"
+FORECAST_TASK = "classification"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"

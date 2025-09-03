@@ -953,11 +953,32 @@ def _compute_summary(results_json: list) -> dict:
 
     # Classification metrics
     if valid_classification:
-        from sklearn.metrics import accuracy_score
+        from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support
         actual_cats = [r[0] for r in valid_classification]
         pred_cats = [r[1] for r in valid_classification]
         try:
             summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
+            summary["balanced_accuracy"] = float(balanced_accuracy_score(actual_cats, pred_cats))
+            
+            # Per-class metrics
+            classes = [0, 1, 2, 3]
+            class_names = ['Low', 'Moderate', 'High', 'Extreme']
+            per_class_metrics = {}
+            
+            precision, recall, f1, support = precision_recall_fscore_support(
+                actual_cats, pred_cats, labels=classes, zero_division=0
+            )
+            
+            for i, class_name in enumerate(class_names):
+                per_class_metrics[class_name] = {
+                    'precision': float(precision[i]),
+                    'recall': float(recall[i]),
+                    'f1': float(f1[i]),
+                    'support': int(support[i])
+                }
+            
+            summary["per_class_metrics"] = per_class_metrics
+            
         except Exception as e:
             logging.error(f"Error calculating classification metrics: {e}")
 
