@@ -234,9 +234,9 @@ async def generate_forecast(request: ForecastRequest):
         }
         
         if request.task == "regression":
-            response_data["prediction"] = result.get('predicted_da')
+            response_data["prediction"] = result.get('Predicted_da')
         else:  # classification
-            response_data["predicted_category"] = result.get('predicted_category')
+            response_data["predicted_category"] = result.get('Predicted_da-category')
         
         if 'feature_importance' in result and result['feature_importance'] is not None:
             importance_df = result['feature_importance']
@@ -602,8 +602,8 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         }
         
         # Add level_range graph for regression
-        if regression_result and 'predicted_da' in regression_result:
-            predicted_da = float(regression_result['predicted_da'])
+        if regression_result and 'Predicted_da' in regression_result:
+            predicted_da = float(regression_result['Predicted_da'])
             
             # Simple uncertainty bounds (can be enhanced later)
             response_data["graphs"]["level_range"] = {
@@ -617,13 +617,13 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             }
         
         # Add category_range graph for classification
-        if classification_result and 'predicted_category' in classification_result:
+        if classification_result and 'Predicted_da-category' in classification_result:
             class_probs = classification_result.get('class_probabilities', [0.25, 0.25, 0.25, 0.25])
             if isinstance(class_probs, np.ndarray):
                 class_probs = class_probs.tolist()
             
             response_data["graphs"]["category_range"] = {
-                "predicted_category": int(classification_result['predicted_category']),
+                "predicted_category": int(classification_result['Predicted_da-category']),
                 "class_probabilities": class_probs,
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
