@@ -72,25 +72,16 @@ class DATectCacheGenerator:
                         }
                         base_results.append(record)
                     
-                    for result in base_results:
-                        if 'da' in result and 'actual_da' not in result:
-                            result['actual_da'] = result.get('da')
-                        if 'Predicted_da' in result and 'predicted_da' not in result:
-                            result['predicted_da'] = result.get('Predicted_da')
-                        if 'da-category' in result and 'actual_category' not in result:
-                            result['actual_category'] = result.get('da-category')
-                        if 'Predicted_da-category' in result and 'predicted_category' not in result:
-                            result['predicted_category'] = result.get('Predicted_da-category')
 
                     results_json = []
                     for result in base_results:
                         record = {
                             'date': result['date'],
                             'site': result['site'],
-                            'da': result['actual_da'],
-                            'da-category': result['actual_category'],
-                            'Predicted_da': result['predicted_da'],
-                            'Predicted_da-category': result['predicted_category']
+                            'actual_da': result['actual_da'],
+                            'actual_category': result['actual_category'],
+                            'predicted_da': result['predicted_da'],
+                            'predicted_category': result['predicted_category']
                         }
                         if 'anchor_date' in results_df.columns:
                             anchor_row = results_df[results_df['site'] == result['site']].iloc[0]

@@ -672,7 +672,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             if results_df is None or results_df.empty:
                 return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format with proper float cleaning
+            # Convert results to JSON format with proper float cleaning using consistent column names
             base_results = []
             for _, row in results_df.iterrows():
                 record = {
@@ -689,17 +689,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         else:
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
-        # Normalize cached data format
-        if base_results and isinstance(base_results, list):
-            for result in base_results:
-                if 'da' in result and 'actual_da' not in result:
-                    result['actual_da'] = result.get('da')
-                if 'Predicted_da' in result and 'predicted_da' not in result:
-                    result['predicted_da'] = result.get('Predicted_da')
-                if 'da-category' in result and 'actual_category' not in result:
-                    result['actual_category'] = result.get('da-category')
-                if 'Predicted_da-category' in result and 'predicted_category' not in result:
-                    result['predicted_category'] = result.get('Predicted_da-category')
+        # Cached data is already in the correct format (actual_da, predicted_da, actual_category, predicted_category)
 
         # Filter by sites if specified
         filtered = [r for r in base_results if r['site'] in request.selected_sites] if request.selected_sites else base_results
@@ -726,19 +716,17 @@ def _compute_summary(results_json: list) -> dict:
     """Compute summary metrics for retrospective results."""
     summary = {"total_forecasts": len(results_json)}
     
-    # Get valid pairs for regression and classification
-    # Handle both API format (actual_da, predicted_da) and cached format (da, Predicted_da)
+    # Get valid pairs for regression and classification using consistent format
     valid_regression = []
     valid_classification = []
     
     for r in results_json:
-        # Regression pairs - try both formats
+        # Handle both formats: standardized (actual_da, predicted_da) and original (da, Predicted_da)
         actual_da = r.get('actual_da') or r.get('da')
         predicted_da = r.get('predicted_da') or r.get('Predicted_da')
         if actual_da is not None and predicted_da is not None:
             valid_regression.append((actual_da, predicted_da))
         
-        # Classification pairs - try both formats  
         actual_cat = r.get('actual_category') or r.get('da-category')
         predicted_cat = r.get('predicted_category') or r.get('Predicted_da-category')
         if actual_cat is not None and predicted_cat is not None:

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-09-02T18:14:55.766437",
+  "generated_at": "2025-09-02T19:18:36.140961",
   "cache_version": "2.0",
   "config": {
     "N_RANDOM_ANCHORS": 50,
@@ -8,14 +8,17 @@
     "MIN_TRAINING_SAMPLES": 3
   },
   "files": {
+    "manifest.json": {
+      "size_bytes": 2462
+    },
     "retrospective/regression_linear.json": {
-      "size_bytes": 104562
+      "size_bytes": 108562
     },
     "retrospective/classification_logistic.json": {
-      "size_bytes": 97720
+      "size_bytes": 101720
     },
     "retrospective/regression_xgboost.json": {
-      "size_bytes": 105190
+      "size_bytes": 109190
     },
     "retrospective/classification_xgboost.parquet": {
       "size_bytes": 13664
@@ -30,7 +33,7 @@
       "size_bytes": 17694
     },
     "retrospective/classification_xgboost.json": {
-      "size_bytes": 97527
+      "size_bytes": 101527
     },
     "spectral/Long Beach.json": {
       "size_bytes": 82932
