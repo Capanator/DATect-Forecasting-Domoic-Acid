@@ -235,9 +235,9 @@ async def generate_forecast(request: ForecastRequest):
         }
         
         if request.task == "regression":
-            response_data["prediction"] = result.get('Predicted_da')
+            response_data["prediction"] = result.get('predicted_da')
         else:  # classification
-            response_data["predicted_category"] = result.get('Predicted_da-category')
+            response_data["predicted_category"] = result.get('predicted_category')
         
         if 'feature_importance' in result and result['feature_importance'] is not None:
             importance_df = result['feature_importance']
@@ -795,8 +795,8 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         }
         
         # Add level_range graph for regression
-        if regression_result and 'Predicted_da' in regression_result:
-            predicted_da = float(regression_result['Predicted_da'])
+        if regression_result and 'predicted_da' in regression_result:
+            predicted_da = float(regression_result['predicted_da'])
             
             # Use bootstrap confidence intervals if available, otherwise fall back to simple multipliers
             if 'bootstrap_quantiles' in regression_result:
@@ -825,13 +825,13 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             }
         
         # Add category_range graph for classification
-        if classification_result and 'Predicted_da-category' in classification_result:
+        if classification_result and 'predicted_category' in classification_result:
             class_probs = classification_result.get('class_probabilities', [0.25, 0.25, 0.25, 0.25])
             if isinstance(class_probs, np.ndarray):
                 class_probs = class_probs.tolist()
             
             response_data["graphs"]["category_range"] = {
-                "predicted_category": int(classification_result['Predicted_da-category']),
+                "predicted_category": int(classification_result['predicted_category']),
                 "class_probabilities": class_probs,
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
@@ -877,17 +877,19 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             if results_df is None or results_df.empty:
                 return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format with proper float cleaning
+            # Convert results to JSON format with proper float cleaning (canonical keys)
             base_results = []
             for _, row in results_df.iterrows():
                 record = {
                     "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
                     "site": row['site'],
-                    "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
-                    "predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                    "actual_category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                    "predicted_category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                    "actual_da": clean_float_for_json(row['actual_da']) if 'actual_da' in row and pd.notnull(row['actual_da']) else None,
+                    "predicted_da": clean_float_for_json(row['predicted_da']) if 'predicted_da' in row and pd.notnull(row['predicted_da']) else None,
+                    "actual_category": clean_float_for_json(row['actual_category']) if 'actual_category' in row and pd.notnull(row['actual_category']) else None,
+                    "predicted_category": clean_float_for_json(row['predicted_category']) if 'predicted_category' in row and pd.notnull(row['predicted_category']) else None
                 }
+                if 'anchor_date' in results_df.columns and pd.notnull(row.get('anchor_date', None)):
+                    record['anchor_date'] = row['anchor_date'].strftime('%Y-%m-%d')
                 base_results.append(record)
 
             # Results computed on-demand for local development
@@ -918,28 +920,26 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         }
 
 def _compute_summary(results_json: list) -> dict:
-    """Compute summary metrics for retrospective results."""
+    """Compute summary metrics for retrospective results using canonical keys only."""
     summary = {"total_forecasts": len(results_json)}
-    
-    # Get valid pairs for regression and classification using consistent format
+
+    # Extract valid pairs strictly from canonical keys
     valid_regression = []
     valid_classification = []
-    
     for r in results_json:
-        # Handle both formats: standardized (actual_da, predicted_da) and original (da, Predicted_da)
-        actual_da = r.get('actual_da') or r.get('da')
-        predicted_da = r.get('predicted_da') or r.get('Predicted_da')
-        if actual_da is not None and predicted_da is not None:
-            valid_regression.append((actual_da, predicted_da))
-        
-        actual_cat = r.get('actual_category') or r.get('da-category')
-        predicted_cat = r.get('predicted_category') or r.get('Predicted_da-category')
-        if actual_cat is not None and predicted_cat is not None:
-            valid_classification.append((actual_cat, predicted_cat))
-    
+        a = r.get('actual_da')
+        p = r.get('predicted_da')
+        if a is not None and p is not None:
+            valid_regression.append((a, p))
+
+        ac = r.get('actual_category')
+        pc = r.get('predicted_category')
+        if ac is not None and pc is not None:
+            valid_classification.append((ac, pc))
+
     summary["regression_forecasts"] = len(valid_regression)
     summary["classification_forecasts"] = len(valid_classification)
-    
+
     # Regression metrics
     if valid_regression:
         from sklearn.metrics import r2_score, mean_absolute_error, f1_score
@@ -948,15 +948,17 @@ def _compute_summary(results_json: list) -> dict:
         try:
             summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
             summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
-            
+
             # F1 score for spike detection (15 μg/g threshold)
             spike_threshold = 15.0
             actual_binary = [1 if val > spike_threshold else 0 for val in actual_vals]
             pred_binary = [1 if val > spike_threshold else 0 for val in pred_vals]
-            summary["f1_score"] = float(f1_score(actual_binary, pred_binary, zero_division=0))
+            summary["f1_score"] = float(
+                f1_score(actual_binary, pred_binary, zero_division=0)
+            )
         except Exception:
             pass
-    
+
     # Classification metrics
     if valid_classification:
         from sklearn.metrics import accuracy_score
@@ -966,7 +968,7 @@ def _compute_summary(results_json: list) -> dict:
             summary["accuracy"] = float(accuracy_score(actual_cats, pred_cats))
         except Exception as e:
             logging.error(f"Error calculating classification metrics: {e}")
-    
+
     return summary
 
 # Serve built frontend if present (single-origin deploy)

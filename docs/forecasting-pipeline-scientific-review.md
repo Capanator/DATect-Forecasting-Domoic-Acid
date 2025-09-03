@@ -139,8 +139,8 @@ def run_retrospective_evaluation(self, task="regression", model_type="xgboost",
 **Current Metrics** (`forecast_engine.py:388-414`):
 ```python
 # Regression
-r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
-mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
+r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
+mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
 
 # Classification  
 accuracy = accuracy_score(y_true, y_pred)
@@ -170,7 +170,7 @@ f1 = f1_score(y_true, y_pred, average='weighted')
 ```python
 spike_threshold = 15.0  # Moderate threshold
 actual_spikes = (valid_results['da'] >= spike_threshold).astype(int)
-predicted_spikes = (valid_results['Predicted_da'] >= spike_threshold).astype(int)
+predicted_spikes = (valid_results['predicted_da'] >= spike_threshold).astype(int)
 spike_detection_f1 = f1_score(actual_spikes, predicted_spikes, zero_division=0)
 ```
 

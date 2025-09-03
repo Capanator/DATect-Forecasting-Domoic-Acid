@@ -317,13 +317,13 @@ Actual DA (μg/g)
          Predicted DA (μg/g)
          
     ─ Perfect prediction (y=x)
-    R² = 0.525, MAE = 4.57 μg/g
+    R² ≈ 0.366, MAE ≈ 6.73 μg/g
 ```
 
 **How to Interpret**:
 - **Diagonal Line**: Perfect prediction reference
 - **Point Scatter**: Actual model performance
-- **R² Value**: Explained variance (0.525 = 52.5% explained)
+- **R² Value**: Explained variance (≈0.366 = 36.6% explained)
 - **MAE**: Average absolute error in same units as data
 - **Clustering**: Most points in low-DA region (realistic distribution)
 

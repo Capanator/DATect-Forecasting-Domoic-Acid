@@ -143,7 +143,7 @@ The system generates standardized visualizations for scientific interpretation:
 
 #### Performance Validation Metrics
 Rigorous retrospective testing demonstrates:
-- **Coefficient of determination (R²) ≈ 0.525**: Strong explanatory power given environmental complexity and observational constraints
+- **Coefficient of determination (R²) ≈ 0.366**: Realistic explanatory power given environmental complexity and observational constraints
 - **Classification accuracy ≈ 77.6%**: Reliable categorical risk assessment for management decisions
 - **Mean absolute error ≈ 4.57 μg/g**: Prediction uncertainty within actionable ranges for public health protection
 

@@ -598,8 +598,8 @@ def generate_spectral_analysis(data, site=None):
                 
                 if not results_df.empty:
                     results_df = results_df.sort_values('date')
-                    xgb_predictions = results_df['Predicted_da'].dropna().values
-                    actual_for_comparison = results_df['da'].dropna().values
+                    xgb_predictions = results_df['predicted_da'].dropna().values
+                    actual_for_comparison = results_df['actual_da'].dropna().values
                 else:
                     xgb_predictions = None
                     actual_for_comparison = da_values
@@ -620,8 +620,8 @@ def generate_spectral_analysis(data, site=None):
                 
                 if results_df is not None and not results_df.empty:
                     results_df = results_df.sort_values('date')
-                    xgb_predictions = results_df['Predicted_da'].dropna().values
-                    actual_for_comparison = results_df['da'].dropna().values
+                    xgb_predictions = results_df['predicted_da'].dropna().values
+                    actual_for_comparison = results_df['actual_da'].dropna().values
                 else:
                     xgb_predictions = None
                     actual_for_comparison = da_values

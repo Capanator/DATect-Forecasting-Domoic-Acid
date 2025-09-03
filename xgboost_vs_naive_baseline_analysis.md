@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This analysis compares the performance of XGBoost regression predictions against a naive baseline using the previous week's Domoic Acid (DA) concentration. **The naive baseline significantly outperforms XGBoost across all metrics**, confirming that DA concentrations exhibit strong week-to-week persistence that the XGBoost model fails to fully capture.
+This analysis compares the performance of XGBoost regression predictions against a naive baseline using the previous week's Domoic Acid (DA) concentration. After correcting a summary bug that excluded 0.0 values, we observe **mixed results**: XGBoost leads on explained variance (R²), while the naive baseline leads on MAE and spike detection.
 
 *Updated September 2025 with exact pipeline methodology for accurate results.*
 
@@ -27,15 +27,15 @@ Maintains temporal integrity by only using data available before the anchor date
 
 | Metric | XGBoost | Naive Baseline | Winner | Improvement |
 |--------|---------|----------------|--------|-------------|
-| **R² Score** | 0.4904 | **0.6267** | **Naive** | **+27.8%** |
-| **MAE (μg/g)** | 6.96 | **4.27** | **Naive** | **-38.7%** |
-| **F1 Score** | 0.6445 | **0.8081** | **Naive** | **+25.4%** |
+| **R² Score** | **0.3661** | 0.2053 | **XGBoost** | **+78.3%** |
+| **MAE (μg/g)** | 6.73 | **5.03** | **Naive** | **-25.2%** |
+| **F1 Score (15 μg/g)** | 0.5924 | **0.7418** | **Naive** | **+25.2%** |
 
 ### Key Findings:
-- **Naive baseline achieves 62.7% R²** vs XGBoost's 49.0%
-- **MAE reduced by 38.7%**: 4.27 vs 6.96 μg/g  
-- **F1 score 25% higher**: Superior spike detection capability
-- **Consistent superiority**: Naive wins across ALL performance metrics
+- **XGBoost explains more variance**: R² = 0.366 vs 0.205
+- **Naive has lower error**: MAE = 5.03 vs 6.73 μg/g  
+- **Naive higher F1 (15 μg/g)**: Better spike detection
+- **Complementary strengths**: Neither dominates all metrics
 
 ## Site-Specific Performance
 
@@ -43,11 +43,11 @@ Based on detailed analysis across all 10 monitoring sites, the naive baseline de
 
 | Site | N | Pattern | Notes |
 |------|---|---------|-------|
-| **Cannon Beach** | 500 | Naive dominates R² and MAE | Strong temporal persistence |
-| **Clatsop Beach** | 500 | Naive wins both metrics | High spike activity site |
-| **Copalis** | 500 | Exceptional naive performance | Most predictable site |
-| **Newport** | 500 | Both methods struggle | Most challenging site |
-| **Quinault** | 500 | Clear naive advantage | Moderate activity |
+| **Cannon Beach** | 500 | XGBoost leads R²; Naive lower MAE | Strong persistence |
+| **Clatsop Beach** | 500 | Mixed; often Naive lower MAE | High spike activity |
+| **Copalis** | 500 | Mixed performance | Predictable site |
+| **Newport** | 500 | Both struggle | Most challenging site |
+| **Quinault** | 500 | Mixed; Naive often lower MAE | Moderate activity |
 
 ### Site-Specific Insights:
 - **Universal pattern**: Naive baseline outperforms XGBoost at all sites
@@ -57,9 +57,8 @@ Based on detailed analysis across all 10 monitoring sites, the naive baseline de
 ## Spike Detection Performance
 
 ### Overall Spike Statistics (15 μg/g threshold):
-- **Detection accuracy**: Naive F1 = 0.8081 vs XGBoost F1 = 0.6445
-- **Balanced performance**: Naive shows superior precision and recall
-- **Operational reliability**: Simple persistence more dependable for alerts
+- **Detection accuracy**: Naive F1 ≈ 0.742 vs XGBoost F1 ≈ 0.592
+- **Operational reliability**: Naive baseline more dependable for alerts
 
 ### Detection Performance Summary:
 - **XGBoost**: Moderate performance with complex feature dependencies
@@ -115,7 +114,7 @@ This analysis demonstrates that **temporal persistence is the dominant signal in
 ## Methodological Validation
 
 ### Analysis Accuracy
-- **Pipeline verification**: Results exactly match precompute cache output (R² = 0.4904)
+- **Pipeline verification**: Results match corrected pipeline output (R² = 0.3661)
 - **Temporal integrity**: Strict adherence to anchor date constraints prevents data leakage
 - **Comprehensive evaluation**: 5000 predictions across all sites and time periods
 - **Reproducible methodology**: Uses exact `_compute_summary()` function from production pipeline
@@ -129,9 +128,7 @@ This analysis demonstrates that **temporal persistence is the dominant signal in
 
 ## Key Scientific Contribution
 
-This analysis provides **strong empirical evidence** that Domoic Acid concentrations along the Pacific Coast exhibit **dominant temporal persistence** that overshadows complex environmental predictors. The finding that simple 7-day persistence achieves **R² = 0.627** while complex ML with satellite, climate, and biological data achieves only **R² = 0.490** represents a significant insight for harmful algal bloom research.
-
-**Primary Research Conclusion**: Temporal autocorrelation is the strongest predictor of near-term DA concentrations, suggesting that **biological and oceanographic processes maintain week-to-week stability** that dominates short-term environmental variability.
+This analysis indicates **complementary strengths**: temporal persistence remains powerful for reducing error and detecting spikes, while ML (XGBoost) captures additional variance not explained by simple persistence. A hybrid or ensemble approach may be optimal.
 
 ---
 

@@ -260,7 +260,7 @@ For scientific validation, the system runs hundreds of forecasts across differen
 ### 7.1 Performance Metrics
 
 #### Regression Task
-- **R² Score**: Explained variance (~0.525 for XGBoost)
+- **R² Score**: Explained variance (~0.366 for XGBoost)
 - **Mean Absolute Error**: Average prediction error (~4.57 μg/g)
 - **Root Mean Square Error**: Sensitivity to outliers
 - **Temporal Consistency**: No performance degradation over time

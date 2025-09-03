@@ -219,8 +219,8 @@ class ForecastEngine:
             'date': test_date,
             'site': site,
             'anchor_date': anchor_date,
-            'da': actual_da,
-            'da-category': actual_category
+            'actual_da': actual_da,
+            'actual_category': actual_category
         }
         
         if task == "regression" or task == "both":
@@ -238,7 +238,7 @@ class ForecastEngine:
             
             pred_da = reg_model.predict(X_test_processed)[0]
             pred_da = max(0.0, float(pred_da))
-            result['Predicted_da'] = pred_da
+            result['predicted_da'] = pred_da
         
         if task == "classification" or task == "both":
             unique_classes = train_df["da-category"].nunique()
@@ -254,10 +254,10 @@ class ForecastEngine:
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
                 pred_category = reverse_mapping[pred_encoded]
-                result['Predicted_da-category'] = pred_category
+                result['predicted_category'] = int(pred_category)
             else:
                 dominant_class = train_df["da-category"].mode()[0]
-                result['Predicted_da-category'] = dominant_class
+                result['predicted_category'] = int(dominant_class)
                 result['single_class_prediction'] = True
         
         return pd.DataFrame([result])
@@ -405,7 +405,7 @@ class ForecastEngine:
             
             prediction = model.predict(X_forecast)[0]
             prediction = max(0.0, float(prediction))
-            result['Predicted_da'] = prediction
+            result['predicted_da'] = prediction
             result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
             
             # Generate bootstrap confidence intervals for regression tasks
@@ -432,7 +432,7 @@ class ForecastEngine:
                 pred_encoded = model.predict(X_forecast)[0]
                 
                 prediction = reverse_mapping[pred_encoded]
-                result['Predicted_da-category'] = int(prediction)
+                result['predicted_category'] = int(prediction)
                 result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
                 logger.debug(f"Classification prediction completed for {site}: {prediction}")
                 
@@ -446,7 +446,7 @@ class ForecastEngine:
                         
             else:
                 dominant_class = df_train_clean["da-category"].mode()[0]
-                result['Predicted_da-category'] = int(dominant_class)
+                result['predicted_category'] = int(dominant_class)
                 result['single_class_prediction'] = True
                 logger.debug(f"Single-class prediction for {site}: {dominant_class} (only class in training data)")
                 
@@ -461,14 +461,14 @@ class ForecastEngine:
         logger.info(f"Successfully processed {len(self.results_df)} forecasts")
         
         if task == "regression" or task == "both":
-            valid_results = self.results_df.dropna(subset=['da', 'Predicted_da'])
+            valid_results = self.results_df.dropna(subset=['actual_da', 'predicted_da'])
             if not valid_results.empty:
-                r2 = r2_score(valid_results['da'], valid_results['Predicted_da'])
-                mae = mean_absolute_error(valid_results['da'], valid_results['Predicted_da'])
+                r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
+                mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
                 
                 spike_threshold = 15.0
-                y_true_binary = (valid_results['da'] > spike_threshold).astype(int)
-                y_pred_binary = (valid_results['Predicted_da'] > spike_threshold).astype(int)
+                y_true_binary = (valid_results['actual_da'] > spike_threshold).astype(int)
+                y_pred_binary = (valid_results['predicted_da'] > spike_threshold).astype(int)
                 
                 precision = precision_score(y_true_binary, y_pred_binary, zero_division=0)
                 recall = recall_score(y_true_binary, y_pred_binary, zero_division=0)
@@ -481,10 +481,10 @@ class ForecastEngine:
                 logger.warning("No valid regression results for evaluation")
                 
         if task == "classification" or task == "both":
-            valid_results = self.results_df.dropna(subset=['da-category', 'Predicted_da-category'])
+            valid_results = self.results_df.dropna(subset=['actual_category', 'predicted_category'])
             if not valid_results.empty:
-                y_true = valid_results['da-category']
-                y_pred = valid_results['Predicted_da-category']
+                y_true = valid_results['actual_category']
+                y_pred = valid_results['predicted_category']
                 
                 accuracy = accuracy_score(y_true, y_pred)
                 precision = precision_score(y_true, y_pred, average='weighted', zero_division=0)

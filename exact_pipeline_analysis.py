@@ -4,8 +4,8 @@ EXACT Pipeline Analysis - Matching Precompute Cache Methodology
 ================================================================
 
 This replicates the EXACT same process as precompute_cache.py:
-1. Load data from parquet (da, Predicted_da columns)
-2. Convert to base_results format (actual_da, predicted_da) 
+1. Load data from parquet (actual_da, predicted_da columns)
+2. Convert to base_results format (actual_da, predicted_da)
 3. Call _compute_summary() just like the pipeline does
 4. Compare with naive baseline using same methodology
 """
@@ -25,7 +25,11 @@ def main():
     xgb_df = pd.read_parquet("./cache/retrospective/regression_xgboost.parquet")
     print(f"Loaded {len(xgb_df)} XGBoost predictions")
     
-    # Step 2: Convert to base_results format (like precompute_cache.py does)
+    # Step 2: Convert to base_results format (canonical keys)
+    required_cols = {'date','site','actual_da','predicted_da','anchor_date'}
+    missing = [c for c in ['actual_da','predicted_da'] if c not in xgb_df.columns]
+    if missing:
+        raise RuntimeError(f"XGBoost parquet is missing canonical columns {missing}. Regenerate cache via precompute_cache.py.")
     from backend.api import clean_float_for_json, _compute_summary
     
     base_results = []
@@ -33,18 +37,18 @@ def main():
         record = {
             "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
             "site": row['site'],
-            "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
-            "predicted_da": clean_float_for_json(row['Predicted_da']) if pd.notnull(row['Predicted_da']) else None,
+            "actual_da": clean_float_for_json(row['actual_da']) if 'actual_da' in row and pd.notnull(row['actual_da']) else None,
+            "predicted_da": clean_float_for_json(row['predicted_da']) if 'predicted_da' in row and pd.notnull(row['predicted_da']) else None,
         }
         base_results.append(record)
     
-    # Step 3: Calculate summary using EXACT pipeline method
+    # Step 3: Calculate summary using EXACT pipeline method (correct zero handling)
     xgb_summary = _compute_summary(base_results)
     
     print(f"\n📊 XGBOOST METRICS (Exact Pipeline Method)")
-    print(f"R² Score: {xgb_summary.get('r2_score', 0):.4f}")  # Should be ~0.4904
-    print(f"MAE:      {xgb_summary.get('mae', 0):.4f}")       # Should be ~6.96
-    print(f"F1 Score: {xgb_summary.get('f1_score', 0):.4f}") # Should be ~0.6445
+    print(f"R² Score: {xgb_summary.get('r2_score', 0):.4f}")  # Should be ~0.3661
+    print(f"MAE:      {xgb_summary.get('mae', 0):.4f}")       # Should be ~6.73
+    print(f"F1 Score: {xgb_summary.get('f1_score', 0):.4f}") # Should be ~0.5924
     print(f"Total forecasts: {xgb_summary.get('total_forecasts', 0)}")
     
     # Step 4: Calculate naive baseline for comparison
@@ -62,7 +66,7 @@ def main():
     for _, row in xgb_df.iterrows():
         site = row['site']
         anchor_date = row['anchor_date']
-        actual_da = row['da']
+        actual_da = row['actual_da']
         
         # Get historical data before anchor date (exact pipeline temporal safety)
         site_history = historical_df[
@@ -123,14 +127,14 @@ def main():
     print(f"| F1 Score | {xgb_f1:.4f}  | {naive_f1:.4f}  | {'XGBoost' if xgb_f1 > naive_f1 else 'Naive':>9} |")
     
     print(f"\n✅ VERIFICATION")
-    print(f"Expected XGBoost R² ≈ 0.4904: Actual = {xgb_r2:.4f}")
-    print(f"Expected XGBoost MAE ≈ 6.96:  Actual = {xgb_mae:.4f}")
-    print(f"Expected XGBoost F1 ≈ 0.6445: Actual = {xgb_f1:.4f}")
+    print(f"Expected XGBoost R² ≈ 0.3661: Actual = {xgb_r2:.4f}")
+    print(f"Expected XGBoost MAE ≈ 6.73:  Actual = {xgb_mae:.4f}")
+    print(f"Expected XGBoost F1 ≈ 0.5924: Actual = {xgb_f1:.4f}")
     
-    if abs(xgb_r2 - 0.4904) < 0.01:
-        print("🎯 Perfect match with pipeline output!")
+    if abs(xgb_r2 - 0.3661) < 0.01:
+        print("🎯 Match with pipeline output!")
     else:
-        print(f"⚠️  Slight difference from pipeline (expected vs actual)")
+        print(f"⚠️  Difference from expected (check data/cache)")
     
     return {
         'xgb_metrics': xgb_summary,

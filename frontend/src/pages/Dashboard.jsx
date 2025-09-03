@@ -865,7 +865,7 @@ const Dashboard = () => {
                     🎯 DA Concentration Prediction
                   </h3>
                   <div className="text-2xl font-bold text-blue-600">
-                    {forecast.regression.Predicted_da?.toFixed(3)} μg/g
+                    {forecast.regression.predicted_da?.toFixed(3)} μg/g
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
                     Training samples: {forecast.regression.training_samples}
@@ -879,7 +879,7 @@ const Dashboard = () => {
                     📊 Risk Category Prediction
                   </h3>
                   <div className="text-2xl font-bold text-green-600">
-                    {['Low', 'Moderate', 'High', 'Extreme'][forecast.classification['Predicted_da-category']] || 'Unknown'}
+                    {['Low', 'Moderate', 'High', 'Extreme'][forecast.classification.predicted_category] || 'Unknown'}
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
                     Training samples: {forecast.classification.training_samples}

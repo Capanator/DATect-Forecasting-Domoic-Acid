@@ -59,16 +59,20 @@ class DATectCacheGenerator:
                 )
                 
                 if results_df is not None and not results_df.empty:
+                    # Results already in canonical column format
+
                     base_results = []
                     for _, row in results_df.iterrows():
                         record = {
                             "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
                             "site": row['site'],
-                            "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
-                            "predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                            "actual_category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                            "predicted_category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                            "actual_da": clean_float_for_json(row['actual_da']) if 'actual_da' in row and pd.notnull(row['actual_da']) else None,
+                            "predicted_da": clean_float_for_json(row['predicted_da']) if 'predicted_da' in row and pd.notnull(row['predicted_da']) else None,
+                            "actual_category": clean_float_for_json(row['actual_category']) if 'actual_category' in row and pd.notnull(row['actual_category']) else None,
+                            "predicted_category": clean_float_for_json(row['predicted_category']) if 'predicted_category' in row and pd.notnull(row['predicted_category']) else None
                         }
+                        if 'anchor_date' in results_df.columns and pd.notnull(row.get('anchor_date', None)):
+                            record['anchor_date'] = row['anchor_date'].strftime('%Y-%m-%d')
                         base_results.append(record)
                     
 
@@ -82,10 +86,8 @@ class DATectCacheGenerator:
                             'predicted_da': result['predicted_da'],
                             'predicted_category': result['predicted_category']
                         }
-                        if 'anchor_date' in results_df.columns:
-                            anchor_row = results_df[results_df['site'] == result['site']].iloc[0]
-                            if pd.notnull(anchor_row['anchor_date']):
-                                record['anchor_date'] = anchor_row['anchor_date'].strftime('%Y-%m-%d')
+                        if 'anchor_date' in result:
+                            record['anchor_date'] = result['anchor_date']
                         results_json.append(record)
                         
                     cache_file = self.cache_dir / "retrospective" / f"{task}_{model_type}"
