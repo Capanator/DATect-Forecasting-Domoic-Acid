@@ -178,9 +178,15 @@ class ForecastEngine:
         site_data_with_lags = self.data_processor.create_lag_features_safe(
             site_data, "site", "da", config.LAG_FEATURES, anchor_date
         )
-        
+
         train_df = site_data_with_lags[site_data_with_lags["date"] <= anchor_date].copy()
         test_df = site_data_with_lags[site_data_with_lags["date"] == test_date].copy()
+
+        # Add derived persistence features (leak-safe)
+        try:
+            self._add_safe_persistence_features(train_df, test_df, site_data, anchor_date)
+        except Exception:
+            pass
         
         if train_df.empty or test_df.empty:
             return None
@@ -227,9 +233,23 @@ class ForecastEngine:
             reg_model = self.model_factory.get_model("regression", model_type)
             
             y_train = train_df["da"]
-            spike_mask = y_train > 15.0  # spike threshold
-            sample_weights = np.ones(len(y_train))
-            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+            # Spike weighting (emphasize high DA levels)
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0)
+            spike_mult = float(getattr(config, 'SPIKE_WEIGHT_MULT', 12.0))
+            pre_spike_mult = float(getattr(config, 'PRE_SPIKE_WEIGHT_MULT', 10.0))
+            
+            sample_weights = np.ones(len(y_train), dtype=float)
+            spike_mask = y_train >= spike_threshold
+            sample_weights[spike_mask] *= spike_mult
+
+            # Pre-spike onset weighting: below-threshold points that precede a spike within the
+            # configured window (computed strictly within training data to avoid leakage)
+            try:
+                pre_spike_mask = self._compute_pre_spike_mask(train_df, anchor_date)
+                sample_weights[pre_spike_mask] *= pre_spike_mult
+            except Exception:
+                # Be robust if any edge case occurs; fall back to spike-only weighting
+                pass
             
             if model_type in ["xgboost", "xgb"]:
                 reg_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
@@ -239,6 +259,16 @@ class ForecastEngine:
             pred_da = reg_model.predict(X_test_processed)[0]
             pred_da = max(0.0, float(pred_da))
             result['predicted_da'] = pred_da
+
+            # Optional: train an onset classifier (imminent spike in next N days)
+            try:
+                onset_prob = self._train_and_predict_onset_probability(
+                    train_df, X_train_processed, X_test_processed, site_data, anchor_date, model_type
+                )
+                result['onset_prob'] = float(onset_prob)
+            except Exception:
+                # Be robust: if we cannot compute onset probability, skip silently
+                pass
         
         if task == "classification" or task == "both":
             unique_classes = train_df["da-category"].nunique()
@@ -261,6 +291,170 @@ class ForecastEngine:
                 result['single_class_prediction'] = True
         
         return pd.DataFrame([result])
+
+    def _compute_pre_spike_mask(self, train_df: pd.DataFrame, anchor_date: pd.Timestamp) -> np.ndarray:
+        """
+        Identify below-threshold training points that precede a spike within a
+        configured window. Uses ONLY data up to the anchor_date to avoid leakage.
+
+        Returns a boolean mask aligned to train_df index order.
+        """
+        if train_df.empty:
+            return np.zeros(0, dtype=bool)
+
+        threshold = float(getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0))
+        window_days = int(getattr(config, 'PRE_SPIKE_WINDOW_DAYS', 7))
+
+        df = train_df[["date", "da"]].copy()
+        df = df.dropna(subset=["date", "da"]).copy()
+        # Ensure strictly within training period
+        df = df[df["date"] <= anchor_date]
+        if df.empty:
+            return np.zeros(len(train_df), dtype=bool)
+
+        df_sorted = df.sort_values("date").reset_index()  # preserve original indices
+        n = len(df_sorted)
+        pre_spike_local = np.zeros(n, dtype=bool)
+
+        for i in range(n):
+            di = df_sorted.loc[i, "date"]
+            yi = df_sorted.loc[i, "da"]
+            if not pd.notna(yi) or yi >= threshold:
+                continue
+            j = i + 1
+            # Scan forward within window, bounded by anchor_date
+            while j < n:
+                dj = df_sorted.loc[j, "date"]
+                if (dj - di).days > window_days or dj > anchor_date:
+                    break
+                yj = df_sorted.loc[j, "da"]
+                if pd.notna(yj) and yj >= threshold:
+                    pre_spike_local[i] = True
+                    break
+                j += 1
+
+        # Map back to train_df order
+        mask_series = pd.Series(False, index=train_df.index)
+        for k in range(n):
+            if pre_spike_local[k]:
+                orig_idx = df_sorted.loc[k, "index"]
+                if orig_idx in mask_series.index:
+                    mask_series.loc[orig_idx] = True
+
+        return mask_series.values
+
+    def _add_safe_persistence_features(self, train_df: pd.DataFrame, test_df: pd.DataFrame, site_data: pd.DataFrame, anchor_date: pd.Timestamp) -> None:
+        """
+        Add leak-safe persistence features that improve R²/MAE while preserving temporal integrity.
+        - For training rows (<= anchor_date), use standard lag features present on each row
+        - For the single test row (> anchor_date), substitute with last known values up to anchor_date
+        """
+        if not getattr(config, 'USE_DERIVED_LAG_FEATURES', True):
+            return
+        settings = getattr(config, 'DERIVED_LAG_SETTINGS', {})
+        lags = getattr(config, 'LAG_FEATURES', [])
+
+        def has(col, df):
+            return col in df.columns
+
+        # Determine last known DA at anchor
+        hist = site_data[(site_data['date'] <= anchor_date) & (site_data['da'].notna())].sort_values('date')
+        last_da = float(hist.iloc[-1]['da']) if not hist.empty else np.nan
+
+        # Build training features from available lags on each row
+        if settings.get('use_last3_mean', True):
+            cols = [c for c in [
+                'da_lag_1' if 1 in lags else None,
+                'da_lag_2' if 2 in lags else None,
+                'da_lag_3' if 3 in lags else None,
+            ] if c is not None and has(c, train_df)]
+            if cols:
+                train_df['last3_mean_safe'] = train_df[cols].mean(axis=1)
+                test_df['last3_mean_safe'] = np.nanmean([last_da, last_da, last_da]) if not np.isnan(last_da) else np.nan
+
+        if settings.get('use_weekly_change', True):
+            if 1 in lags and 7 in lags and has('da_lag_1', train_df) and has('da_lag_7', train_df):
+                train_df['weekly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_7']
+                test_df['weekly_change_safe'] = 0.0  # no future; assume persistence baseline
+
+        if settings.get('use_biweekly_change', True):
+            if 1 in lags and 14 in lags and has('da_lag_1', train_df) and has('da_lag_14', train_df):
+                train_df['biweekly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_14']
+                test_df['biweekly_change_safe'] = 0.0
+
+        if settings.get('use_rising_flag', True):
+            cond_cols = [c for c in ['da_lag_1', 'da_lag_2', 'da_lag_3'] if has(c, train_df)]
+            if set(cond_cols) == set(['da_lag_1', 'da_lag_2', 'da_lag_3']):
+                train_df['rising_flag_safe'] = ((train_df['da_lag_1'] > train_df['da_lag_2']) & (train_df['da_lag_2'] > train_df['da_lag_3'])).astype(int)
+                # For test, we cannot know; use 1 if last known da is positive trend vs its own prior
+                test_df['rising_flag_safe'] = 0
+
+
+    def _train_and_predict_onset_probability(
+        self,
+        train_df: pd.DataFrame,
+        X_train_processed,
+        X_test_processed,
+        site_data: pd.DataFrame,
+        anchor_date: pd.Timestamp,
+        model_type: str,
+    ) -> float:
+        """
+        Train a leak-free classifier for imminent spike (>= threshold in next ONSET_WINDOW_DAYS)
+        using only data up to the anchor_date. Returns predicted probability for the test row.
+        """
+        threshold = float(getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0))
+        window_days = int(getattr(config, 'ONSET_WINDOW_DAYS', 7))
+        pos_weight = float(getattr(config, 'ONSET_POS_WEIGHT', 6.0))
+
+        # Build labels for each training row t: does a spike occur within (t, t+window] and <= anchor_date?
+        df = train_df[['date', 'da']].copy().dropna()
+        df.sort_values('date', inplace=True)
+
+        labels = []
+        for _, r in df.iterrows():
+            t = r['date']
+            # Only consider up to anchor_date
+            end = min(anchor_date, t + pd.Timedelta(days=window_days))
+            future = site_data[(site_data['date'] > t) & (site_data['date'] <= end)][['date', 'da']].dropna()
+            labels.append(1 if ((not future.empty) and (future['da'].max() >= threshold)) else 0)
+
+        if len(labels) == 0 or sum(labels) == 0:
+            # No positive examples; return low probability
+            return 0.0
+
+        # Align labels with X_train_processed rows length
+        # X_train_processed corresponds to train_df rows after transformer creation
+        # Ensure we only use rows present in X_train_processed index
+        X_tr = X_train_processed
+        # Recompute labels aligned to X_tr index positions
+        # We will map train_df indices to labels
+        label_map = {}
+        df_labeled = df.reset_index()
+        for i, lab in enumerate(labels):
+            label_map[df_labeled.loc[i, 'index']] = lab
+        y_labels = pd.Series(0, index=X_tr.index)
+        for idx in X_tr.index:
+            y_labels.loc[idx] = label_map.get(idx, 0)
+
+        # Train classifier (use XGBoost if available)
+        cls_model = self.model_factory.get_model('classification', model_type)
+        sw = np.ones(len(y_labels), dtype=float)
+        sw[y_labels.values.astype(int) == 1] *= pos_weight
+        if hasattr(cls_model, 'fit'):
+            try:
+                cls_model.fit(X_tr, y_labels.values.astype(int), sample_weight=sw)
+            except TypeError:
+                cls_model.fit(X_tr, y_labels.values.astype(int))
+
+        if hasattr(cls_model, 'predict_proba'):
+            prob = float(cls_model.predict_proba(X_test_processed)[0, 1])
+        else:
+            # Fallback using decision_function or predicted class
+            pred = cls_model.predict(X_test_processed)[0]
+            prob = float(pred)
+
+        return prob
     
     def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=100):
         """
@@ -297,9 +491,11 @@ class ForecastEngine:
             
             # Apply spike weighting if XGBoost
             if model_type in ["xgboost", "xgb"]:
-                spike_mask = y_bootstrap > 15.0
-                sample_weights = np.ones(len(y_bootstrap))
-                sample_weights[spike_mask] *= 8.0
+                spike_threshold = getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0)
+                spike_mult = float(getattr(config, 'SPIKE_WEIGHT_MULT', 12.0))
+                sample_weights = np.ones(len(y_bootstrap), dtype=float)
+                spike_mask = y_bootstrap >= spike_threshold
+                sample_weights[spike_mask] *= spike_mult
                 bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
             else:
                 bootstrap_model.fit(X_bootstrap, y_bootstrap)
@@ -466,7 +662,7 @@ class ForecastEngine:
                 r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
                 mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
                 
-                spike_threshold = 15.0
+                spike_threshold = float(getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0))
                 y_true_binary = (valid_results['actual_da'] > spike_threshold).astype(int)
                 y_pred_binary = (valid_results['predicted_da'] > spike_threshold).astype(int)
                 

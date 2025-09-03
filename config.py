@@ -205,11 +205,11 @@ N_RANDOM_ANCHORS = 500
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
-USE_LAG_FEATURES = False
+USE_LAG_FEATURES = True  # Include DA lags as features (leak-safe)
 
-# Time series lags optimized via ACF/PACF analysis
-# Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
-LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
+# Time series lags optimized via ACF/PACF analysis and persistence
+# Include short and weekly/biweekly persistence signals
+LAG_FEATURES = [1, 2, 3, 7, 14] if USE_LAG_FEATURES else []
 
 # DA Category Configuration
 
@@ -217,3 +217,74 @@ LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
+# Spike/Onset Emphasis Configuration
+# Primary goal: Predict initial spike timing (crossing 20 ppm)
+SPIKE_THRESHOLD_PPM = 20.0
+
+# Weighting for regression training to emphasize high DA values
+# Applied when y_train >= SPIKE_THRESHOLD_PPM
+SPIKE_WEIGHT_MULT = 8.0
+
+# Additional pre-spike weighting for samples that are below threshold but
+# have a spike within the next PRE_SPIKE_WINDOW_DAYS (using only historical data
+# up to the anchor date to avoid leakage). This helps the model learn the
+# onset conditions that precede spikes.
+PRE_SPIKE_WINDOW_DAYS = 14
+PRE_SPIKE_WEIGHT_MULT = 6.0
+
+# Naive baseline configuration used in analyses
+NAIVE_BASELINE_LAG_DAYS = 7
+
+# Onset timing evaluation tolerance
+ONSET_TOLERANCE_DAYS = 3
+
+# Onset classifier configuration
+ONSET_WINDOW_DAYS = 7  # days to define "spike imminence"
+ONSET_POS_WEIGHT = 6.0  # class weight multiplier for positive samples
+ONSET_PROB_THRESHOLD = 0.20  # threshold to declare predicted onset
+
+# Derived features from lags (leak-safe)
+USE_DERIVED_LAG_FEATURES = True
+# Derived windows use available lags; features are computed only from lag columns
+DERIVED_LAG_SETTINGS = {
+    "use_last3_mean": True,      # mean of da_lag_1..3 if available
+    "use_weekly_change": True,   # da_lag_1 - da_lag_7 if lag_7 exists
+    "use_biweekly_change": True, # da_lag_1 - da_lag_14 if lag_14 exists
+    "use_rising_flag": True      # 1 if da_lag_1>da_lag_2>da_lag_3
+}
+
+# XGBoost Parameter Overrides (optional)
+# If provided, ModelFactory will use these instead of hard-coded defaults.
+XGB_REGRESSION_PARAMS = {
+    # More capacity but smoother learning
+    "n_estimators": 1200,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    # Regularization
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.2,
+    "min_child_weight": 2,
+    "gamma": 0.0,
+    # Subsampling
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    # Loss
+    "objective": "reg:squarederror",
+    # Speed/robustness
+    "tree_method": "hist",
+    "max_bin": 256,
+}
+
+XGB_CLASSIFICATION_PARAMS = {
+    "n_estimators": 700,
+    "max_depth": 5,
+    "learning_rate": 0.12,
+    "reg_alpha": 0.0,
+    "reg_lambda": 1.0,
+    "min_child_weight": 1,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "eval_metric": "logloss",
+    "tree_method": "hist",
+    "max_bin": 256,
+}

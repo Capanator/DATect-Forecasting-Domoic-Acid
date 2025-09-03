@@ -42,17 +42,27 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            return xgb.XGBRegressor(
-                n_estimators=800,       
-                max_depth=6,             
-                learning_rate=0.08,     
-                subsample=0.8,
-                colsample_bytree=0.8,
-                reg_alpha=0.5,           
-                reg_lambda=0.5,          
-                random_state=self.random_seed,
-                n_jobs=-1
-            )
+            # Allow overrides from config
+            cfg = getattr(config, 'XGB_REGRESSION_PARAMS', None) or {}
+            params = {
+                # Defaults chosen for responsiveness to sharp onsets
+                "n_estimators": 800,
+                "max_depth": 6,
+                "learning_rate": 0.08,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_alpha": 0.5,
+                "reg_lambda": 0.5,
+                # Speed/robustness
+                "tree_method": "hist",
+                "max_bin": 256,
+            }
+            params.update(cfg)
+            params.update({
+                "random_state": self.random_seed,
+                "n_jobs": -1,
+            })
+            return xgb.XGBRegressor(**params)
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
@@ -65,18 +75,26 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            return xgb.XGBClassifier(
-                n_estimators=800,
-                max_depth=6,
-                learning_rate=0.08,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                reg_alpha=0.5,           
-                reg_lambda=0.5, 
-                random_state=self.random_seed,
-                n_jobs=-1,
-                eval_metric='logloss'
-            )
+            cfg = getattr(config, 'XGB_CLASSIFICATION_PARAMS', None) or {}
+            params = {
+                "n_estimators": 800,
+                "max_depth": 6,
+                "learning_rate": 0.08,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_alpha": 0.5,
+                "reg_lambda": 0.5,
+                "eval_metric": 'logloss',
+                # Speed/robustness
+                "tree_method": "hist",
+                "max_bin": 256,
+            }
+            params.update(cfg)
+            params.update({
+                "random_state": self.random_seed,
+                "n_jobs": -1,
+            })
+            return xgb.XGBClassifier(**params)
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",
