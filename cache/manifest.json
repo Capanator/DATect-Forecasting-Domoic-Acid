@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-09-02T20:26:10.107118",
+  "generated_at": "2025-09-03T02:11:37.200340",
   "cache_version": "2.0",
   "config": {
     "N_RANDOM_ANCHORS": 500,
@@ -9,7 +9,7 @@
   },
   "files": {
     "manifest.json": {
-      "size_bytes": 2464
+      "size_bytes": 2532
     },
     "retrospective/regression_linear.json": {
       "size_bytes": 1084330
