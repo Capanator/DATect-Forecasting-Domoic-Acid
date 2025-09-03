@@ -46,9 +46,9 @@ def main():
     xgb_summary = _compute_summary(base_results)
     
     print(f"\n📊 XGBOOST METRICS (Exact Pipeline Method)")
-    print(f"R² Score: {xgb_summary.get('r2_score', 0):.4f}")  # Should be ~0.3661
-    print(f"MAE:      {xgb_summary.get('mae', 0):.4f}")       # Should be ~6.73
-    print(f"F1 Score: {xgb_summary.get('f1_score', 0):.4f}") # Should be ~0.5924
+    print(f"R² Score: {xgb_summary.get('r2_score', 0):.4f}") 
+    print(f"MAE:      {xgb_summary.get('mae', 0):.4f}")       
+    print(f"F1 Score: {xgb_summary.get('f1_score', 0):.4f}") 
     print(f"Total forecasts: {xgb_summary.get('total_forecasts', 0)}")
     
     # Step 4: Calculate naive baseline for comparison

@@ -179,7 +179,7 @@ class DATectCacheGenerator:
         
         manifest = {
             'generated_at': datetime.now().isoformat(),
-            'cache_version': '2.0',  # Updated version for new cache format
+            'cache_version': '2.0', 
             'config': {
                 'N_RANDOM_ANCHORS': getattr(config, 'N_RANDOM_ANCHORS', 500),
                 'RANDOM_SEED': config.RANDOM_SEED,
