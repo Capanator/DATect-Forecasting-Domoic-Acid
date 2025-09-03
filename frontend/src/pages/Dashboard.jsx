@@ -919,22 +919,22 @@ const Dashboard = () => {
                         const rawRange = (q95 ?? 0) - (q05 ?? 0);
                         const hasSpread = Number.isFinite(rawRange) && Math.abs(rawRange) > 1e-9;
 
-                        // Median line (Gradient Boosting Q50)
+                        // Median line (Bootstrap Q50)
                         traces.push({
                           x: [q50, q50],
                           y: [0.35, 0.65],
                           mode: 'lines',
                           line: { color: 'rgb(30, 60, 90)', width: 3 },
-                          name: 'GB Median (Q50)'
+                          name: 'Bootstrap Median (Q50)'
                         });
 
-                        // Range endpoints (GB quantiles)
+                        // Range endpoints (Bootstrap quantiles)
                         traces.push({
                           x: [q05, q95],
                           y: [0.5, 0.5],
                           mode: 'markers',
                           marker: { size: 12, color: 'rgba(70, 130, 180, 0.4)', symbol: 'line-ns-open' },
-                          name: 'GB Range (Q05-Q95)'
+                          name: 'Bootstrap Range (Q05-Q95)'
                         });
 
                         // XGBoost point prediction
@@ -1010,7 +1010,7 @@ const Dashboard = () => {
                         }
 
                         return {
-                          title: "DA Level Forecast with Gradient Boosting Quantiles",
+                          title: "DA Level Forecast with Bootstrap Confidence Intervals",
                           xaxis: { title: "DA Level (μg/L)", range: [xMin, xMax] },
                           yaxis: { visible: false, range: [0, 1] },
                           showlegend: true,

@@ -61,16 +61,16 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         x=[q50, q50], y=[0.35, 0.65],
         mode='lines',
         line=dict(color='rgb(30, 60, 90)', width=3),
-        name='GB Median (Q50)',
-        hovertemplate='GB Median: %{x:.2f}<extra></extra>'
+        name='Bootstrap Median (Q50)',
+        hovertemplate='Bootstrap Median: %{x:.2f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
         x=[q05, q95], y=[0.5, 0.5],
         mode='markers',
         marker=dict(size=12, color='rgba(70, 130, 180, 0.4)', symbol='line-ns-open'),
-        name='GB Range (Q05-Q95)',
-        hovertemplate='GB Range: %{x:.2f}<extra></extra>'
+        name='Bootstrap Range (Q05-Q95)',
+        hovertemplate='Bootstrap Range: %{x:.2f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -118,7 +118,7 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         x_max += pad
 
     fig.update_layout(
-        title="DA Level Forecasts with Gradient Boosting Quantiles ",
+        title="DA Level Forecasts with Bootstrap Confidence Intervals ",
         xaxis=dict(title="DA Level (μg/L)", range=[x_min, x_max]),
         yaxis=dict(visible=False, range=[0, 1]),
         showlegend=True,

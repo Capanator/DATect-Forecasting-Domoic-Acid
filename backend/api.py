@@ -605,11 +605,22 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         # Add level_range graph for regression
         if regression_result and 'Predicted_da' in regression_result:
             predicted_da = float(regression_result['Predicted_da'])
-            quantiles = {
-                "q05": predicted_da * 0.7,
-                "q50": predicted_da,
-                "q95": predicted_da * 1.3,
-            }
+            
+            # Use bootstrap confidence intervals if available, otherwise fall back to simple multipliers
+            if 'bootstrap_quantiles' in regression_result:
+                bootstrap_quantiles = regression_result['bootstrap_quantiles']
+                quantiles = {
+                    "q05": bootstrap_quantiles['q05'],
+                    "q50": bootstrap_quantiles['q50'],
+                    "q95": bootstrap_quantiles['q95'],
+                }
+            else:
+                # Fallback to original method for backwards compatibility
+                quantiles = {
+                    "q05": predicted_da * 0.7,
+                    "q50": predicted_da,
+                    "q95": predicted_da * 1.3,
+                }
 
             # Provide a robust gradient plot (handles degenerate quantile ranges)
             gradient_plot_json = generate_gradient_uncertainty_plot(quantiles, predicted_da)

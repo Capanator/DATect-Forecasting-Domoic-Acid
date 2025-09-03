@@ -262,6 +262,62 @@ class ForecastEngine:
         
         return pd.DataFrame([result])
     
+    def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=100):
+        """
+        Generate bootstrap confidence intervals using resampling.
+        
+        Args:
+            X_train_processed: Processed training features
+            y_train: Training targets
+            X_forecast: Processed forecast features
+            model_type: Type of model to use
+            n_bootstrap: Number of bootstrap samples
+            
+        Returns:
+            Dictionary with quantile predictions
+        """
+        predictions = []
+        
+        # Generate bootstrap predictions
+        for _ in range(n_bootstrap):
+            # Bootstrap resample with replacement
+            n_samples = len(X_train_processed)
+            bootstrap_indices = np.random.choice(n_samples, n_samples, replace=True)
+            
+            # Handle both DataFrame and numpy array cases
+            if hasattr(X_train_processed, 'iloc'):
+                X_bootstrap = X_train_processed.iloc[bootstrap_indices]
+                y_bootstrap = y_train.iloc[bootstrap_indices]
+            else:
+                X_bootstrap = X_train_processed[bootstrap_indices]
+                y_bootstrap = y_train[bootstrap_indices] if hasattr(y_train, '__getitem__') else y_train.iloc[bootstrap_indices]
+            
+            # Train model on bootstrap sample
+            bootstrap_model = self.model_factory.get_model("regression", model_type)
+            
+            # Apply spike weighting if XGBoost
+            if model_type in ["xgboost", "xgb"]:
+                spike_mask = y_bootstrap > 15.0
+                sample_weights = np.ones(len(y_bootstrap))
+                sample_weights[spike_mask] *= 8.0
+                bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
+            else:
+                bootstrap_model.fit(X_bootstrap, y_bootstrap)
+            
+            # Make prediction
+            pred = bootstrap_model.predict(X_forecast)[0]
+            pred = max(0.0, float(pred))
+            predictions.append(pred)
+        
+        # Calculate quantiles
+        predictions = np.array(predictions)
+        return {
+            "q05": float(np.percentile(predictions, 5)),
+            "q50": float(np.percentile(predictions, 50)),
+            "q95": float(np.percentile(predictions, 95)),
+            "bootstrap_predictions": predictions.tolist()
+        }
+
     def generate_single_forecast(self, data_path, forecast_date, site, task, model_type):
         """
         Generate a single forecast for a specific date and site using original algorithm.
@@ -351,6 +407,15 @@ class ForecastEngine:
             prediction = max(0.0, float(prediction))
             result['Predicted_da'] = prediction
             result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
+            
+            # Generate bootstrap confidence intervals for regression tasks
+            if len(df_train_clean) >= 10:  # Only if we have enough data for meaningful bootstrap
+                bootstrap_quantiles = self.generate_bootstrap_confidence_intervals(
+                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=20
+                )
+                result['bootstrap_quantiles'] = bootstrap_quantiles
+                logger.debug(f"Bootstrap confidence intervals: q05={bootstrap_quantiles['q05']:.3f}, q50={bootstrap_quantiles['q50']:.3f}, q95={bootstrap_quantiles['q95']:.3f}")
+            
             logger.debug(f"Regression prediction completed for {site}: {prediction:.4f}")
             
         elif task == "classification":

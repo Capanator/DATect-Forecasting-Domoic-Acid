@@ -45,7 +45,7 @@ Low                    Prediction                    High
 - **Gradient Band**: Color intensity shows prediction confidence
   - **Dark Blue**: High confidence region around median
   - **Light Blue**: Lower confidence at quantile extremes
-- **Q50 Line (Thick)**: Median prediction from gradient boosting
+- **Q50 Line (Thick)**: Median prediction from bootstrap confidence intervals
 - **Q05/Q95 Markers**: 5th and 95th percentile bounds (90% confidence interval)
 - **Diamond (XGBoost)**: Primary point prediction used for decisions
 - **X Mark**: Actual measured value (when available for validation)
