@@ -92,7 +92,7 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
         ))
     
     fig.update_layout(
-        title="Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
+        title="DA Level Forecasts with Gradient Boosting Quantiles ",
         xaxis_title="DA Level (μg/L)",
         yaxis=dict(visible=False, range=[0, 1]),
         showlegend=True,

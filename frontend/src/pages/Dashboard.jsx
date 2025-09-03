@@ -953,7 +953,7 @@ const Dashboard = () => {
                         return traces;
                       })()}
                       layout={{
-                        title: "Advanced DA Level Forecast: Gradient Boosting Quantiles + XGBoost Point",
+                        title: "DA Level Forecast with Gradient Boosting Quantiles",
                         xaxis: { title: "DA Level (μg/L)" },
                         yaxis: { visible: false, range: [0, 1] },
                         showlegend: true,
