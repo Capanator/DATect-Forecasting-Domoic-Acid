@@ -217,4 +217,3 @@ LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
-# The UI does not display bootstrap confidence intervals, baseline comparisons, or residual analysis

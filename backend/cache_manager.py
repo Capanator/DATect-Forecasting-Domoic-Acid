@@ -105,11 +105,6 @@ class CacheManager:
                 
         logger.warning(f"No cached spectral analysis for site: {site_name}")
         return None
-        
-        
-        
-        
-
 
 # Global cache manager instance
 cache_manager = CacheManager()

@@ -549,9 +549,6 @@ async def get_spectral_analysis_single(site: str):
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
 
-@app.post("/api/visualizations/spectral/warm")
-async def warm_spectral_caches_disabled():
-    raise HTTPException(status_code=405, detail="Server-side spectral warm disabled. Precompute locally and bake into image.")
 
 @app.post("/api/forecast/enhanced")
 async def generate_enhanced_forecast(request: ForecastRequest):
