@@ -549,20 +549,155 @@ async def get_spectral_analysis_single(site: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
+def get_latest_da_from_raw_files():
+    """Get the latest DA measurements from raw CSV files."""
+    import os
+    from datetime import datetime
+    
+    raw_da_dir = "./data/raw/da-input"
+    latest_da_data = {}
+    
+    # Site mapping from file names to display names
+    site_file_mapping = {
+        'cannon-beach': 'Cannon Beach',
+        'clatsop-beach': 'Clatsop Beach', 
+        'coos-bay': 'Coos Bay',
+        'copalis': 'Copalis',
+        'gold-beach': 'Gold Beach',
+        'kalaloch': 'Kalaloch',
+        'long-beach': 'Long Beach',
+        'newport': 'Newport',
+        'quinault': 'Quinault', 
+        'twin-harbors': 'Twin Harbors'
+    }
+    
+    for file_key, site_name in site_file_mapping.items():
+        file_path = os.path.join(raw_da_dir, f"{file_key}-da.csv")
+        
+        if not os.path.exists(file_path):
+            continue
+            
+        try:
+            # Read the CSV file
+            df = pd.read_csv(file_path)
+            
+            if df.empty:
+                continue
+                
+            # Get the last row (most recent entry)
+            last_row = df.iloc[-1]
+            
+            # Parse date and DA value based on format
+            if 'CollectDate' in df.columns and 'Domoic Result' in df.columns:
+                # Format B: CollectDate,Domoic Result
+                date_str = str(last_row['CollectDate'])
+                da_value = last_row['Domoic Result']
+                
+                # Parse date (format like "11/30/2023")
+                try:
+                    date_obj = pd.to_datetime(date_str)
+                except:
+                    date_obj = datetime.now()
+                    
+            elif 'Harvest Month' in df.columns and 'Harvest Date' in df.columns and 'Harvest Year' in df.columns:
+                # Format A: Harvest Month,Harvest Date,Harvest Year,Domoic Acid
+                month = str(last_row['Harvest Month'])
+                day = str(last_row['Harvest Date'])
+                year = str(last_row['Harvest Year'])
+                da_value = last_row['Domoic Acid']
+                
+                # Parse date
+                try:
+                    date_str = f"{month} {day}, {year}"
+                    date_obj = pd.to_datetime(date_str)
+                except:
+                    date_obj = datetime.now()
+            else:
+                continue
+            
+            # Handle DA value (might be "<1" or other string formats)
+            try:
+                if isinstance(da_value, str):
+                    if '<' in da_value:
+                        # Handle "<1" as 0.5
+                        da_numeric = float(da_value.replace('<', '')) / 2
+                    else:
+                        da_numeric = float(da_value)
+                else:
+                    da_numeric = float(da_value)
+            except:
+                da_numeric = 0.0
+            
+            latest_da_data[site_name] = {
+                'da': da_numeric,
+                'date': date_obj
+            }
+            
+        except Exception as e:
+            logging.warning(f"Failed to parse {file_path}: {e}")
+            continue
+    
+    return latest_da_data
+
 @app.get("/api/visualizations/map")
 async def get_site_map():
-    """Generate map visualization of all 10 monitoring sites."""
+    """Generate map visualization of all 10 monitoring sites with risk level colors using latest raw data."""
     try:
         # Import here to avoid issues if plotly is not available during startup
         import plotly.graph_objs as go
         
-        # Get site coordinates from config
+        # Get site coordinates from config and latest DA data from raw files
         sites = config.SITES
+        latest_da_data = get_latest_da_from_raw_files()
         
         # Prepare data for map
-        site_names = list(sites.keys())
-        latitudes = [coord[0] for coord in sites.values()]
-        longitudes = [coord[1] for coord in sites.values()]
+        site_names = []
+        latitudes = []
+        longitudes = []
+        colors = []
+        hover_texts = []
+        
+        for site_name, (lat, lon) in sites.items():
+            # Get latest DA data from raw files
+            if site_name in latest_da_data:
+                site_info = latest_da_data[site_name]
+                recent_da = site_info['da']
+                recent_date = site_info['date']
+                
+                # Determine risk level
+                if recent_da < 5:
+                    risk_level = "Low"
+                    color = "green"
+                elif recent_da < 20:
+                    risk_level = "Moderate"
+                    color = "yellow"
+                elif recent_da < 40:
+                    risk_level = "High"
+                    color = "orange"
+                else:
+                    risk_level = "Extreme"
+                    color = "red"
+                
+                hover_text = f'<b>{site_name}</b><br>' + \
+                            f'Latitude: {lat:.4f}<br>' + \
+                            f'Longitude: {lon:.4f}<br>' + \
+                            f'Recent DA Level: {recent_da:.2f} μg/g<br>' + \
+                            f'Risk Level: {risk_level}<br>' + \
+                            f'Date: {recent_date.strftime("%Y-%m-%d") if hasattr(recent_date, "strftime") else str(recent_date)}<extra></extra>'
+            else:
+                # No data available - use default color
+                color = "gray"
+                risk_level = "No Data"
+                hover_text = f'<b>{site_name}</b><br>' + \
+                            f'Latitude: {lat:.4f}<br>' + \
+                            f'Longitude: {lon:.4f}<br>' + \
+                            f'Risk Level: {risk_level}<extra></extra>'
+            
+            site_names.append(site_name)
+            latitudes.append(lat)
+            longitudes.append(lon)
+            colors.append(color)
+            hover_texts.append(hover_text)
         
         # Create map trace
         map_trace = go.Scattermapbox(
@@ -571,15 +706,12 @@ async def get_site_map():
             mode='markers',
             marker=dict(
                 size=14,
-                color='rgb(59, 130, 246)',  # Blue color matching UI (blue-500)
+                color=colors,
                 symbol='circle'
             ),
             text=site_names,
             textposition="top center",
-            hovertemplate='<b>%{text}</b><br>' +
-                         'Latitude: %{lat:.4f}<br>' +
-                         'Longitude: %{lon:.4f}<br>' +
-                         '<extra></extra>',
+            hovertemplate=hover_texts,
             name='Monitoring Sites'
         )
         
@@ -589,7 +721,7 @@ async def get_site_map():
         
         # Create layout
         layout = go.Layout(
-            title='DATect Monitoring Sites - Pacific Coast',
+            title='DATect Monitoring Sites - Pacific Coast (Risk Levels)',
             mapbox=dict(
                 style='open-street-map',
                 center=dict(lat=center_lat, lon=center_lon),
