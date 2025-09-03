@@ -20,7 +20,6 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 
 import config
-from forecasting.forecast_engine import ForecastEngine
 from backend.visualizations import generate_spectral_analysis
 
 class DATectCacheGenerator:
@@ -34,11 +33,9 @@ class DATectCacheGenerator:
         (self.cache_dir / "visualizations").mkdir(exist_ok=True)
         
     def precompute_retrospective_forecasts(self):
-        """Pre-compute all retrospective forecast combinations - EXACT match with API."""
+        """Pre-compute all retrospective forecast combinations."""
         print("Pre-computing retrospective forecasts...")
         
-        # These combinations match exactly what the API expects
-        # The API maps "linear" to either "linear" (regression) or "logistic" (classification)
         combinations = [
             ("regression", "xgboost"),
             ("regression", "linear"),  
@@ -50,16 +47,11 @@ class DATectCacheGenerator:
             print(f"  {task} + {model_type}...")
             
             try:
-                # Create engine using EXACT same singleton pattern as API
                 from backend.api import get_forecast_engine, clean_float_for_json, _compute_summary
                 
                 engine = get_forecast_engine()
-                engine.data_file = config.FINAL_OUTPUT_PATH
-                
-                # Use exact same parameters as API would use
                 n_anchors = getattr(config, 'N_RANDOM_ANCHORS', 500)
                 
-                # Run evaluation exactly as the API does
                 results_df = engine.run_retrospective_evaluation(
                     task=task,
                     model_type=model_type,
@@ -68,7 +60,6 @@ class DATectCacheGenerator:
                 )
                 
                 if results_df is not None and not results_df.empty:
-                    # Process data EXACTLY as the API does
                     base_results = []
                     for _, row in results_df.iterrows():
                         record = {
@@ -81,7 +72,6 @@ class DATectCacheGenerator:
                         }
                         base_results.append(record)
                     
-                    # Apply same normalization as API
                     for result in base_results:
                         if 'da' in result and 'actual_da' not in result:
                             result['actual_da'] = result.get('da')
@@ -92,10 +82,8 @@ class DATectCacheGenerator:
                         if 'Predicted_da-category' in result and 'predicted_category' not in result:
                             result['predicted_category'] = result.get('Predicted_da-category')
 
-                    # Convert back to the format expected by cache_manager (raw engine format)
                     results_json = []
                     for result in base_results:
-                        # Convert API format back to engine format for cache storage
                         record = {
                             'date': result['date'],
                             'site': result['site'],
@@ -104,7 +92,6 @@ class DATectCacheGenerator:
                             'Predicted_da': result['predicted_da'],
                             'Predicted_da-category': result['predicted_category']
                         }
-                        # Add anchor_date if it exists in original DataFrame
                         if 'anchor_date' in results_df.columns:
                             anchor_row = results_df[results_df['site'] == result['site']].iloc[0]
                             if pd.notnull(anchor_row['anchor_date']):
@@ -113,14 +100,11 @@ class DATectCacheGenerator:
                         
                     cache_file = self.cache_dir / "retrospective" / f"{task}_{model_type}"
                     
-                    # Save parquet exactly as engine produced
                     results_df.to_parquet(f"{cache_file}.parquet", index=False)
                     
-                    # Save JSON in cache format
                     with open(f"{cache_file}.json", 'w') as f:
                         json.dump(results_json, f, default=str, indent=2)
                     
-                    # Calculate and display metrics using EXACT API method
                     try:
                         summary = _compute_summary(base_results)
                         if 'r2_score' in summary:
@@ -251,8 +235,6 @@ class DATectCacheGenerator:
         total_size = sum(f.stat().st_size for f in self.cache_dir.rglob('*') if f.is_file())
         print(f"Total cache size: {total_size / (1024*1024):.1f} MB")
         
-        print("\nIMPORTANT: Cache has been regenerated to match fresh run behavior.")
-        print("All cached results should now match what the API produces during fresh runs.")
 
 
 if __name__ == "__main__":
