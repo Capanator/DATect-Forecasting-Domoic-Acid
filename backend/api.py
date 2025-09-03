@@ -689,7 +689,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         else:
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
-        # Cached data is now in the correct original format (da, Predicted_da, da-category, Predicted_da-category)
+        # Cached data now uses the same standardized format as fresh computation (actual_da, predicted_da, actual_category, predicted_category)
 
         # Filter by sites if specified
         filtered = [r for r in base_results if r['site'] in request.selected_sites] if request.selected_sites else base_results
