@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-09-02T16:31:26.135877",
+  "generated_at": "2025-09-02T17:46:34.212713",
   "cache_version": "2.0",
   "config": {
     "N_RANDOM_ANCHORS": 500,
@@ -8,29 +8,32 @@
     "MIN_TRAINING_SAMPLES": 3
   },
   "files": {
+    "manifest.json": {
+      "size_bytes": 2473
+    },
     "retrospective/regression_linear.json": {
-      "size_bytes": 870845
+      "size_bytes": 1044330
     },
     "retrospective/classification_logistic.json": {
-      "size_bytes": 847088
+      "size_bytes": 976840
     },
     "retrospective/regression_xgboost.json": {
-      "size_bytes": 879232
+      "size_bytes": 1054232
     },
     "retrospective/classification_xgboost.parquet": {
-      "size_bytes": 40878
+      "size_bytes": 40811
     },
     "retrospective/regression_xgboost.parquet": {
       "size_bytes": 75905
     },
     "retrospective/classification_logistic.parquet": {
-      "size_bytes": 40521
+      "size_bytes": 40612
     },
     "retrospective/regression_linear.parquet": {
-      "size_bytes": 79612
+      "size_bytes": 78976
     },
     "retrospective/classification_xgboost.json": {
-      "size_bytes": 847088
+      "size_bytes": 976493
     },
     "spectral/Long Beach.json": {
       "size_bytes": 101393

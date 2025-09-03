@@ -13,7 +13,6 @@ import json
 import pickle
 import pandas as pd
 import numpy as np
-import random
 from datetime import datetime
 import warnings
 from pathlib import Path
@@ -51,14 +50,10 @@ class DATectCacheGenerator:
             print(f"  {task} + {model_type}...")
             
             try:
-                # CRITICAL: Reset random seeds for each model to ensure reproducibility
-                # This matches what happens in the ForecastEngine.__init__
-                random.seed(config.RANDOM_SEED)
-                np.random.seed(config.RANDOM_SEED)
+                # Create engine using EXACT same singleton pattern as API
+                from backend.api import get_forecast_engine, clean_float_for_json, _compute_summary
                 
-                # Create fresh engine instance for each model to avoid state contamination
-                # Pass validate_on_init=False to match API behavior
-                engine = ForecastEngine(validate_on_init=False)
+                engine = get_forecast_engine()
                 engine.data_file = config.FINAL_OUTPUT_PATH
                 
                 # Use exact same parameters as API would use
@@ -73,55 +68,71 @@ class DATectCacheGenerator:
                 )
                 
                 if results_df is not None and not results_df.empty:
+                    # Process data EXACTLY as the API does
+                    base_results = []
+                    for _, row in results_df.iterrows():
+                        record = {
+                            "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
+                            "site": row['site'],
+                            "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
+                            "predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                            "actual_category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                            "predicted_category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                        }
+                        base_results.append(record)
+                    
+                    # Apply same normalization as API
+                    for result in base_results:
+                        if 'da' in result and 'actual_da' not in result:
+                            result['actual_da'] = result.get('da')
+                        if 'Predicted_da' in result and 'predicted_da' not in result:
+                            result['predicted_da'] = result.get('Predicted_da')
+                        if 'da-category' in result and 'actual_category' not in result:
+                            result['actual_category'] = result.get('da-category')
+                        if 'Predicted_da-category' in result and 'predicted_category' not in result:
+                            result['predicted_category'] = result.get('Predicted_da-category')
+
+                    # Convert back to the format expected by cache_manager (raw engine format)
+                    results_json = []
+                    for result in base_results:
+                        # Convert API format back to engine format for cache storage
+                        record = {
+                            'date': result['date'],
+                            'site': result['site'],
+                            'da': result['actual_da'],
+                            'da-category': result['actual_category'],
+                            'Predicted_da': result['predicted_da'],
+                            'Predicted_da-category': result['predicted_category']
+                        }
+                        # Add anchor_date if it exists in original DataFrame
+                        if 'anchor_date' in results_df.columns:
+                            anchor_row = results_df[results_df['site'] == result['site']].iloc[0]
+                            if pd.notnull(anchor_row['anchor_date']):
+                                record['anchor_date'] = anchor_row['anchor_date'].strftime('%Y-%m-%d')
+                        results_json.append(record)
+                        
                     cache_file = self.cache_dir / "retrospective" / f"{task}_{model_type}"
                     
                     # Save parquet exactly as engine produced
                     results_df.to_parquet(f"{cache_file}.parquet", index=False)
                     
-                    # Convert to JSON format expected by cache_manager
-                    # This matches the exact format the API would produce
-                    results_json = []
-                    for _, row in results_df.iterrows():
-                        record = {}
-                        # Copy all fields from the DataFrame
-                        for col in results_df.columns:
-                            value = row[col]
-                            # Handle datetime columns
-                            if pd.api.types.is_datetime64_any_dtype(results_df[col]):
-                                record[col] = value.strftime('%Y-%m-%d') if pd.notnull(value) else None
-                            # Handle numeric columns with NaN/inf
-                            elif pd.api.types.is_numeric_dtype(results_df[col]):
-                                if pd.isna(value) or (isinstance(value, float) and np.isinf(value)):
-                                    record[col] = None
-                                else:
-                                    record[col] = float(value) if pd.api.types.is_float_dtype(results_df[col]) else int(value)
-                            else:
-                                record[col] = value
-                        results_json.append(record)
-                    
-                    # Save JSON in the exact format expected by the cache_manager
+                    # Save JSON in cache format
                     with open(f"{cache_file}.json", 'w') as f:
                         json.dump(results_json, f, default=str, indent=2)
                     
-                    # Calculate and display metrics to verify
-                    if task == "regression":
-                        from sklearn.metrics import r2_score, mean_absolute_error, f1_score
-                        valid_mask = results_df['da'].notna() & results_df['Predicted_da'].notna()
-                        valid_df = results_df[valid_mask]
-                        
-                        if len(valid_df) > 0:
-                            r2 = r2_score(valid_df['da'], valid_df['Predicted_da'])
-                            mae = mean_absolute_error(valid_df['da'], valid_df['Predicted_da'])
-                            
-                            spike_threshold = 15.0
-                            actual_binary = [1 if val > spike_threshold else 0 for val in valid_df['da']]
-                            pred_binary = [1 if val > spike_threshold else 0 for val in valid_df['Predicted_da']]
-                            f1 = f1_score(actual_binary, pred_binary, zero_division=0)
-                            
+                    # Calculate and display metrics using EXACT API method
+                    try:
+                        summary = _compute_summary(base_results)
+                        if 'r2_score' in summary:
+                            r2 = summary['r2_score']
+                            mae = summary.get('mae', 0)
+                            f1 = summary.get('f1_score', 0)
                             print(f"    Saved {len(results_df)} predictions")
                             print(f"    Metrics: R²={r2:.4f}, MAE={mae:.2f}, F1={f1:.4f}")
-                    else:
-                        print(f"    Saved {len(results_df)} predictions")
+                        else:
+                            print(f"    Saved {len(results_df)} predictions")
+                    except Exception as e:
+                        print(f"    Saved {len(results_df)} predictions (metrics error: {e})")
                         
                 else:
                     print("    No results generated")
