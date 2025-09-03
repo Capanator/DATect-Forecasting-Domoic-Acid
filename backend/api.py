@@ -292,18 +292,17 @@ async def get_historical_data(
         # Limit results and sort by date
         site_data = site_data.sort_values('date').tail(limit)
         
-        # Select relevant columns
-        result_columns = ['date', 'da']
+        # Build canonical-only payload
+        canonical = pd.DataFrame()
+        canonical['date'] = site_data['date'].dt.strftime('%Y-%m-%d')
+        canonical['actual_da'] = site_data['da']
         if 'da-category' in site_data.columns:
-            result_columns.append('da-category')
-        
-        result_data = site_data[result_columns].copy()
-        result_data['date'] = result_data['date'].dt.strftime('%Y-%m-%d')
-        
+            canonical['actual_category'] = site_data['da-category']
+
         return {
             "site": site,
-            "count": len(result_data),
-            "data": result_data.to_dict('records')
+            "count": len(canonical),
+            "data": canonical.to_dict('records')
         }
         
     except Exception as e:
@@ -404,18 +403,20 @@ async def get_all_sites_historical(
         if limit:
             data = data.head(limit)
         
-        # Convert to dict for JSON response with proper float cleaning
+        # Convert to dict for JSON response with proper float cleaning (canonical-only)
         result = []
         for _, row in data.iterrows():
             da_val = row['da'] if pd.notna(row['da']) else None
             da_category = row['da-category'] if 'da-category' in row and pd.notna(row['da-category']) else None
             
-            result.append({
+            rec = {
                 'date': row['date'].strftime('%Y-%m-%d') if pd.notna(row['date']) else None,
-                'da': clean_float_for_json(da_val),
                 'site': row['site'],
-                'da-category': clean_float_for_json(da_category)
-            })
+                'actual_da': clean_float_for_json(da_val),
+            }
+            if da_category is not None:
+                rec['actual_category'] = clean_float_for_json(da_category)
+            result.append(rec)
         
         return JSONResponse(content={
             "success": True,
@@ -799,21 +800,12 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             predicted_da = float(regression_result['predicted_da'])
             
             # Use bootstrap confidence intervals if available, otherwise fall back to simple multipliers
-            if 'bootstrap_quantiles' in regression_result:
-                bootstrap_quantiles = regression_result['bootstrap_quantiles']
-                quantiles = {
-                    "q05": bootstrap_quantiles['q05'],
-                    "q50": bootstrap_quantiles['q50'],
-                    "q95": bootstrap_quantiles['q95'],
-                }
-            else:
-                # Fallback to original method for backwards compatibility
-                quantiles = {
-                    "q05": predicted_da * 0.7,
-                    "q50": predicted_da,
-                    "q95": predicted_da * 1.3,
-                }
-
+            bootstrap_quantiles = regression_result['bootstrap_quantiles']
+            quantiles = {
+                "q05": bootstrap_quantiles['q05'],
+                "q50": bootstrap_quantiles['q50'],
+                "q95": bootstrap_quantiles['q95'],
+            }
             # Provide a robust gradient plot (handles degenerate quantile ranges)
             gradient_plot_json = generate_gradient_uncertainty_plot(quantiles, predicted_da)
 

@@ -411,7 +411,7 @@ class ForecastEngine:
             # Generate bootstrap confidence intervals for regression tasks
             if len(df_train_clean) >= 10:  # Only if we have enough data for meaningful bootstrap
                 bootstrap_quantiles = self.generate_bootstrap_confidence_intervals(
-                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=10
+                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=20
                 )
                 result['bootstrap_quantiles'] = bootstrap_quantiles
                 logger.debug(f"Bootstrap confidence intervals: q05={bootstrap_quantiles['q05']:.3f}, q50={bootstrap_quantiles['q50']:.3f}, q95={bootstrap_quantiles['q95']:.3f}")
