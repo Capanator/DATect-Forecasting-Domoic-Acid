@@ -27,7 +27,8 @@ from backend.visualizations import (
     generate_sensitivity_analysis,
     generate_time_series_comparison,
     generate_waterfall_plot,
-    generate_spectral_analysis
+    generate_spectral_analysis,
+    generate_gradient_uncertainty_plot,
 )
 from backend.cache_manager import cache_manager
 
@@ -604,16 +605,20 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         # Add level_range graph for regression
         if regression_result and 'Predicted_da' in regression_result:
             predicted_da = float(regression_result['Predicted_da'])
-            
-            # Simple uncertainty bounds (can be enhanced later)
+            quantiles = {
+                "q05": predicted_da * 0.7,
+                "q50": predicted_da,
+                "q95": predicted_da * 1.3,
+            }
+
+            # Provide a robust gradient plot (handles degenerate quantile ranges)
+            gradient_plot_json = generate_gradient_uncertainty_plot(quantiles, predicted_da)
+
             response_data["graphs"]["level_range"] = {
-                "gradient_quantiles": {
-                    "q05": predicted_da * 0.7,
-                    "q50": predicted_da,
-                    "q95": predicted_da * 1.3
-                },
+                "gradient_quantiles": quantiles,
                 "xgboost_prediction": predicted_da,
-                "type": "simple_uncertainty"
+                "type": "gradient_uncertainty",
+                "gradient_plot": gradient_plot_json,
             }
         
         # Add category_range graph for classification

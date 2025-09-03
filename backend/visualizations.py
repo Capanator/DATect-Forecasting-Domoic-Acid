@@ -21,29 +21,33 @@ logger = logging.getLogger(__name__)
 
 
 def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, actual_da=None):
-    """Create gradient visualization with quantile uncertainty bands"""
-    q05 = gradient_quantiles['q05']
-    q50 = gradient_quantiles['q50'] 
-    q95 = gradient_quantiles['q95']
-    
+    """Create gradient visualization with quantile uncertainty bands (robust at q05==q50==q95)."""
+    q05 = float(gradient_quantiles['q05'])
+    q50 = float(gradient_quantiles['q50'])
+    q95 = float(gradient_quantiles['q95'])
+
     fig = go.Figure()
-    
+
     n_segments = 30
-    range_width = q95 - q05
-    max_distance = max(q50 - q05, q95 - q50) if range_width > 1e-6 else 1
-    if max_distance <= 1e-6:
-        max_distance = 1
-    
+    raw_width = q95 - q05
+    has_spread = abs(raw_width) > 1e-9
+
+    # If quantiles collapse, display a minimal band around q50
+    display_q05 = q05 if has_spread else (q50 - 1.0)
+    display_q95 = q95 if has_spread else (q50 + 1.0)
+    display_width = display_q95 - display_q05
+    max_distance = max(q50 - display_q05, display_q95 - q50) or 1.0
+
     base_color = (70, 130, 180)
-    
+
     for i in range(n_segments):
-        x0 = q05 + (i / n_segments) * range_width
-        x1 = q05 + ((i + 1) / n_segments) * range_width
+        x0 = display_q05 + (i / n_segments) * display_width
+        x1 = display_q05 + ((i + 1) / n_segments) * display_width
         midpoint = (x0 + x1) / 2
-        
-        opacity = 1 - (abs(midpoint - q50) / max_distance) ** 0.5 if max_distance > 1e-6 else 0.8
+
+        opacity = 1 - (abs(midpoint - q50) / max_distance) ** 0.5 if max_distance > 1e-9 else 0.8
         opacity = max(0.1, min(0.9, opacity))
-        
+
         fig.add_shape(
             type="rect",
             x0=x0, x1=x1,
@@ -52,7 +56,7 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
             fillcolor=f'rgba({base_color[0]}, {base_color[1]}, {base_color[2]}, {opacity})',
             layer='below'
         )
-    
+
     fig.add_trace(go.Scatter(
         x=[q50, q50], y=[0.35, 0.65],
         mode='lines',
@@ -91,9 +95,31 @@ def generate_gradient_uncertainty_plot(gradient_quantiles, xgboost_prediction, a
             hovertemplate='Actual: %{x:.2f}<extra></extra>'
         ))
     
+    # Compute x-axis range with padding to avoid degenerate axis
+    x_candidates = [display_q05, display_q95, q50]
+    if xgboost_prediction is not None:
+        try:
+            x_candidates.append(float(xgboost_prediction))
+        except Exception:
+            pass
+    if actual_da is not None:
+        try:
+            x_candidates.append(float(actual_da))
+        except Exception:
+            pass
+    x_min = min(x_candidates)
+    x_max = max(x_candidates)
+    if not np.isfinite(x_min) or not np.isfinite(x_max) or abs(x_max - x_min) < 1e-9:
+        base = q50 if np.isfinite(q50) else 0.0
+        x_min, x_max = base - 1.5, base + 1.5
+    else:
+        pad = 0.05 * (x_max - x_min)
+        x_min -= pad
+        x_max += pad
+
     fig.update_layout(
         title="DA Level Forecasts with Gradient Boosting Quantiles ",
-        xaxis_title="DA Level (μg/L)",
+        xaxis=dict(title="DA Level (μg/L)", range=[x_min, x_max]),
         yaxis=dict(visible=False, range=[0, 1]),
         showlegend=True,
         height=350,

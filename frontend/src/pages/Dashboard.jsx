@@ -908,16 +908,17 @@ const Dashboard = () => {
                       data={(() => {
                         const levelData = forecast.graphs.level_range;
                         const quantiles = levelData.gradient_quantiles || {};
-                        const q05 = quantiles.q05 || levelData.q05;
-                        const q50 = quantiles.q50 || levelData.q50;
-                        const q95 = quantiles.q95 || levelData.q95;
-                        const xgb_pred = levelData.xgboost_prediction || levelData.predicted_da;
-                        
+                        // Use nullish coalescing so 0 is treated as valid
+                        const q05 = (quantiles.q05 ?? levelData.q05);
+                        const q50 = (quantiles.q50 ?? levelData.q50);
+                        const q95 = (quantiles.q95 ?? levelData.q95);
+                        const xgb_pred = (levelData.xgboost_prediction ?? levelData.predicted_da);
+
                         const traces = [];
                         const n_segments = 30;
-                        const range_width = q95 - q05;
-                        const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
-                        
+                        const rawRange = (q95 ?? 0) - (q05 ?? 0);
+                        const hasSpread = Number.isFinite(rawRange) && Math.abs(rawRange) > 1e-9;
+
                         // Median line (Gradient Boosting Q50)
                         traces.push({
                           x: [q50, q50],
@@ -926,7 +927,7 @@ const Dashboard = () => {
                           line: { color: 'rgb(30, 60, 90)', width: 3 },
                           name: 'GB Median (Q50)'
                         });
-                        
+
                         // Range endpoints (GB quantiles)
                         traces.push({
                           x: [q05, q95],
@@ -935,62 +936,89 @@ const Dashboard = () => {
                           marker: { size: 12, color: 'rgba(70, 130, 180, 0.4)', symbol: 'line-ns-open' },
                           name: 'GB Range (Q05-Q95)'
                         });
-                        
+
                         // XGBoost point prediction
-                        traces.push({
-                          x: [xgb_pred],
-                          y: [0.5],
-                          mode: 'markers',
-                          marker: {
-                            size: 14,
-                            color: 'darkorange',
-                            symbol: 'diamond-tall',
-                            line: { width: 2, color: 'black' }
-                          },
-                          name: 'XGBoost Prediction'
-                        });
-                        
+                        if (xgb_pred !== undefined && xgb_pred !== null) {
+                          traces.push({
+                            x: [xgb_pred],
+                            y: [0.5],
+                            mode: 'markers',
+                            marker: {
+                              size: 14,
+                              color: 'darkorange',
+                              symbol: 'diamond-tall',
+                              line: { width: 2, color: 'black' }
+                            },
+                            name: 'XGBoost Prediction'
+                          });
+                        }
+
                         return traces;
                       })()}
-                      layout={{
-                        title: "DA Level Forecast with Gradient Boosting Quantiles",
-                        xaxis: { title: "DA Level (μg/L)" },
-                        yaxis: { visible: false, range: [0, 1] },
-                        showlegend: true,
-                        height: 350,
-                        plot_bgcolor: 'white',
-                        shapes: (() => {
-                          const levelData = forecast.graphs.level_range;
-                          const quantiles = levelData.gradient_quantiles || {};
-                          const q05 = quantiles.q05 || levelData.q05;
-                          const q50 = quantiles.q50 || levelData.q50;
-                          const q95 = quantiles.q95 || levelData.q95;
-                          const n_segments = 30;
-                          const range_width = q95 - q05;
-                          const max_distance = Math.max(q50 - q05, q95 - q50) || 1;
-                          
-                          const shapes = [];
-                          for (let i = 0; i < n_segments; i++) {
-                            const x0 = q05 + (i / n_segments) * range_width;
-                            const x1 = q05 + ((i + 1) / n_segments) * range_width;
-                            const midpoint = (x0 + x1) / 2;
-                            const distance = Math.abs(midpoint - q50);
-                            const opacity = Math.max(0.1, Math.min(0.9, 1 - Math.pow(distance / max_distance, 0.5)));
-                            
-                            shapes.push({
-                              type: 'rect',
-                              x0: x0,
-                              x1: x1,
-                              y0: 0.35,
-                              y1: 0.65,
-                              fillcolor: `rgba(70, 130, 180, ${opacity})`,
-                              line: { width: 0 },
-                              layer: 'below'
-                            });
-                          }
-                          return shapes;
-                        })()
-                      }}
+                      layout={(() => {
+                        const levelData = forecast.graphs.level_range;
+                        const quantiles = levelData.gradient_quantiles || {};
+                        const q05 = (quantiles.q05 ?? levelData.q05);
+                        const q50 = (quantiles.q50 ?? levelData.q50);
+                        const q95 = (quantiles.q95 ?? levelData.q95);
+                        const xgb_pred = (levelData.xgboost_prediction ?? levelData.predicted_da);
+
+                        const n_segments = 30;
+                        const rawRange = (q95 ?? 0) - (q05 ?? 0);
+                        const hasSpread = Number.isFinite(rawRange) && Math.abs(rawRange) > 1e-9;
+
+                        // Define a display range if quantiles collapse
+                        const displayQ05 = hasSpread ? q05 : (Number.isFinite(q50) ? q50 - 1 : -1);
+                        const displayQ95 = hasSpread ? q95 : (Number.isFinite(q50) ? q50 + 1 : 1);
+                        const displayWidth = (displayQ95 ?? 0) - (displayQ05 ?? 0);
+                        const maxDistance = Math.max((q50 ?? 0) - (displayQ05 ?? 0), (displayQ95 ?? 0) - (q50 ?? 0)) || 1;
+
+                        // Compute x-axis range with padding, ensuring nonzero span
+                        let xCandidates = [displayQ05, displayQ95];
+                        if (q50 !== undefined && q50 !== null) xCandidates.push(q50);
+                        if (xgb_pred !== undefined && xgb_pred !== null) xCandidates.push(xgb_pred);
+                        let xMin = Math.min(...xCandidates);
+                        let xMax = Math.max(...xCandidates);
+                        if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || Math.abs(xMax - xMin) < 1e-9) {
+                          const base = Number.isFinite(q50) ? q50 : 0;
+                          xMin = base - 1.5;
+                          xMax = base + 1.5;
+                        } else {
+                          const pad = 0.05 * (xMax - xMin);
+                          xMin -= pad;
+                          xMax += pad;
+                        }
+
+                        // Build gradient shapes over display interval
+                        const shapes = [];
+                        for (let i = 0; i < n_segments; i++) {
+                          const x0 = (displayQ05 ?? 0) + (i / n_segments) * displayWidth;
+                          const x1 = (displayQ05 ?? 0) + ((i + 1) / n_segments) * displayWidth;
+                          const midpoint = (x0 + x1) / 2;
+                          const distance = Math.abs(midpoint - (q50 ?? 0));
+                          const opacity = Math.max(0.1, Math.min(0.9, 1 - Math.pow(distance / maxDistance, 0.5)));
+                          shapes.push({
+                            type: 'rect',
+                            x0,
+                            x1,
+                            y0: 0.35,
+                            y1: 0.65,
+                            fillcolor: `rgba(70, 130, 180, ${opacity})`,
+                            line: { width: 0 },
+                            layer: 'below'
+                          });
+                        }
+
+                        return {
+                          title: "DA Level Forecast with Gradient Boosting Quantiles",
+                          xaxis: { title: "DA Level (μg/L)", range: [xMin, xMax] },
+                          yaxis: { visible: false, range: [0, 1] },
+                          showlegend: true,
+                          height: 350,
+                          plot_bgcolor: 'white',
+                          shapes
+                        };
+                      })()}
                       config={{ responsive: true }}
                       style={{ width: '100%' }}
                     />
