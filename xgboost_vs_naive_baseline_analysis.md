@@ -39,30 +39,35 @@ Maintains temporal integrity by only using data available before the anchor date
 
 ## Site-Specific Performance
 
-Based on detailed analysis across all 10 monitoring sites, the naive baseline demonstrates consistent superiority. Representative results from top sites by prediction volume:
+| Site | N | XGB R² | Naive R² | XGB MAE | Naive MAE | XGB F1 | Naive F1 | Spike Rate |
+|------|---|--------|----------|---------|-----------|--------|----------|------------|
+| Cannon Beach | 500 | **0.642** | 0.290 | 1.26 | **0.95** | 0.533 | **0.588** | 1.6% |
+| Clatsop Beach | 500 | 0.560 | **0.697** | 7.31 | **5.13** | 0.681 | **0.777** | 20.8% |
+| Coos Bay | 500 | 0.511 | **0.566** | 12.70 | **10.23** | 0.724 | **0.800** | 27.4% |
+| Copalis | 500 | 0.341 | **0.735** | 4.02 | **2.15** | 0.566 | **0.774** | 10.4% |
+| Gold Beach | 500 | **0.004** | -0.657 | **11.49** | 11.78 | 0.512 | **0.547** | 12.8% |
+| Kalaloch | 500 | 0.341 | **0.616** | 4.51 | **2.36** | 0.423 | **0.590** | 6.2% |
+| Long Beach | 500 | 0.509 | **0.663** | 4.54 | **3.01** | 0.733 | **0.892** | 15.0% |
+| Newport | 500 | **-0.018** | -0.857 | 13.48 | **9.02** | 0.329 | **0.515** | 16.4% |
+| Quinault | 500 | 0.516 | **0.676** | 3.56 | **2.54** | 0.613 | **0.836** | 13.0% |
+| Twin Harbors | 500 | 0.529 | **0.656** | 4.45 | **3.10** | 0.697 | **0.827** | 15.4% |
 
-| Site | N | Pattern | Notes |
-|------|---|---------|-------|
-| **Cannon Beach** | 500 | XGBoost leads R²; Naive lower MAE | Strong persistence |
-| **Clatsop Beach** | 500 | Mixed; often Naive lower MAE | High spike activity |
-| **Copalis** | 500 | Mixed performance | Predictable site |
-| **Newport** | 500 | Both struggle | Most challenging site |
-| **Quinault** | 500 | Mixed; Naive often lower MAE | Moderate activity |
-
-### Site-Specific Insights:
-- **Universal pattern**: Naive baseline outperforms XGBoost at all sites
-- **Temporal persistence varies**: Some sites show stronger week-to-week correlation
-- **Complex sites**: Even difficult locations benefit more from persistence than ML features
+### Site-Specific Insights
+- **R² winners**: XGBoost leads at 3/10 sites (Cannon, Gold Beach, Newport); Naive leads at 7/10.
+- **MAE winners**: Naive leads at 9/10 sites (Gold Beach is the exception).
+- **F1 winners**: Naive leads at 10/10 sites (15 μg/g threshold).
+- **Spike rates**: Highest at Coos Bay (27.4%), followed by Clatsop (20.8%).
 
 ## Spike Detection Performance
 
-### Overall Spike Statistics (15 μg/g threshold):
-- **Detection accuracy**: Naive F1 ≈ 0.742 vs XGBoost F1 ≈ 0.592
-- **Operational reliability**: Naive baseline more dependable for alerts
+### Overall Spike Statistics (15 μg/g threshold)
+- **Actual spikes**: 695/5000 (13.9%)
+- **XGBoost predicted spikes**: 912/5000 (18.2%) — over‑predicts
+- **Naive predicted spikes**: 707/5000 (14.1%) — closely matches actual rate
 
 ### Detection Performance Summary:
-- **XGBoost**: Moderate performance with complex feature dependencies
-- **Naive Baseline**: Consistently high performance with robust simplicity
+- **XGBoost**: Precision 52.2%, Recall 68.5%, F1 0.592
+- **Naive Baseline**: Precision 73.6%, Recall 74.8%, F1 0.742
 
 ## Implications and Conclusions
 
