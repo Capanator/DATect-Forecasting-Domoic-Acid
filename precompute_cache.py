@@ -65,10 +65,10 @@ class DATectCacheGenerator:
                         record = {
                             "date": row['date'].strftime('%Y-%m-%d') if pd.notnull(row['date']) else None,
                             "site": row['site'],
-                            "actual_da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
-                            "predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
-                            "actual_category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
-                            "predicted_category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
+                            "da": clean_float_for_json(row['da']) if pd.notnull(row['da']) else None,
+                            "Predicted_da": clean_float_for_json(row['Predicted_da']) if 'Predicted_da' in row and pd.notnull(row['Predicted_da']) else None,
+                            "da-category": clean_float_for_json(row['da-category']) if 'da-category' in row and pd.notnull(row['da-category']) else None,
+                            "Predicted_da-category": clean_float_for_json(row['Predicted_da-category']) if 'Predicted_da-category' in row and pd.notnull(row['Predicted_da-category']) else None
                         }
                         base_results.append(record)
                     
@@ -78,10 +78,10 @@ class DATectCacheGenerator:
                         record = {
                             'date': result['date'],
                             'site': result['site'],
-                            'actual_da': result['actual_da'],
-                            'actual_category': result['actual_category'],
-                            'predicted_da': result['predicted_da'],
-                            'predicted_category': result['predicted_category']
+                            'da': result['da'],
+                            'da-category': result['da-category'],
+                            'Predicted_da': result['Predicted_da'],
+                            'Predicted_da-category': result['Predicted_da-category']
                         }
                         if 'anchor_date' in results_df.columns:
                             anchor_row = results_df[results_df['site'] == result['site']].iloc[0]

@@ -349,7 +349,7 @@ class ForecastEngine:
             
             prediction = model.predict(X_forecast)[0]
             prediction = max(0.0, float(prediction))
-            result['predicted_da'] = prediction
+            result['Predicted_da'] = prediction
             result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
             logger.debug(f"Regression prediction completed for {site}: {prediction:.4f}")
             
@@ -367,7 +367,7 @@ class ForecastEngine:
                 pred_encoded = model.predict(X_forecast)[0]
                 
                 prediction = reverse_mapping[pred_encoded]
-                result['predicted_category'] = int(prediction)
+                result['Predicted_da-category'] = int(prediction)
                 result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
                 logger.debug(f"Classification prediction completed for {site}: {prediction}")
                 
@@ -381,7 +381,7 @@ class ForecastEngine:
                         
             else:
                 dominant_class = df_train_clean["da-category"].mode()[0]
-                result['predicted_category'] = int(dominant_class)
+                result['Predicted_da-category'] = int(dominant_class)
                 result['single_class_prediction'] = True
                 logger.debug(f"Single-class prediction for {site}: {dominant_class} (only class in training data)")
                 

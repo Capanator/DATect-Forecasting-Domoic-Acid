@@ -672,7 +672,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
             if results_df is None or results_df.empty:
                 return {"success": False, "error": "No results generated from retrospective analysis"}
 
-            # Convert results to JSON format with proper float cleaning using consistent column names
+            # Convert results to JSON format with proper float cleaning
             base_results = []
             for _, row in results_df.iterrows():
                 record = {
@@ -689,7 +689,7 @@ async def run_retrospective_analysis(request: RetrospectiveRequest = Retrospecti
         else:
             logging.info(f"Serving pre-computed retrospective analysis: {config.FORECAST_TASK}+{actual_model}")
 
-        # Cached data is already in the correct format (actual_da, predicted_da, actual_category, predicted_category)
+        # Cached data is now in the correct original format (da, Predicted_da, da-category, Predicted_da-category)
 
         # Filter by sites if specified
         filtered = [r for r in base_results if r['site'] in request.selected_sites] if request.selected_sites else base_results
