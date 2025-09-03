@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { MapPin, BarChart3, Activity } from 'lucide-react'
+import { MapPin, BarChart3, Activity, Map } from 'lucide-react'
 import Select from 'react-select'
 import Plot from 'react-plotly.js'
 import api from '../services/api'
@@ -19,6 +19,7 @@ const Historical = () => {
     { value: 'comparison', label: 'DA vs Pseudo-nitzschia', icon: Activity },
     { value: 'waterfall', label: 'Waterfall Plot', icon: BarChart3 },
     { value: 'spectral', label: 'Spectral Analysis', icon: Activity },
+    { value: 'map', label: 'Site Map', icon: Map },
   ]
 
   const siteScopeOptions = [
@@ -70,6 +71,8 @@ const Historical = () => {
         endpoint = siteScope === 'single' && selectedSite
           ? `/api/visualizations/spectral/${selectedSite.value}`
           : '/api/visualizations/spectral/all'
+      } else if (visualizationType === 'map') {
+        endpoint = '/api/visualizations/map'
       }
 
       if (endpoint) {
@@ -154,8 +157,8 @@ const Historical = () => {
   const supportsSiteScope = ['correlation', 'spectral', 'sensitivity'].includes(visualizationType)
   // DA vs Pseudo-nitzschia only supports single site
   const forceSingleSite = visualizationType === 'comparison'
-  // Waterfall plot is all-sites only; hide site controls
-  const hideSiteControls = visualizationType === 'waterfall'
+  // Waterfall plot and map are all-sites only; hide site controls
+  const hideSiteControls = visualizationType === 'waterfall' || visualizationType === 'map'
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">

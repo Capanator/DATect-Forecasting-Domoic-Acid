@@ -549,6 +549,66 @@ async def get_spectral_analysis_single(site: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate spectral analysis: {str(e)}")
 
+@app.get("/api/visualizations/map")
+async def get_site_map():
+    """Generate map visualization of all 10 monitoring sites."""
+    try:
+        # Import here to avoid issues if plotly is not available during startup
+        import plotly.graph_objs as go
+        
+        # Get site coordinates from config
+        sites = config.SITES
+        
+        # Prepare data for map
+        site_names = list(sites.keys())
+        latitudes = [coord[0] for coord in sites.values()]
+        longitudes = [coord[1] for coord in sites.values()]
+        
+        # Create map trace
+        map_trace = go.Scattermapbox(
+            lat=latitudes,
+            lon=longitudes,
+            mode='markers',
+            marker=dict(
+                size=14,
+                color='rgb(59, 130, 246)',  # Blue color matching UI (blue-500)
+                symbol='circle'
+            ),
+            text=site_names,
+            textposition="top center",
+            hovertemplate='<b>%{text}</b><br>' +
+                         'Latitude: %{lat:.4f}<br>' +
+                         'Longitude: %{lon:.4f}<br>' +
+                         '<extra></extra>',
+            name='Monitoring Sites'
+        )
+        
+        # Calculate map center (average of all coordinates)
+        center_lat = sum(latitudes) / len(latitudes)
+        center_lon = sum(longitudes) / len(longitudes)
+        
+        # Create layout
+        layout = go.Layout(
+            title='DATect Monitoring Sites - Pacific Coast',
+            mapbox=dict(
+                style='open-street-map',
+                center=dict(lat=center_lat, lon=center_lon),
+                zoom=5.5
+            ),
+            height=600,
+            margin=dict(l=0, r=0, t=50, b=0)
+        )
+        
+        # Create figure
+        fig = go.Figure(data=[map_trace], layout=layout)
+        
+        # Convert to JSON format expected by frontend
+        plot_json = fig.to_dict()
+        
+        return {"success": True, "plot": plot_json}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate site map: {str(e)}")
+
 
 
 @app.post("/api/forecast/enhanced")
