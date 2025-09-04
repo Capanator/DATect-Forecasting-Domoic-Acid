@@ -16,6 +16,7 @@ class CacheManager:
     
     def __init__(self, cache_dir: str = "./cache"):
         self.cache_dir = Path(cache_dir)
+        # Enable cache if environment requests it OR if local cache files exist
         self.enabled = self._should_enable_cache()
         
         if self.enabled and not self.cache_dir.exists():
@@ -25,12 +26,15 @@ class CacheManager:
         """Check if cache should be enabled based on environment"""
         if os.getenv("CACHE_DIR") == "/app/cache":
             return True
-        if os.getenv("ENABLE_PRECOMPUTED_CACHE", "").lower() == "true":
+        if os.getenv("ENABLE_PRECOMPUTED_CACHE", "").lower() == "true" or os.getenv("ENABLE_PRECOMPUTED+CACHE", "").lower() == "true":
             return True
         if os.getenv("NODE_ENV") == "production":
             return True
         
         return False
+    
+    # Local cache auto-enable removed: fresh computation is default unless
+    # ENABLE_PRECOMPUTED_CACHE=true or production environment is used.
             
         
         

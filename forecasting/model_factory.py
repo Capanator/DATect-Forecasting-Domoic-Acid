@@ -6,7 +6,7 @@ Creates and configures machine learning models for DA forecasting.
 Supports both regression and classification tasks with multiple algorithms.
 """
 
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 try:
     import xgboost as xgb
     HAS_XGBOOST = True
@@ -58,15 +58,28 @@ class ModelFactory:
                 "max_bin": 256,
             }
             params.update(cfg)
+            # Optional Tweedie objective for heavy-tailed nonnegative targets
+            if getattr(config, 'USE_TWEEDIE_REGRESSION', False):
+                params["objective"] = "reg:tweedie"
+                params["tweedie_variance_power"] = float(getattr(config, 'TWEEDIE_VARIANCE_POWER', 1.3))
+
             params.update({
                 "random_state": self.random_seed,
                 "n_jobs": -1,
             })
             return xgb.XGBRegressor(**params)
         elif model_type == "linear":
-            return LinearRegression(
-                n_jobs=-1
-            )
+            # Use Ridge for improved numerical stability on collinear, scaled features
+            use_ridge = getattr(config, 'LINEAR_REGRESSION_TYPE', 'ridge') == 'ridge'
+            if use_ridge:
+                alpha = float(getattr(config, 'RIDGE_ALPHA', 1.0))
+                return Ridge(alpha=alpha, random_state=self.random_seed)
+            else:
+                # Fallback to plain LinearRegression
+                try:
+                    return LinearRegression(n_jobs=-1)
+                except TypeError:
+                    return LinearRegression()
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
                            f"Supported: 'xgboost', 'linear')")

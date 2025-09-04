@@ -200,9 +200,9 @@ const Dashboard = () => {
       sum + Math.abs(val - predictions[i]), 0
     ) / actuals.length
     
-    // F1 score for spike detection
-    const actualSpikes = actuals.map(val => val > 15 ? 1 : 0)
-    const predictedSpikes = predictions.map(val => val > 15 ? 1 : 0)
+    // F1 score for spike detection (20 μg/g threshold to match backend)
+    const actualSpikes = actuals.map(val => val > 20 ? 1 : 0)
+    const predictedSpikes = predictions.map(val => val > 20 ? 1 : 0)
     
     const truePositives = actualSpikes.reduce((sum, actual, i) => 
       sum + (actual === 1 && predictedSpikes[i] === 1 ? 1 : 0), 0
@@ -1161,7 +1161,7 @@ const Dashboard = () => {
               <div className="bg-orange-50 p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-orange-600">{filteredResults.summary.f1_score.toFixed(3)}</div>
                 <div className="text-sm text-gray-600">F1 Score</div>
-                <div className="text-xs text-gray-500 mt-1">Spike Detection (&gt;15 μg/g)</div>
+                <div className="text-xs text-gray-500 mt-1">Spike Detection (&gt;20 μg/g)</div>
               </div>
             )}
             {filteredResults?.summary?.accuracy !== undefined && (

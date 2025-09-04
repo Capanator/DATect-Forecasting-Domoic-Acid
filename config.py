@@ -182,7 +182,7 @@ SATELLITE_DATA = {
 FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "classification"
+FORECAST_TASK = "regression"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -207,9 +207,9 @@ N_RANDOM_ANCHORS = 500
 # Enable/disable lag features for time series modeling
 USE_LAG_FEATURES = True  # Include DA lags as features (leak-safe)
 
-# Time series lags optimized via ACF/PACF analysis and persistence
-# Include short and weekly/biweekly persistence signals
-LAG_FEATURES = [1, 2, 3, 7, 14] if USE_LAG_FEATURES else []
+# IMPORTANT: Lags are observation steps (≈ weeks), not days.
+# For weekly DA, lag 1 = 1 week ago, 4 = ~1 month ago.
+LAG_FEATURES = [1, 2, 3, 4] if USE_LAG_FEATURES else []
 
 # DA Category Configuration
 
@@ -232,6 +232,10 @@ SPIKE_WEIGHT_MULT = 8.0
 PRE_SPIKE_WINDOW_DAYS = 14
 PRE_SPIKE_WEIGHT_MULT = 6.0
 
+# Extra emphasis on truly massive spikes
+MASSIVE_SPIKE_THRESHOLD_PPM = 60.0
+MASSIVE_SPIKE_WEIGHT_MULT = 4.0
+
 # Naive baseline configuration used in analyses
 NAIVE_BASELINE_LAG_DAYS = 7
 
@@ -247,10 +251,18 @@ ONSET_PROB_THRESHOLD = 0.20  # threshold to declare predicted onset
 USE_DERIVED_LAG_FEATURES = True
 # Derived windows use available lags; features are computed only from lag columns
 DERIVED_LAG_SETTINGS = {
-    "use_last3_mean": True,      # mean of da_lag_1..3 if available
-    "use_weekly_change": True,   # da_lag_1 - da_lag_7 if lag_7 exists
-    "use_biweekly_change": True, # da_lag_1 - da_lag_14 if lag_14 exists
-    "use_rising_flag": True      # 1 if da_lag_1>da_lag_2>da_lag_3
+    "use_last3_mean": True,           # mean of da_lag_1..3 if available
+    "use_weekly_change": True,        # da_lag_1 - da_lag_2 (week-over-week)
+    "use_monthly_change": True,       # da_lag_1 - da_lag_4 (~month-over-month)
+    "use_rising_flag": True,          # 1 if da_lag_1>da_lag_2>da_lag_3
+    "use_below_streak3": True,        # count of last 3 lags below threshold
+    # Safe naive anchor-snapshot features (computed without leakage)
+    "use_naive_lag4": True,           # approximate monthly persistence
+    "use_delta_last_vs_lag4": True,
+    # Backward-compat toggles (kept true/false but ignored if related lags absent)
+    "use_biweekly_change": False,
+    "use_naive_lag7": False,
+    "use_delta_last_vs_lag7": False
 }
 
 # XGBoost Parameter Overrides (optional)
@@ -276,15 +288,27 @@ XGB_REGRESSION_PARAMS = {
 }
 
 XGB_CLASSIFICATION_PARAMS = {
-    "n_estimators": 700,
+    # Mirror regression stability with slightly lower depth
+    "n_estimators": 1000,
     "max_depth": 5,
-    "learning_rate": 0.12,
+    "learning_rate": 0.06,
     "reg_alpha": 0.0,
-    "reg_lambda": 1.0,
-    "min_child_weight": 1,
+    "reg_lambda": 1.2,
+    "min_child_weight": 2,
     "subsample": 0.9,
     "colsample_bytree": 0.9,
     "eval_metric": "logloss",
     "tree_method": "hist",
     "max_bin": 256,
 }
+
+# Class weights for DA category classification (0=Low, 1=Moderate, 2=High, 3=Extreme)
+CLASS_WEIGHTS = {0: 1.0, 1: 1.4, 2: 2.5, 3: 3.5}
+
+# Linear regression variant (for 'linear' model type)
+LINEAR_REGRESSION_TYPE = 'ridge'  # 'ridge' or 'ols'
+RIDGE_ALPHA = 1.0
+
+# Experimental: Tweedie objective for heavy-tailed nonnegative targets
+USE_TWEEDIE_REGRESSION = False
+TWEEDIE_VARIANCE_POWER = 1.3  # in (1,2); 1.3 handles zeros + heavy tail

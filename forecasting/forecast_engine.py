@@ -250,10 +250,18 @@ class ForecastEngine:
             except Exception:
                 # Be robust if any edge case occurs; fall back to spike-only weighting
                 pass
-            
-            if model_type in ["xgboost", "xgb"]:
+            # Massive spike emphasis
+            try:
+                massive_thr = float(getattr(config, 'MASSIVE_SPIKE_THRESHOLD_PPM', 60.0))
+                massive_mult = float(getattr(config, 'MASSIVE_SPIKE_WEIGHT_MULT', 2.0))
+                massive_mask = y_train >= massive_thr
+                sample_weights[massive_mask] *= massive_mult
+            except Exception:
+                pass
+
+            try:
                 reg_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
-            else:
+            except TypeError:
                 reg_model.fit(X_train_processed, y_train)
             
             pred_da = reg_model.predict(X_test_processed)[0]
@@ -280,7 +288,13 @@ class ForecastEngine:
                 y_train_encoded = train_df["da-category"].map(cat_mapping)
                 
                 cls_model = self.model_factory.get_model("classification", model_type)
-                cls_model.fit(X_train_processed, y_train_encoded)
+                # Apply class/sample weights if supported
+                class_weights_cfg = getattr(config, 'CLASS_WEIGHTS', {0:1.0, 1:1.5, 2:3.0, 3:4.0})
+                sw = y_train_encoded.map(lambda enc: class_weights_cfg.get(reverse_mapping.get(enc, 0), 1.0))
+                try:
+                    cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sw)
+                except TypeError:
+                    cls_model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
                 pred_category = reverse_mapping[pred_encoded]
@@ -360,6 +374,17 @@ class ForecastEngine:
         # Determine last known DA at anchor
         hist = site_data[(site_data['date'] <= anchor_date) & (site_data['da'].notna())].sort_values('date')
         last_da = float(hist.iloc[-1]['da']) if not hist.empty else np.nan
+        
+        # Safe naive lag-4 weeks at anchor (~monthly) via 28±6 days window
+        target4 = anchor_date - pd.Timedelta(days=28)
+        lag4_val = np.nan
+        if settings.get('use_naive_lag4', True):
+            h4 = hist[(hist['date'] >= target4 - pd.Timedelta(days=6)) & (hist['date'] <= target4 + pd.Timedelta(days=6))]
+            if not h4.empty:
+                h4 = h4.copy(); h4['diff'] = (h4['date'] - target4).abs().dt.days
+                lag4_val = float(h4.sort_values('diff').iloc[0]['da'])
+            elif not hist.empty:
+                lag4_val = float(hist.iloc[-1]['da'])
 
         # Build training features from available lags on each row
         if settings.get('use_last3_mean', True):
@@ -373,14 +398,14 @@ class ForecastEngine:
                 test_df['last3_mean_safe'] = np.nanmean([last_da, last_da, last_da]) if not np.isnan(last_da) else np.nan
 
         if settings.get('use_weekly_change', True):
-            if 1 in lags and 7 in lags and has('da_lag_1', train_df) and has('da_lag_7', train_df):
-                train_df['weekly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_7']
+            if 1 in lags and 2 in lags and has('da_lag_1', train_df) and has('da_lag_2', train_df):
+                train_df['weekly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_2']
                 test_df['weekly_change_safe'] = 0.0  # no future; assume persistence baseline
 
-        if settings.get('use_biweekly_change', True):
-            if 1 in lags and 14 in lags and has('da_lag_1', train_df) and has('da_lag_14', train_df):
-                train_df['biweekly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_14']
-                test_df['biweekly_change_safe'] = 0.0
+        if settings.get('use_monthly_change', True):
+            if 1 in lags and 4 in lags and has('da_lag_1', train_df) and has('da_lag_4', train_df):
+                train_df['monthly_change_safe'] = train_df['da_lag_1'] - train_df['da_lag_4']
+                test_df['monthly_change_safe'] = 0.0
 
         if settings.get('use_rising_flag', True):
             cond_cols = [c for c in ['da_lag_1', 'da_lag_2', 'da_lag_3'] if has(c, train_df)]
@@ -388,6 +413,21 @@ class ForecastEngine:
                 train_df['rising_flag_safe'] = ((train_df['da_lag_1'] > train_df['da_lag_2']) & (train_df['da_lag_2'] > train_df['da_lag_3'])).astype(int)
                 # For test, we cannot know; use 1 if last known da is positive trend vs its own prior
                 test_df['rising_flag_safe'] = 0
+
+        if settings.get('use_below_streak3', True):
+            cols = [c for c in ['da_lag_1', 'da_lag_2', 'da_lag_3'] if has(c, train_df)]
+            if len(cols) == 3:
+                thr = float(getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0))
+                train_df['below_streak3_safe'] = ((train_df['da_lag_1'] < thr).astype(int) + (train_df['da_lag_2'] < thr).astype(int) + (train_df['da_lag_3'] < thr).astype(int))
+                test_df['below_streak3_safe'] = np.nan
+
+        if settings.get('use_naive_lag4', True):
+            if has('da_lag_4', train_df):
+                train_df['naive_lag4_safe'] = train_df['da_lag_4']
+            test_df['naive_lag4_safe'] = lag4_val
+
+        if settings.get('use_delta_last_vs_lag4', True):
+            test_df['delta_last_vs_lag4_safe'] = (last_da - lag4_val) if (not np.isnan(last_da) and not np.isnan(lag4_val)) else np.nan
 
 
     def _train_and_predict_onset_probability(
@@ -489,15 +529,14 @@ class ForecastEngine:
             # Train model on bootstrap sample
             bootstrap_model = self.model_factory.get_model("regression", model_type)
             
-            # Apply spike weighting if XGBoost
-            if model_type in ["xgboost", "xgb"]:
-                spike_threshold = getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0)
-                spike_mult = float(getattr(config, 'SPIKE_WEIGHT_MULT', 12.0))
-                sample_weights = np.ones(len(y_bootstrap), dtype=float)
-                spike_mask = y_bootstrap >= spike_threshold
-                sample_weights[spike_mask] *= spike_mult
+            spike_threshold = getattr(config, 'SPIKE_THRESHOLD_PPM', 20.0)
+            spike_mult = float(getattr(config, 'SPIKE_WEIGHT_MULT', 12.0))
+            sample_weights = np.ones(len(y_bootstrap), dtype=float)
+            spike_mask = y_bootstrap >= spike_threshold
+            sample_weights[spike_mask] *= spike_mult
+            try:
                 bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
-            else:
+            except TypeError:
                 bootstrap_model.fit(X_bootstrap, y_bootstrap)
             
             # Make prediction
