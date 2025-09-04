@@ -227,9 +227,10 @@ class ForecastEngine:
             reg_model = self.model_factory.get_model("regression", model_type)
             
             y_train = train_df["da"]
-            spike_mask = y_train > 20.0  # spike threshold
-            sample_weights = np.ones(len(y_train))
-            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+            # Use conservative spike weighting that actually works
+            sample_weights = self.model_factory.get_advanced_spike_weights(
+                y_train.values, strategy='original'  # Back to the working approach
+            )
             
             if model_type in ["xgboost", "xgb"]:
                 reg_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
@@ -250,7 +251,17 @@ class ForecastEngine:
                 y_train_encoded = train_df["da-category"].map(cat_mapping)
                 
                 cls_model = self.model_factory.get_model("classification", model_type)
-                cls_model.fit(X_train_processed, y_train_encoded)
+                
+                # Apply class weights for imbalanced classification
+                if model_type in ["xgboost", "xgb"]:
+                    class_weights = self.model_factory.get_class_weights_for_imbalanced_classification(
+                        train_df["da-category"].values
+                    )
+                    # Convert to sample weights for XGBoost
+                    sample_weights = np.array([class_weights[cat] for cat in train_df["da-category"].values])
+                    cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights)
+                else:
+                    cls_model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
                 pred_category = reverse_mapping[pred_encoded]
@@ -295,11 +306,12 @@ class ForecastEngine:
             # Train model on bootstrap sample
             bootstrap_model = self.model_factory.get_model("regression", model_type)
             
-            # Apply spike weighting if XGBoost
+            # Apply advanced spike weighting if XGBoost
             if model_type in ["xgboost", "xgb"]:
-                spike_mask = y_bootstrap > 20.0
-                sample_weights = np.ones(len(y_bootstrap))
-                sample_weights[spike_mask] *= 8.0
+                sample_weights = self.model_factory.get_advanced_spike_weights(
+                    y_bootstrap if hasattr(y_bootstrap, 'values') else y_bootstrap,
+                    strategy='original'  # Back to working approach
+                )
                 bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
             else:
                 bootstrap_model.fit(X_bootstrap, y_bootstrap)
@@ -394,9 +406,10 @@ class ForecastEngine:
             model = self.model_factory.get_model("regression", model_type)
             
             y_train = df_train_clean["da"]
-            spike_mask = y_train > 20.0  # spike threshold
-            sample_weights = np.ones(len(y_train))
-            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
+            # Use conservative spike weighting that actually works
+            sample_weights = self.model_factory.get_advanced_spike_weights(
+                y_train.values, strategy='original'  # Back to working approach
+            )
             
             if model_type in ["xgboost", "xgb"]:
                 model.fit(X_train_processed, y_train, sample_weight=sample_weights)
@@ -428,7 +441,17 @@ class ForecastEngine:
                 y_train_encoded = df_train_clean["da-category"].map(cat_mapping)
                 
                 model = self.model_factory.get_model("classification", model_type)
-                model.fit(X_train_processed, y_train_encoded)
+                
+                # Apply class weights for imbalanced classification
+                if model_type in ["xgboost", "xgb"]:
+                    class_weights = self.model_factory.get_class_weights_for_imbalanced_classification(
+                        df_train_clean["da-category"].values
+                    )
+                    # Convert to sample weights for XGBoost
+                    sample_weights = np.array([class_weights[cat] for cat in df_train_clean["da-category"].values])
+                    model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights)
+                else:
+                    model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = model.predict(X_forecast)[0]
                 
                 prediction = reverse_mapping[pred_encoded]
