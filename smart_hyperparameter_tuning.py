@@ -11,7 +11,6 @@ import pandas as pd
 import numpy as np
 import time
 import warnings
-from tqdm import tqdm
 from joblib import Parallel, delayed
 from hyperparameter_tuning import HyperparameterTuner
 
@@ -79,42 +78,36 @@ class SmartHyperparameterTuner(HyperparameterTuner):
             print(f"\nStep 2.{len(best_params)+1}: Testing {param_name}...")
             print(f"  Values: {param_values}")
             
-            param_results = []
+            def test_single_param_value(value):
+                """Test a single parameter value."""
+                test_config = self.baseline_config.copy()
+                test_config[param_name] = value
+                result = self._evaluate_xgboost_config(test_config)
+                
+                if result:
+                    return {
+                        'value': value,
+                        'r2': result['mean_r2'],
+                        'mae': result['mean_mae'],
+                        'spike_f1': result['mean_spike_f1'],
+                        'improvement_score': self._calculate_improvement_score(
+                            result, baseline_result
+                        )
+                    }
+                return None
             
-            with tqdm(param_values, desc=f"Testing {param_name}", ncols=100) as pbar:
-                for value in param_values:
-                    # Create test config with this parameter value
-                    test_config = self.baseline_config.copy()
-                    test_config[param_name] = value
-                    
-                    # Evaluate this configuration
-                    result = self._evaluate_xgboost_config(test_config)
-                    
-                    if result:
-                        param_results.append({
-                            'value': value,
-                            'r2': result['mean_r2'],
-                            'mae': result['mean_mae'],
-                            'spike_f1': result['mean_spike_f1'],
-                            'improvement_score': self._calculate_improvement_score(
-                                result, baseline_result
-                            )
-                        })
-                        
-                        pbar.set_postfix({
-                            'Best R²': f"{max(param_results, key=lambda x: x['r2'])['r2']:.4f}",
-                            'Value': f"{value}"
-                        })
-                    
-                    pbar.update(1)
+            # Use parallel processing to test all values for this parameter
+            print(f"  Running {len(param_values)} tests in parallel...")
+            param_results = Parallel(n_jobs=-1, verbose=1)(
+                delayed(test_single_param_value)(value) for value in param_values
+            )
+            
+            # Filter out None results
+            param_results = [r for r in param_results if r is not None]
             
             if param_results:
-                # Find best value for this parameter
-                best_by_r2 = max(param_results, key=lambda x: x['r2'])
-                best_by_improvement = max(param_results, key=lambda x: x['improvement_score'])
-                
-                # Use the one with best overall improvement score
-                best_for_param = best_by_improvement
+                # Find best value for this parameter based on improvement score
+                best_for_param = max(param_results, key=lambda x: x['improvement_score'])
                 best_params[param_name] = best_for_param['value']
                 results_summary[param_name] = {
                     'best_value': best_for_param['value'],
@@ -178,12 +171,8 @@ class SmartHyperparameterTuner(HyperparameterTuner):
         
         print(f"Testing {len(combinations_to_test)} combined configurations...")
         
-        combination_results = []
-        
-        for combo_name, config in combinations_to_test:
-            print(f"\nTesting: {combo_name}")
-            print(f"  Config: {config}")
-            
+        def test_single_combination(combo_name, config):
+            """Test a single combination configuration."""
             result = self._evaluate_xgboost_config(config)
             
             if result:
@@ -191,7 +180,7 @@ class SmartHyperparameterTuner(HyperparameterTuner):
                 mae_imp = ((baseline_result['mean_mae'] - result['mean_mae']) / baseline_result['mean_mae']) * 100
                 f1_imp = ((result['mean_spike_f1'] - baseline_result['mean_spike_f1']) / baseline_result['mean_spike_f1']) * 100
                 
-                combination_results.append({
+                return {
                     'name': combo_name,
                     'config': config,
                     'r2': result['mean_r2'],
@@ -200,12 +189,25 @@ class SmartHyperparameterTuner(HyperparameterTuner):
                     'r2_improvement_pct': r2_imp,
                     'mae_improvement_pct': mae_imp,
                     'f1_improvement_pct': f1_imp,
-                    'overall_score': (r2_imp + mae_imp + f1_imp) / 3  # Simple average
-                })
-                
-                print(f"  Results: R²={result['mean_r2']:.4f}({r2_imp:+.1f}%), MAE={result['mean_mae']:.4f}({mae_imp:+.1f}%), F1={result['mean_spike_f1']:.4f}({f1_imp:+.1f}%)")
-            else:
-                print(f"  FAILED to evaluate")
+                    'overall_score': (r2_imp + mae_imp + f1_imp) / 3
+                }
+            return None
+        
+        # Run combination tests in parallel
+        print(f"  Running {len(combinations_to_test)} combination tests in parallel...")
+        combination_results = Parallel(n_jobs=-1, verbose=1)(
+            delayed(test_single_combination)(combo_name, config) 
+            for combo_name, config in combinations_to_test
+        )
+        
+        # Filter out None results and display
+        combination_results = [r for r in combination_results if r is not None]
+        
+        for combo_result in combination_results:
+            print(f"\nResults for {combo_result['name']}:")
+            print(f"  R²={combo_result['r2']:.4f}({combo_result['r2_improvement_pct']:+.1f}%) | "
+                  f"MAE={combo_result['mae']:.4f}({combo_result['mae_improvement_pct']:+.1f}%) | "
+                  f"F1={combo_result['spike_f1']:.4f}({combo_result['f1_improvement_pct']:+.1f}%)")
         
         return combination_results
     
