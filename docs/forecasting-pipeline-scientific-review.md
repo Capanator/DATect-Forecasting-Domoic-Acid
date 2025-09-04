@@ -168,13 +168,13 @@ f1 = f1_score(y_true, y_pred, average='weighted')
 
 **Implementation** (`forecast_engine.py:391-409`):
 ```python
-spike_threshold = 15.0  # Moderate threshold
+spike_threshold = 20.0  # Moderate threshold
 actual_spikes = (valid_results['da'] >= spike_threshold).astype(int)
 predicted_spikes = (valid_results['predicted_da'] >= spike_threshold).astype(int)
 spike_detection_f1 = f1_score(actual_spikes, predicted_spikes, zero_division=0)
 ```
 
-**Assessment**: Good addition for public health relevance, though threshold (15 μg/g) could be better justified.
+**Assessment**: Good addition for public health relevance, though threshold (20 μg/g) could be better justified.
 
 ---
 
@@ -234,7 +234,7 @@ MIN_TRAINING_SAMPLES = 3            # Very conservative
 ### ⚠️ **Minor: Some Arbitrary Choices**
 
 ```python
-spike_threshold = 15.0  # Not aligned with regulatory bins (5, 20, 40)
+spike_threshold = 20.0  # Not aligned with regulatory bins (5, 20, 40)
 buffer_days = 1        # Could be better documented
 ```
 

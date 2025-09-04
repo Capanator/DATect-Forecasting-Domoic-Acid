@@ -941,8 +941,8 @@ def _compute_summary(results_json: list) -> dict:
             summary["r2_score"] = float(r2_score(actual_vals, pred_vals))
             summary["mae"] = float(mean_absolute_error(actual_vals, pred_vals))
 
-            # F1 score for spike detection (15 μg/g threshold)
-            spike_threshold = 15.0
+            # F1 score for spike detection (20 μg/g threshold)
+            spike_threshold = 20.0
             actual_binary = [1 if val > spike_threshold else 0 for val in actual_vals]
             pred_binary = [1 if val > spike_threshold else 0 for val in pred_vals]
             summary["f1_score"] = float(

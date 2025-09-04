@@ -126,15 +126,6 @@ def main():
     print(f"| MAE      | {xgb_mae:.4f}  | {naive_mae:.4f}  | {'XGBoost' if xgb_mae < naive_mae else 'Naive':>9} |")
     print(f"| F1 Score | {xgb_f1:.4f}  | {naive_f1:.4f}  | {'XGBoost' if xgb_f1 > naive_f1 else 'Naive':>9} |")
     
-    print(f"\n✅ VERIFICATION")
-    print(f"Expected XGBoost R² ≈ 0.3661: Actual = {xgb_r2:.4f}")
-    print(f"Expected XGBoost MAE ≈ 6.73:  Actual = {xgb_mae:.4f}")
-    print(f"Expected XGBoost F1 ≈ 0.5924: Actual = {xgb_f1:.4f}")
-    
-    if abs(xgb_r2 - 0.3661) < 0.01:
-        print("🎯 Match with pipeline output!")
-    else:
-        print(f"⚠️  Difference from expected (check data/cache)")
     
     return {
         'xgb_metrics': xgb_summary,

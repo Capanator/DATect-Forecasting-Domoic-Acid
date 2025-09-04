@@ -21,7 +21,7 @@ Maintains temporal integrity by only using data available before the anchor date
 
 ### Metrics Evaluated
 - **Regression**: R² Score, Mean Absolute Error (MAE)
-- **Spike Detection**: F1 Score, Precision, Recall (threshold: **15 μg/g** - matching pipeline)
+- **Spike Detection**: F1 Score, Precision, Recall (threshold: **20 μg/g** - matching pipeline)
 
 ## Overall Performance Results
 
@@ -29,12 +29,12 @@ Maintains temporal integrity by only using data available before the anchor date
 |--------|---------|----------------|--------|-------------|
 | **R² Score** | **0.3661** | 0.2053 | **XGBoost** | **+78.3%** |
 | **MAE (μg/g)** | 6.73 | **5.03** | **Naive** | **-25.2%** |
-| **F1 Score (15 μg/g)** | 0.5924 | **0.7418** | **Naive** | **+25.2%** |
+| **F1 Score (20 μg/g)** | 0.5621 | **0.6913** | **Naive** | **+23.0%** |
 
 ### Key Findings:
 - **XGBoost explains more variance**: R² = 0.366 vs 0.205
 - **Naive has lower error**: MAE = 5.03 vs 6.73 μg/g  
-- **Naive higher F1 (15 μg/g)**: Better spike detection
+- **Naive higher F1 (20 μg/g)**: Better spike detection
 - **Complementary strengths**: Neither dominates all metrics
 
 ## Site-Specific Performance
@@ -55,19 +55,19 @@ Maintains temporal integrity by only using data available before the anchor date
 ### Site-Specific Insights
 - **R² winners**: XGBoost leads at 3/10 sites (Cannon, Gold Beach, Newport); Naive leads at 7/10.
 - **MAE winners**: Naive leads at 9/10 sites (Gold Beach is the exception).
-- **F1 winners**: Naive leads at 10/10 sites (15 μg/g threshold).
+- **F1 winners**: Naive leads at 10/10 sites (20 μg/g threshold).
 - **Spike rates**: Highest at Coos Bay (27.4%), followed by Clatsop (20.8%).
 
 ## Spike Detection Performance
 
-### Overall Spike Statistics (15 μg/g threshold)
-- **Actual spikes**: 695/5000 (13.9%)
-- **XGBoost predicted spikes**: 912/5000 (18.2%) — over‑predicts
-- **Naive predicted spikes**: 707/5000 (14.1%) — closely matches actual rate
+### Overall Spike Statistics (20 μg/g threshold)
+- **Actual spikes**: 524/5000 (10.5%)
+- **XGBoost predicted spikes**: 604/5000 (12.1%) — over‑predicts
+- **Naive predicted spikes**: 532/5000 (10.6%) — closely matches actual rate
 
 ### Detection Performance Summary:
-- **XGBoost**: Precision 52.2%, Recall 68.5%, F1 0.592
-- **Naive Baseline**: Precision 73.6%, Recall 74.8%, F1 0.742
+- **XGBoost**: Precision 52.5%, Recall 60.5%, F1 0.562
+- **Naive Baseline**: Precision 68.6%, Recall 69.7%, F1 0.691
 
 ## Implications and Conclusions
 

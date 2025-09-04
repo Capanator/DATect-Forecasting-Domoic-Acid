@@ -227,7 +227,7 @@ class ForecastEngine:
             reg_model = self.model_factory.get_model("regression", model_type)
             
             y_train = train_df["da"]
-            spike_mask = y_train > 15.0  # spike threshold
+            spike_mask = y_train > 20.0  # spike threshold
             sample_weights = np.ones(len(y_train))
             sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
@@ -297,7 +297,7 @@ class ForecastEngine:
             
             # Apply spike weighting if XGBoost
             if model_type in ["xgboost", "xgb"]:
-                spike_mask = y_bootstrap > 15.0
+                spike_mask = y_bootstrap > 20.0
                 sample_weights = np.ones(len(y_bootstrap))
                 sample_weights[spike_mask] *= 8.0
                 bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
@@ -394,7 +394,7 @@ class ForecastEngine:
             model = self.model_factory.get_model("regression", model_type)
             
             y_train = df_train_clean["da"]
-            spike_mask = y_train > 15.0  # spike threshold
+            spike_mask = y_train > 20.0  # spike threshold
             sample_weights = np.ones(len(y_train))
             sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
@@ -466,7 +466,7 @@ class ForecastEngine:
                 r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
                 mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
                 
-                spike_threshold = 15.0
+                spike_threshold = 20.0
                 y_true_binary = (valid_results['actual_da'] > spike_threshold).astype(int)
                 y_pred_binary = (valid_results['predicted_da'] > spike_threshold).astype(int)
                 
