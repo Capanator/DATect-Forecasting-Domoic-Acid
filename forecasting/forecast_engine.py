@@ -266,7 +266,18 @@ class ForecastEngine:
             
             pred_da = reg_model.predict(X_test_processed)[0]
             pred_da = max(0.0, float(pred_da))
-            result['predicted_da'] = pred_da
+
+            # Compute training residual quantiles for tail uplift (leak-safe)
+            try:
+                y_hat_train = reg_model.predict(X_train_processed)
+                residuals = (y_train.values - y_hat_train).astype(float)
+                pos_res = residuals[residuals > 0]
+                q75 = float(np.percentile(pos_res, 75)) if len(pos_res) > 0 else 0.0
+                q90 = float(np.percentile(pos_res, 90)) if len(pos_res) > 0 else 0.0
+            except Exception:
+                q75, q90 = 0.0, 0.0
+
+            adjusted_pred = pred_da
 
             # Optional: train an onset classifier (imminent spike in next N days)
             try:
@@ -276,7 +287,44 @@ class ForecastEngine:
                 result['onset_prob'] = float(onset_prob)
             except Exception:
                 # Be robust: if we cannot compute onset probability, skip silently
+                onset_prob = 0.0
+
+            # Optional: severe spike probabilities and uplift
+            try:
+                severe_probs = self._train_and_predict_severe_spike_probability(
+                    train_df, X_train_processed, X_test_processed, site_data, anchor_date, model_type
+                )
+                result.update({f'severe_{int(k)}_prob': float(v) for k, v in severe_probs.items()})
+            except Exception:
+                severe_probs = {}
+
+            # Hybrid persistence blend using last observed value (leak-safe)
+            if getattr(config, 'ENABLE_PERSISTENCE_HYBRID', True):
+                try:
+                    last_obs = site_data[(site_data['date'] <= anchor_date) & (site_data['da'].notna())].sort_values('date').iloc[-1]['da']
+                    last_obs = float(last_obs)
+                    w_low = float(getattr(config, 'HYBRID_WEIGHT_LOW', 0.2))
+                    w_high = float(getattr(config, 'HYBRID_WEIGHT_HIGH', 0.9))
+                    w = w_low + (w_high - w_low) * float(onset_prob)
+                    adjusted_pred = w * pred_da + (1 - w) * last_obs
+                except Exception:
+                    adjusted_pred = pred_da
+
+            # Tail uplift if severe spike probability is high (leak-safe uplift from train residuals)
+            try:
+                thr_map = getattr(config, 'SEVERE_PROB_THRESH', {40.0: 0.5, 60.0: 0.5})
+                prob40 = float(severe_probs.get(40.0, 0.0))
+                prob60 = float(severe_probs.get(60.0, 0.0))
+                uplift = 0.0
+                if prob60 >= float(thr_map.get(60.0, 0.5)):
+                    uplift += q90
+                if prob40 >= float(thr_map.get(40.0, 0.5)):
+                    uplift += q75
+                adjusted_pred = max(0.0, adjusted_pred + uplift)
+            except Exception:
                 pass
+
+            result['predicted_da'] = adjusted_pred
         
         if task == "classification" or task == "both":
             unique_classes = train_df["da-category"].nunique()
@@ -495,6 +543,63 @@ class ForecastEngine:
             prob = float(pred)
 
         return prob
+
+    def _train_and_predict_severe_spike_probability(
+        self,
+        train_df: pd.DataFrame,
+        X_train_processed,
+        X_test_processed,
+        site_data: pd.DataFrame,
+        anchor_date: pd.Timestamp,
+        model_type: str,
+    ) -> dict:
+        """
+        Train classifiers for severe spikes (>= thresholds) within SEVERE_WINDOW_DAYS
+        using only data up to anchor_date. Returns dict {threshold: probability}.
+        """
+        thresholds = getattr(config, 'SEVERE_THRESHOLDS', [40.0, 60.0])
+        window_days = int(getattr(config, 'SEVERE_WINDOW_DAYS', 7))
+        pos_weight = float(getattr(config, 'SEVERE_POS_WEIGHT', 8.0))
+
+        df = train_df[['date', 'da']].copy().dropna()
+        df.sort_values('date', inplace=True)
+
+        # Prepare labels for each threshold
+        probs = {}
+        for thr in thresholds:
+            labels = []
+            for _, r in df.iterrows():
+                t = r['date']
+                end = min(anchor_date, t + pd.Timedelta(days=window_days))
+                future = site_data[(site_data['date'] > t) & (site_data['date'] <= end)][['date', 'da']].dropna()
+                labels.append(1 if ((not future.empty) and (future['da'].max() >= thr)) else 0)
+            if sum(labels) == 0:
+                probs[thr] = 0.0
+                continue
+
+            # Align labels to X_train_processed index
+            label_map = {}
+            df_labeled = df.reset_index()
+            for i, lab in enumerate(labels):
+                label_map[df_labeled.loc[i, 'index']] = lab
+            y_labels = pd.Series(0, index=X_train_processed.index)
+            for idx in X_train_processed.index:
+                y_labels.loc[idx] = label_map.get(idx, 0)
+
+            cls_model = self.model_factory.get_model('classification', model_type)
+            sw = np.ones(len(y_labels), dtype=float)
+            sw[y_labels.values.astype(int) == 1] *= pos_weight
+            try:
+                cls_model.fit(X_train_processed, y_labels.values.astype(int), sample_weight=sw)
+            except TypeError:
+                cls_model.fit(X_train_processed, y_labels.values.astype(int))
+
+            if hasattr(cls_model, 'predict_proba'):
+                p = float(cls_model.predict_proba(X_test_processed)[0, 1])
+            else:
+                p = float(cls_model.predict(X_test_processed)[0])
+            probs[thr] = p
+        return probs
     
     def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=100):
         """

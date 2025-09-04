@@ -309,6 +309,17 @@ CLASS_WEIGHTS = {0: 1.0, 1: 1.4, 2: 2.5, 3: 3.5}
 LINEAR_REGRESSION_TYPE = 'ridge'  # 'ridge' or 'ols'
 RIDGE_ALPHA = 1.0
 
+# Severe spike classifier configuration (for gating/uplift)
+SEVERE_THRESHOLDS = [40.0, 60.0]  # μg/g
+SEVERE_WINDOW_DAYS = 7
+SEVERE_POS_WEIGHT = 8.0
+SEVERE_PROB_THRESH = {40.0: 0.5, 60.0: 0.5}
+
+# Hybrid persistence blend (leak-safe)
+ENABLE_PERSISTENCE_HYBRID = True
+HYBRID_WEIGHT_LOW = 0.2   # weight on model when onset_prob=0
+HYBRID_WEIGHT_HIGH = 0.9  # weight on model when onset_prob=1
+
 # Experimental: Tweedie objective for heavy-tailed nonnegative targets
 USE_TWEEDIE_REGRESSION = False
 TWEEDIE_VARIANCE_POWER = 1.3  # in (1,2); 1.3 handles zeros + heavy tail
