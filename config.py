@@ -182,7 +182,7 @@ SATELLITE_DATA = {
 FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "regression"
+FORECAST_TASK = "spike_detection"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -246,8 +246,10 @@ CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
 # Minimum training samples required for meaningful bootstrap
 MIN_BOOTSTRAP_SAMPLES = 10
 
-# Rolling statistics feature engineering
+# Feature engineering toggles
 USE_ROLLING_FEATURES = False  # Enable/disable rolling statistics features
+USE_ENHANCED_TEMPORAL_FEATURES = True  # Enable/disable sin/cos temporal encoding and derived features
+USE_SPIKE_DETECTION_FEATURES = True  # Enable/disable pre-spike environmental pattern features
 ROLLING_WINDOWS = [4, 8]  # Standard deviation and trend analysis windows
 
 # Environmental threshold percentiles for bloom detection

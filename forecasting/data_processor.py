@@ -108,26 +108,40 @@ class DataProcessor:
         self.validate_data_integrity(data)
 
         logger.debug("Adding temporal features")
-        day_of_year = data["date"].dt.dayofyear
-        data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
-        data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
         
-        # Add enhanced temporal features for better accuracy
-        data["month"] = data["date"].dt.month
-        data["sin_month"] = np.sin(2 * np.pi * data["month"] / 12)
-        data["cos_month"] = np.cos(2 * np.pi * data["month"] / 12)
-        data["quarter"] = data["date"].dt.quarter
-        data["days_since_start"] = (data["date"] - data["date"].min()).dt.days
-        
-        logger.debug("Enhanced temporal features added: sin/cos day_of_year, sin/cos month, quarter, days_since_start")
+        if config.USE_ENHANCED_TEMPORAL_FEATURES:
+            # Basic temporal encoding
+            day_of_year = data["date"].dt.dayofyear
+            data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
+            data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
+            
+            # Enhanced temporal features for better accuracy
+            data["month"] = data["date"].dt.month
+            data["sin_month"] = np.sin(2 * np.pi * data["month"] / 12)
+            data["cos_month"] = np.cos(2 * np.pi * data["month"] / 12)
+            data["quarter"] = data["date"].dt.quarter
+            data["days_since_start"] = (data["date"] - data["date"].min()).dt.days
+            
+            logger.debug("Enhanced temporal features added: sin/cos day_of_year, sin/cos month, quarter, days_since_start")
+        else:
+            # Minimal temporal features - just basic date components
+            data["month"] = data["date"].dt.month
+            data["quarter"] = data["date"].dt.quarter
+            logger.debug("Basic temporal features added: month, quarter (enhanced features disabled)")
 
         # Add spike detection focused features
-        logger.debug("Adding spike detection features")
-        data = self.add_spike_detection_features(data)
+        if config.USE_SPIKE_DETECTION_FEATURES:
+            logger.debug("Adding spike detection features")
+            data = self.add_spike_detection_features(data)
+        else:
+            logger.debug("Spike detection features disabled by config")
 
         # Add rolling statistics for key environmental features (temporal-safe)
-        logger.debug("Adding rolling statistics features")
-        data = self.add_rolling_statistics_safe(data)
+        if config.USE_ROLLING_FEATURES:
+            logger.debug("Adding rolling statistics features")
+            data = self.add_rolling_statistics_safe(data)
+        else:
+            logger.debug("Rolling statistics features disabled by config")
         
         sites_count = data['site'].nunique()
         logger.info(f"Data preparation completed: {len(data)} records across {sites_count} sites")
@@ -174,11 +188,6 @@ class DataProcessor:
         Add rolling statistics features for better temporal pattern recognition.
         Focus on key oceanographic variables that influence DA blooms.
         """
-        # Check if rolling features are enabled
-        if not config.USE_ROLLING_FEATURES:
-            logger.info("Rolling statistics features disabled by config")
-            return df
-            
         logger.info("Creating rolling statistics features")
         df = df.copy()
         df = df.sort_values(['site', 'date'])
