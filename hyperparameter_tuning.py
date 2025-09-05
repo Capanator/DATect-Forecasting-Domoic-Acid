@@ -232,7 +232,134 @@ class HyperparameterTuner:
         return better_configs
     
     def _evaluate_xgboost_config(self, params):
-        """Evaluate a specific XGBoost configuration."""
+        """Evaluate a specific XGBoost configuration using EXACT same method as main pipeline."""
+        try:
+            # Patch model factory to use our test parameters
+            from forecasting import model_factory
+            from forecasting.forecast_engine import ForecastEngine
+            import xgboost as xgb
+            
+            # Store original method
+            original_get_model = model_factory.ModelFactory._get_regression_model
+            
+            def patched_get_regression_model(self, model_type):
+                """Patched method that uses our test parameters."""
+                if model_type == "xgboost" or model_type == "xgb":
+                    # Debug: Print what parameters we're actually using
+                    actual_params = {
+                        'n_estimators': params.get('n_estimators', 800),
+                        'max_depth': params.get('max_depth', 6),
+                        'learning_rate': params.get('learning_rate', 0.08),
+                        'subsample': params.get('subsample', 0.8),
+                        'colsample_bytree': params.get('colsample_bytree', 0.8),
+                        'reg_alpha': params.get('reg_alpha', 0.5),
+                        'reg_lambda': params.get('reg_lambda', 0.5)
+                    }
+                    print(f"  DEBUG: Creating XGBoost model with params: {actual_params}")
+                    
+                    return xgb.XGBRegressor(
+                        n_estimators=actual_params['n_estimators'],
+                        max_depth=actual_params['max_depth'],
+                        learning_rate=actual_params['learning_rate'],
+                        subsample=actual_params['subsample'],
+                        colsample_bytree=actual_params['colsample_bytree'],
+                        reg_alpha=actual_params['reg_alpha'],
+                        reg_lambda=actual_params['reg_lambda'],
+                        random_state=self.random_seed,
+                        n_jobs=1  # Use single thread per model for better debugging
+                    )
+                elif model_type == "linear":
+                    return original_get_model(self, model_type)
+                else:
+                    raise ValueError(f"Unknown regression model: {model_type}")
+            
+            # Temporarily replace the method
+            model_factory.ModelFactory._get_regression_model = patched_get_regression_model
+            
+            # Handle spike weighting by temporarily modifying the forecast_engine.py file
+            spike_changes_made = False
+            if 'spike_weight' in params or 'spike_threshold' in params:
+                spike_threshold = params.get('spike_threshold', 20.0) 
+                spike_weight = params.get('spike_weight', 8.0)
+                
+                # Read forecast_engine.py
+                engine_file = '/Users/ansonchen/Documents/GitHub/DATect-Forecasting-Domoic-Acid/forecasting/forecast_engine.py'
+                with open(engine_file, 'r') as f:
+                    original_content = f.read()
+                
+                # Replace spike parameters (there are 3 locations)
+                modified_content = original_content.replace(
+                    'spike_mask = y_train > 20.0  # spike threshold', 
+                    f'spike_mask = y_train > {spike_threshold}  # spike threshold'
+                ).replace(
+                    'sample_weights[spike_mask] *= 8.0  # precision weight for spikes',
+                    f'sample_weights[spike_mask] *= {spike_weight}  # precision weight for spikes'
+                ).replace(
+                    'spike_mask = y_bootstrap > 20.0',
+                    f'spike_mask = y_bootstrap > {spike_threshold}'
+                ).replace(
+                    'sample_weights[spike_mask] *= 8.0\n                bootstrap_model.fit',
+                    f'sample_weights[spike_mask] *= {spike_weight}\n                bootstrap_model.fit'
+                )
+                
+                # Write temporary changes
+                with open(engine_file, 'w') as f:
+                    f.write(modified_content)
+                spike_changes_made = True
+            
+            # Run main pipeline evaluation
+            engine = ForecastEngine()
+            results_df = engine.run_retrospective_evaluation(
+                task="regression",
+                model_type="xgboost", 
+                n_anchors=self.n_anchors_per_site,
+                min_test_date="2008-01-01"
+            )
+            
+            # Restore original methods and files
+            model_factory.ModelFactory._get_regression_model = original_get_model
+            if spike_changes_made:
+                # Restore original forecast_engine.py
+                with open(engine_file, 'w') as f:
+                    f.write(original_content)
+            
+            # Calculate metrics exactly like baseline
+            if results_df is not None and not results_df.empty:
+                from sklearn.metrics import r2_score, mean_absolute_error, f1_score
+                
+                valid_results = results_df.dropna(subset=['actual_da', 'predicted_da'])
+                if not valid_results.empty:
+                    r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
+                    mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
+                    
+                    # Spike F1 (same as main pipeline)
+                    y_true_binary = (valid_results['actual_da'] > 20.0).astype(int)
+                    y_pred_binary = (valid_results['predicted_da'] > 20.0).astype(int)
+                    f1 = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+                    
+                    return {
+                        'mean_r2': r2,
+                        'mean_mae': mae,
+                        'mean_spike_f1': f1,
+                        'n_predictions': len(valid_results)
+                    }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error evaluating config {params}: {e}")
+            # Restore methods and files in case of error
+            try:
+                model_factory.ModelFactory._get_regression_model = original_get_model
+                if spike_changes_made:
+                    with open(engine_file, 'w') as f:
+                        f.write(original_content)
+            except:
+                pass
+            return None
+        
+    def _evaluate_xgboost_config_OLD(self, params):
+        """OLD method - kept for reference but not used."""
         
         def evaluate_site(site):
             """Evaluate XGBoost config on a single site."""

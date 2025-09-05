@@ -43,7 +43,7 @@ class ModelFactory:
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
             return xgb.XGBRegressor(
-                n_estimators=800,       
+                n_estimators=500,       
                 max_depth=6,             
                 learning_rate=0.08,     
                 subsample=0.8,
@@ -66,7 +66,7 @@ class ModelFactory:
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
             return xgb.XGBClassifier(
-                n_estimators=800,
+                n_estimators=500,
                 max_depth=6,
                 learning_rate=0.08,
                 subsample=0.8,
