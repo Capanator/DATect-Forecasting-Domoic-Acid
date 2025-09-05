@@ -15,6 +15,9 @@ except ImportError:
     HAS_XGBOOST = False
 
 import config
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class ModelFactory:
@@ -36,8 +39,10 @@ class ModelFactory:
             return self._get_regression_model(model_type)
         elif task == "classification":
             return self._get_classification_model(model_type, class_weights)
+        elif task == "spike_detection":
+            return self._get_spike_detection_model(model_type)
         else:
-            raise ValueError(f"Unknown task: {task}. Must be 'regression' or 'classification'")
+            raise ValueError(f"Unknown task: {task}. Must be 'regression', 'classification', or 'spike_detection'")
             
     def _get_regression_model(self, model_type):
         if model_type == "xgboost" or model_type == "xgb":
@@ -110,11 +115,52 @@ class ModelFactory:
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
                            f"Supported: 'xgboost', 'logistic')")
+                           
+    def _get_spike_detection_model(self, model_type):
+        """
+        Get model optimized specifically for binary spike detection.
+        Focus on high recall (not missing spikes) over precision.
+        """
+        if model_type == "xgboost" or model_type == "xgb":
+            if not HAS_XGBOOST:
+                raise ImportError("XGBoost not installed. Run: pip install xgboost")
+            
+            # Optimized for spike detection with high recall
+            return xgb.XGBClassifier(
+                n_estimators=600,        # More trees for better spike detection
+                max_depth=8,             # Deeper for complex spike patterns
+                learning_rate=0.02,      # Very conservative learning for stability
+                subsample=0.9,           
+                colsample_bytree=0.9,    
+                colsample_bylevel=0.8,   
+                reg_alpha=0.01,          # Light L1 regularization
+                reg_lambda=1.5,          # Moderate L2 regularization
+                gamma=0.1,               # Conservative minimum split loss
+                min_child_weight=1,      # Allow small splits for rare spikes
+                tree_method='hist',
+                random_state=self.random_seed,
+                n_jobs=-1,
+                eval_metric='logloss',
+                objective='binary:logistic'  # Binary classification
+            )
+        elif model_type == "logistic":
+            return LogisticRegression(
+                solver="liblinear",      # Better for binary classification
+                max_iter=2000,
+                C=10.0,                  # Less regularization for spike detection
+                class_weight='balanced', # Handle class imbalance
+                random_state=self.random_seed,
+                n_jobs=-1
+            )
+        else:
+            raise ValueError(f"Unknown spike detection model: {model_type}. "
+                           f"Supported: 'xgboost', 'logistic')")
             
     def get_supported_models(self, task=None):
         models = {
             "regression": ["xgboost", "linear"],
-            "classification": ["xgboost", "logistic"]
+            "classification": ["xgboost", "logistic"],
+            "spike_detection": ["xgboost", "logistic"]
         }
         
         if task is None:
@@ -155,6 +201,40 @@ class ModelFactory:
         if extreme_mask.any():
             sample_weights[extreme_mask] *= 2.0  # Double weight for extreme events
             
+        return sample_weights
+        
+    def compute_spike_focused_weights(self, y_actual, y_predicted_proba=None):
+        """
+        Compute sample weights specifically for spike detection timing.
+        Heavily penalizes false negatives (missed spikes) and moderately penalizes false positives.
+        """
+        import numpy as np
+        
+        # Convert to binary spike labels if not already
+        if hasattr(config, 'USE_BINARY_SPIKE_DETECTION') and config.USE_BINARY_SPIKE_DETECTION:
+            # Assume y_actual is already binary (0 = no spike, 1 = spike)
+            actual_spikes = y_actual
+        else:
+            # Convert from DA values to binary spike indicators
+            actual_spikes = (y_actual > config.SPIKE_THRESHOLD).astype(int)
+        
+        # Initialize weights
+        sample_weights = np.ones(len(actual_spikes))
+        
+        # Spike events get massive weight (focus on not missing these)
+        spike_mask = actual_spikes == 1
+        sample_weights[spike_mask] = config.SPIKE_FALSE_NEGATIVE_WEIGHT
+        
+        # Non-spike events get minimal weight (most of the year)
+        non_spike_mask = actual_spikes == 0
+        sample_weights[non_spike_mask] = config.SPIKE_TRUE_NEGATIVE_WEIGHT
+        
+        spike_count = spike_mask.sum()
+        total_count = len(actual_spikes)
+        
+        logger.debug(f"Spike-focused weights: {spike_count}/{total_count} spikes with weight {config.SPIKE_FALSE_NEGATIVE_WEIGHT}")
+        logger.debug(f"Non-spike samples: {total_count-spike_count} with weight {config.SPIKE_TRUE_NEGATIVE_WEIGHT}")
+        
         return sample_weights
         
     def validate_model_task_combination(self, task, model_type):

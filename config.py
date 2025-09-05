@@ -217,3 +217,10 @@ LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
 DA_CATEGORY_BINS = [-float("inf"), 5, 20, 40, float("inf")]
 DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
+# Spike Detection Configuration
+SPIKE_THRESHOLD = 20.0  # DA > 20 μg/g considered a spike event
+USE_BINARY_SPIKE_DETECTION = True  # Use binary spike vs no-spike classification
+SPIKE_FALSE_NEGATIVE_WEIGHT = 100.0  # Penalty for missing actual spikes
+SPIKE_FALSE_POSITIVE_WEIGHT = 5.0  # Penalty for false alarms
+SPIKE_TRUE_NEGATIVE_WEIGHT = 0.1  # Low weight for correct non-spike predictions
+

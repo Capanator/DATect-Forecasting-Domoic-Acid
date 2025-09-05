@@ -121,6 +121,10 @@ class DataProcessor:
         
         logger.debug("Enhanced temporal features added: sin/cos day_of_year, sin/cos month, quarter, days_since_start")
 
+        # Add spike detection focused features
+        logger.debug("Adding spike detection features")
+        data = self.add_spike_detection_features(data)
+
         # Add rolling statistics for key environmental features (temporal-safe)
         logger.debug("Adding rolling statistics features")
         data = self.add_rolling_statistics_safe(data)
@@ -207,6 +211,82 @@ class DataProcessor:
                     
         logger.info(f"Created {created_features} rolling statistics features")
         return df
+        
+    def add_spike_detection_features(self, df):
+        """
+        Add spike-specific features that capture pre-spike environmental conditions.
+        Focus on patterns that precede massive DA spikes (>20 μg/g).
+        """
+        logger.info("Creating spike detection features")
+        df = df.copy()
+        df = df.sort_values(['site', 'date'])
+        
+        # Key environmental variables for spike prediction
+        env_vars = ['sst', 'chla', 'par', 'fluorescence', 'k490']
+        
+        created_features = 0
+        for var in env_vars:
+            if var in df.columns:
+                # Rate of change (1st derivative) - acceleration towards bloom conditions
+                df[f'{var}_change'] = df.groupby('site')[var].transform(lambda x: x.diff())
+                
+                # Acceleration (2nd derivative) - rapid environmental shifts
+                df[f'{var}_acceleration'] = df.groupby('site')[f'{var}_change'].transform(lambda x: x.diff())
+                
+                # Volatility (instability indicator) - 4-week rolling std
+                df[f'{var}_volatility'] = df.groupby('site')[var].transform(
+                    lambda x: x.rolling(4, min_periods=1).std()
+                )
+                
+                # Anomaly flag - values exceeding 2 standard deviations
+                df[f'{var}_anomaly'] = df.groupby('site')[var].transform(
+                    lambda x: (x > (x.rolling(8, min_periods=1).mean() + 2 * x.rolling(8, min_periods=1).std())).astype(int)
+                )
+                
+                created_features += 4
+        
+        # Multi-variable bloom indicators
+        if all(var in df.columns for var in ['chla', 'par', 'sst']):
+            # Bloom conditions: high chlorophyll + sufficient light + optimal temperature
+            df['bloom_conditions'] = (
+                (df['chla'] > df.groupby('site')['chla'].transform(lambda x: x.rolling(8, min_periods=1).quantile(0.75))) &
+                (df['par'] > df.groupby('site')['par'].transform(lambda x: x.rolling(8, min_periods=1).quantile(0.5))) &
+                (df['sst'].between(12, 18))  # Optimal temperature range for toxic diatoms
+            ).astype(int)
+            created_features += 1
+        
+        # Anomaly count - number of simultaneous environmental anomalies
+        anomaly_cols = [col for col in df.columns if col.endswith('_anomaly')]
+        if anomaly_cols:
+            df['anomaly_count'] = df[anomaly_cols].sum(axis=1)
+            created_features += 1
+        
+        # Environmental stress index - combination of volatilities
+        volatility_cols = [col for col in df.columns if col.endswith('_volatility')]
+        if volatility_cols:
+            df['env_stress_index'] = df[volatility_cols].mean(axis=1)
+            created_features += 1
+        
+        logger.info(f"Created {created_features} spike detection features")
+        return df
+        
+    def create_binary_spike_labels(self, da_values, threshold=None):
+        """
+        Create binary spike labels (1 = spike, 0 = no spike) for spike detection.
+        """
+        if threshold is None:
+            threshold = config.SPIKE_THRESHOLD
+            
+        logger.debug(f"Creating binary spike labels with threshold {threshold}")
+        
+        spike_labels = (da_values > threshold).astype(int)
+        spike_count = spike_labels.sum()
+        total_count = len(spike_labels)
+        spike_rate = spike_count / total_count * 100 if total_count > 0 else 0
+        
+        logger.debug(f"Spike detection: {spike_count}/{total_count} ({spike_rate:.1f}%) samples are spikes")
+        
+        return spike_labels
         
     def create_da_categories_safe(self, da_values):
         """
@@ -339,3 +419,61 @@ class DataProcessor:
             }).sort_values('importance', ascending=False)
         else:
             return None
+            
+    def evaluate_spike_detection_performance(self, y_true, y_pred, y_pred_proba=None, threshold=None):
+        """
+        Evaluate spike detection performance with metrics focused on timing accuracy.
+        """
+        if threshold is None:
+            threshold = config.SPIKE_THRESHOLD
+            
+        from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
+        import numpy as np
+        
+        # Convert to binary spike indicators if needed
+        if not np.array_equal(np.unique(y_true), [0, 1]):
+            y_true_binary = (y_true > threshold).astype(int)
+        else:
+            y_true_binary = y_true
+            
+        if not np.array_equal(np.unique(y_pred), [0, 1]):
+            y_pred_binary = (y_pred > threshold).astype(int)
+        else:
+            y_pred_binary = y_pred
+        
+        # Core spike detection metrics
+        precision = precision_score(y_true_binary, y_pred_binary, zero_division=0)
+        recall = recall_score(y_true_binary, y_pred_binary, zero_division=0)
+        f1 = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+        
+        # Confusion matrix for detailed analysis
+        cm = confusion_matrix(y_true_binary, y_pred_binary)
+        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+        
+        # Spike-specific metrics
+        spike_detection_rate = recall  # Same as recall but more intuitive name
+        false_alarm_rate = fp / (fp + tn) if (fp + tn) > 0 else 0
+        missed_spike_rate = fn / (fn + tp) if (fn + tp) > 0 else 0
+        
+        # Total spikes in dataset
+        total_spikes = np.sum(y_true_binary)
+        total_samples = len(y_true_binary)
+        spike_prevalence = total_spikes / total_samples if total_samples > 0 else 0
+        
+        metrics = {
+            'spike_detection_rate': spike_detection_rate,  # % of actual spikes detected
+            'false_alarm_rate': false_alarm_rate,          # % of non-spikes incorrectly flagged
+            'missed_spike_rate': missed_spike_rate,        # % of actual spikes missed
+            'precision': precision,                        # When we predict spike, how often correct?
+            'recall': recall,                             # Of all actual spikes, how many detected?
+            'f1_score': f1,                              # Harmonic mean of precision/recall
+            'true_positives': int(tp),                    # Correctly detected spikes
+            'false_positives': int(fp),                   # False alarms
+            'false_negatives': int(fn),                   # Missed spikes
+            'true_negatives': int(tn),                    # Correctly identified non-spikes
+            'total_spikes': int(total_spikes),           # Actual spike events in dataset
+            'total_samples': int(total_samples),          # Total predictions made
+            'spike_prevalence': spike_prevalence          # % of samples that are spikes
+        }
+        
+        return metrics
