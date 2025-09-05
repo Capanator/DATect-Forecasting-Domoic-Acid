@@ -189,7 +189,7 @@ FORECAST_MODEL = "xgboost"
 
 # Forecast Horizon Configuration
 # How many weeks ahead to forecast from the data cutoff point
-FORECAST_HORIZON_WEEKS = 1 
+FORECAST_HORIZON_WEEKS = 4 
 FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations
 
 
@@ -203,16 +203,16 @@ RANDOM_SEED = 42
 N_RANDOM_ANCHORS = 500
 
 # Bootstrap confidence intervals
-N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence intervals (reverted from 25)
+N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence intervals
 
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
-USE_LAG_FEATURES = False
+USE_LAG_FEATURES = True
 
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
-LAG_FEATURES = [1, 2, 3] if USE_LAG_FEATURES else []
+LAG_FEATURES = [1, 2, 3, 52] if USE_LAG_FEATURES else []
 
 # DA Category Configuration
 
@@ -222,12 +222,8 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 
 # Spike Detection Configuration
 SPIKE_THRESHOLD = 20.0  # DA > 20 μg/g considered a spike event
-USE_BINARY_SPIKE_DETECTION = True  # Use binary spike vs no-spike classification
-SPIKE_FALSE_NEGATIVE_WEIGHT = 500.0  # Heavy penalty for missing actual spikes
-SPIKE_FALSE_POSITIVE_WEIGHT = 2.0  # Moderate penalty for false alarms
-SPIKE_TRUE_NEGATIVE_WEIGHT = 0.05  # Very low weight for correct non-spike predictions
-
-# Bootstrap and Statistical Configuration
+SPIKE_FALSE_NEGATIVE_WEIGHT = 50.0  # Heavy penalty for missing actual spikes
+SPIKE_TRUE_NEGATIVE_WEIGHT = 1.0  # Very low weight for correct non-spike predictions
 
 # Bootstrap subsample fraction for speed optimization
 BOOTSTRAP_SUBSAMPLE_FRACTION = 0.75  # Use 75% of data for each bootstrap iteration
@@ -235,35 +231,17 @@ BOOTSTRAP_SUBSAMPLE_FRACTION = 0.75  # Use 75% of data for each bootstrap iterat
 # Scientific Methodology Configuration
 
 # Sample weighting strategy for regression models
-USE_REGRESSION_SAMPLE_WEIGHTS = False  # False = fair baseline comparison, True = handle imbalance
-# Note: Classification models always use sample weights for class imbalance
+USE_REGRESSION_SAMPLE_WEIGHTS = True  # False = fair baseline comparison, True = handle imbalance
 
 # Confidence interval percentiles for bootstrap predictions
 CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
 
 # Data Quality Configuration
 
-# Minimum training samples required for meaningful bootstrap
-MIN_BOOTSTRAP_SAMPLES = 10
-
 # Feature engineering toggles
-USE_ROLLING_FEATURES = False  # Enable/disable rolling statistics features
+USE_ROLLING_FEATURES = True  # Enable/disable rolling statistics features
 USE_ENHANCED_TEMPORAL_FEATURES = True  # Enable/disable sin/cos temporal encoding and derived features
-USE_SPIKE_DETECTION_FEATURES = True  # Enable/disable pre-spike environmental pattern features
-ROLLING_WINDOWS = [4, 8]  # Standard deviation and trend analysis windows
-
-# Environmental threshold percentiles for bloom detection
-CHLA_THRESHOLD_PERCENTILE = 0.75  # Chlorophyll-a 75th percentile threshold
-PAR_THRESHOLD_PERCENTILE = 0.5   # PAR 50th percentile threshold
-
-# Statistical significance standard deviations for anomaly detection
-ANOMALY_STD_THRESHOLD = 2.0  # Number of standard deviations for anomaly detection
 
 # Polynomial trend analysis minimum periods
 MIN_TREND_PERIODS = 2  # Minimum data points required for trend calculation
-
-# Environmental Thresholds for Bloom Detection
-
-# Optimal sea surface temperature range for toxic diatoms (°C)
-OPTIMAL_SST_RANGE = [12, 18]  # Temperature window where DA-producing diatoms thrive
 

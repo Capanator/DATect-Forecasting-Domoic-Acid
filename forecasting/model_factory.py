@@ -155,13 +155,8 @@ class ModelFactory:
         """
         import numpy as np
         
-        # Convert to binary spike labels if not already
-        if hasattr(config, 'USE_BINARY_SPIKE_DETECTION') and config.USE_BINARY_SPIKE_DETECTION:
-            # Assume y_actual is already binary (0 = no spike, 1 = spike)
-            actual_spikes = y_actual
-        else:
-            # Convert from DA values to binary spike indicators
-            actual_spikes = (y_actual > config.SPIKE_THRESHOLD).astype(int)
+        # Convert DA values to binary spike indicators
+        actual_spikes = (y_actual > config.SPIKE_THRESHOLD).astype(int)
         
         # Initialize weights
         sample_weights = np.ones(len(actual_spikes))

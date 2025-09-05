@@ -1,10 +1,10 @@
 {
-  "generated_at": "2025-09-04T23:48:39.566065",
+  "generated_at": "2025-09-05T01:58:39.186982",
   "cache_version": "2.0",
   "config": {
     "N_RANDOM_ANCHORS": 500,
     "RANDOM_SEED": 42,
-    "FORECAST_HORIZON_DAYS": 7,
+    "FORECAST_HORIZON_DAYS": 28,
     "MIN_TRAINING_SAMPLES": 3
   },
   "files": {
@@ -12,61 +12,61 @@
       "size_bytes": 2532
     },
     "retrospective/regression_linear.json": {
-      "size_bytes": 1074427
+      "size_bytes": 1073785
     },
     "retrospective/classification_logistic.json": {
-      "size_bytes": 1016840
+      "size_bytes": 1016639
     },
     "retrospective/regression_xgboost.json": {
-      "size_bytes": 1095060
+      "size_bytes": 1095185
     },
     "retrospective/classification_xgboost.parquet": {
-      "size_bytes": 40767
+      "size_bytes": 40755
     },
     "retrospective/regression_xgboost.parquet": {
-      "size_bytes": 76219
+      "size_bytes": 76748
     },
     "retrospective/classification_logistic.parquet": {
-      "size_bytes": 41021
+      "size_bytes": 40783
     },
     "retrospective/regression_linear.parquet": {
-      "size_bytes": 73101
+      "size_bytes": 72795
     },
     "retrospective/classification_xgboost.json": {
-      "size_bytes": 1016493
+      "size_bytes": 1016914
     },
     "spectral/Long Beach.json": {
-      "size_bytes": 101387
+      "size_bytes": 101405
     },
     "spectral/Coos Bay.json": {
-      "size_bytes": 100743
+      "size_bytes": 100729
     },
     "spectral/Clatsop Beach.json": {
-      "size_bytes": 101018
+      "size_bytes": 101045
     },
     "spectral/Cannon Beach.json": {
-      "size_bytes": 95972
+      "size_bytes": 95969
     },
     "spectral/Quinault.json": {
-      "size_bytes": 101394
+      "size_bytes": 101379
     },
     "spectral/Gold Beach.json": {
-      "size_bytes": 99872
+      "size_bytes": 99841
     },
     "spectral/Twin Harbors.json": {
-      "size_bytes": 101325
+      "size_bytes": 101304
     },
     "spectral/Newport.json": {
-      "size_bytes": 100178
+      "size_bytes": 100190
     },
     "spectral/Copalis.json": {
-      "size_bytes": 101417
+      "size_bytes": 101411
     },
     "spectral/Kalaloch.json": {
-      "size_bytes": 101403
+      "size_bytes": 101389
     },
     "spectral/all_sites.json": {
-      "size_bytes": 240149
+      "size_bytes": 240215
     },
     "visualizations/Gold Beach_correlation.json": {
       "size_bytes": 6768

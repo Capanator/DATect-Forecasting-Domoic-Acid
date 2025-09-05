@@ -210,7 +210,6 @@ class ForecastEngine:
         
         X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
         
-        # CRITICAL: Validate temporal safety before fitting transformer
         self.data_processor.validate_transformer_temporal_safety(
             transformer, train_df, test_df, anchor_date
         )
@@ -237,7 +236,6 @@ class ForecastEngine:
             
             y_train = train_df["da"]
             
-            # Regression models should NOT use sample weights to maintain baseline consistency
             reg_model.fit(X_train_processed, y_train)
             
             pred_da = reg_model.predict(X_test_processed)[0]
@@ -261,12 +259,9 @@ class ForecastEngine:
                 if model_type in ["xgboost", "xgb"]:
                     cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                 else:
-                    # Linear models should also use class balancing for fair comparison
-                    # Note: sklearn LogisticRegression supports sample_weight parameter
                     try:
                         cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                     except TypeError:
-                        # Fallback if model doesn't support sample_weight
                         cls_model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
@@ -433,18 +428,13 @@ class ForecastEngine:
             y_train = df_train_clean["da"]
             
             if model_cache_key not in self._model_cache:
-                # Scientific methodology: configurable sample weighting for regression
                 if config.USE_REGRESSION_SAMPLE_WEIGHTS:
-                    # Use sample weights to handle imbalanced data (extreme DA events)
                     sample_weights = self.model_factory.compute_spike_focused_weights(y_train)
                     try:
                         model.fit(X_train_processed, y_train, sample_weight=sample_weights)
                     except TypeError:
-                        # Fallback if model doesn't support sample_weight
                         model.fit(X_train_processed, y_train)
                 else:
-                    # Fair baseline comparison: no sample weights (current default)
-                    # Ensures XGBoost vs Linear comparison is methodologically sound
                     model.fit(X_train_processed, y_train)
                 self._model_cache[model_cache_key] = model
             
@@ -454,7 +444,7 @@ class ForecastEngine:
             result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
             
             # Generate bootstrap confidence intervals for regression tasks
-            if len(df_train_clean) >= config.MIN_BOOTSTRAP_SAMPLES:  # Only if we have enough data for meaningful bootstrap
+            if len(df_train_clean) >= 5:
                 bootstrap_quantiles = self.generate_bootstrap_confidence_intervals(
                     X_train_processed, y_train, X_forecast, model_type
                 )

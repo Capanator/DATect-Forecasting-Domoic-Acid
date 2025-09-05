@@ -129,13 +129,6 @@ class DataProcessor:
             data["quarter"] = data["date"].dt.quarter
             logger.debug("Basic temporal features added: month, quarter (enhanced features disabled)")
 
-        # Add spike detection focused features
-        if config.USE_SPIKE_DETECTION_FEATURES:
-            logger.debug("Adding spike detection features")
-            data = self.add_spike_detection_features(data)
-        else:
-            logger.debug("Spike detection features disabled by config")
-
         # Add rolling statistics for key environmental features (temporal-safe)
         if config.USE_ROLLING_FEATURES:
             logger.debug("Adding rolling statistics features")
@@ -225,82 +218,6 @@ class DataProcessor:
                     
         logger.info(f"Created {created_features} rolling statistics features")
         return df
-        
-    def add_spike_detection_features(self, df):
-        """
-        Add spike-specific features that capture pre-spike environmental conditions.
-        Focus on patterns that precede massive DA spikes (>20 μg/g).
-        """
-        logger.info("Creating spike detection features")
-        df = df.copy()
-        df = df.sort_values(['site', 'date'])
-        
-        # Key environmental variables for spike prediction
-        env_vars = ['sst', 'chla', 'par', 'fluorescence', 'k490']
-        
-        created_features = 0
-        for var in env_vars:
-            if var in df.columns:
-                # Rate of change (1st derivative) - acceleration towards bloom conditions
-                df[f'{var}_change'] = df.groupby('site')[var].transform(lambda x: x.diff())
-                
-                # Acceleration (2nd derivative) - rapid environmental shifts
-                df[f'{var}_acceleration'] = df.groupby('site')[f'{var}_change'].transform(lambda x: x.diff())
-                
-                # Volatility (instability indicator) - rolling std
-                df[f'{var}_volatility'] = df.groupby('site')[var].transform(
-                    lambda x: x.rolling(config.ROLLING_WINDOWS[0], min_periods=1).std()
-                )
-                
-                # Anomaly flag - values exceeding standard deviation threshold
-                df[f'{var}_anomaly'] = df.groupby('site')[var].transform(
-                    lambda x: (x > (x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).mean() + config.ANOMALY_STD_THRESHOLD * x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).std())).astype(int)
-                )
-                
-                created_features += 4
-        
-        # Multi-variable bloom indicators
-        if all(var in df.columns for var in ['chla', 'par', 'sst']):
-            # Bloom conditions: high chlorophyll + sufficient light + optimal temperature
-            df['bloom_conditions'] = (
-                (df['chla'] > df.groupby('site')['chla'].transform(lambda x: x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).quantile(config.CHLA_THRESHOLD_PERCENTILE))) &
-                (df['par'] > df.groupby('site')['par'].transform(lambda x: x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).quantile(config.PAR_THRESHOLD_PERCENTILE))) &
-                (df['sst'].between(config.OPTIMAL_SST_RANGE[0], config.OPTIMAL_SST_RANGE[1]))  # Optimal temperature range for toxic diatoms
-            ).astype(int)
-            created_features += 1
-        
-        # Anomaly count - number of simultaneous environmental anomalies
-        anomaly_cols = [col for col in df.columns if col.endswith('_anomaly')]
-        if anomaly_cols:
-            df['anomaly_count'] = df[anomaly_cols].sum(axis=1)
-            created_features += 1
-        
-        # Environmental stress index - combination of volatilities
-        volatility_cols = [col for col in df.columns if col.endswith('_volatility')]
-        if volatility_cols:
-            df['env_stress_index'] = df[volatility_cols].mean(axis=1)
-            created_features += 1
-        
-        logger.info(f"Created {created_features} spike detection features")
-        return df
-        
-    def create_binary_spike_labels(self, da_values, threshold=None):
-        """
-        Create binary spike labels (1 = spike, 0 = no spike) for spike detection.
-        """
-        if threshold is None:
-            threshold = config.SPIKE_THRESHOLD
-            
-        logger.debug(f"Creating binary spike labels with threshold {threshold}")
-        
-        spike_labels = (da_values > threshold).astype(int)
-        spike_count = spike_labels.sum()
-        total_count = len(spike_labels)
-        spike_rate = spike_count / total_count * 100 if total_count > 0 else 0
-        
-        logger.debug(f"Spike detection: {spike_count}/{total_count} ({spike_rate:.1f}%) samples are spikes")
-        
-        return spike_labels
         
     def create_da_categories_safe(self, da_values):
         """
