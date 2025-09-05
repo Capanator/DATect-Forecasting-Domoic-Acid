@@ -39,10 +39,8 @@ class ModelFactory:
             return self._get_regression_model(model_type)
         elif task == "classification":
             return self._get_classification_model(model_type)
-        elif task == "spike_detection":
-            return self._get_spike_detection_model(model_type)
         else:
-            raise ValueError(f"Unknown task: {task}. Must be 'regression', 'classification', or 'spike_detection'")
+            raise ValueError(f"Unknown task: {task}. Must be 'regression' or 'classification'")
             
     def _get_regression_model(self, model_type):
         if model_type == "xgboost" or model_type == "xgb":
@@ -93,10 +91,6 @@ class ModelFactory:
                 'n_jobs': -1,
                 'eval_metric': 'logloss'
             }
-            
-            # NOTE: We don't use class_weight='balanced' here because we manually
-            # compute sample weights in forecast_engine.py to ensure consistent
-            # weighting between XGBoost and LogisticRegression baselines
                 
             return xgb.XGBClassifier(**xgb_params)
         elif model_type == "logistic":
@@ -110,52 +104,11 @@ class ModelFactory:
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
                            f"Supported: 'xgboost', 'logistic')")
-                           
-    def _get_spike_detection_model(self, model_type):
-        """
-        Get model optimized specifically for binary spike detection.
-        Focus on high recall (not missing spikes) over precision.
-        """
-        if model_type == "xgboost" or model_type == "xgb":
-            if not HAS_XGBOOST:
-                raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            
-            # Optimized for spike detection with high recall
-            return xgb.XGBClassifier(
-                n_estimators=600,        # More trees for better spike detection
-                max_depth=8,             # Deeper for complex spike patterns
-                learning_rate=0.02,      # Very conservative learning for stability
-                subsample=0.9,           
-                colsample_bytree=0.9,    
-                colsample_bylevel=0.8,   
-                reg_alpha=0.01,          # Light L1 regularization
-                reg_lambda=1.5,          # Moderate L2 regularization
-                gamma=0.1,               # Conservative minimum split loss
-                min_child_weight=1,      # Allow small splits for rare spikes
-                tree_method='hist',
-                random_state=self.random_seed,
-                n_jobs=-1,
-                eval_metric='logloss',
-                objective='binary:logistic'  # Binary classification
-            )
-        elif model_type == "logistic":
-            return LogisticRegression(
-                solver="liblinear",      # Better for binary classification
-                max_iter=2000,
-                C=10.0,                  # Less regularization for spike detection
-                # NOTE: class_weight removed - we use manual sample_weight in fit() for consistency
-                random_state=self.random_seed,
-                n_jobs=-1
-            )
-        else:
-            raise ValueError(f"Unknown spike detection model: {model_type}. "
-                           f"Supported: 'xgboost', 'logistic')")
             
     def get_supported_models(self, task=None):
         models = {
             "regression": ["xgboost", "linear"],
-            "classification": ["xgboost", "logistic"],
-            "spike_detection": ["xgboost", "logistic"]
+            "classification": ["xgboost", "logistic"]
         }
         
         if task is None:

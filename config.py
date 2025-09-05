@@ -182,7 +182,7 @@ SATELLITE_DATA = {
 FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "spike_detection"
+FORECAST_TASK = "regression"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"

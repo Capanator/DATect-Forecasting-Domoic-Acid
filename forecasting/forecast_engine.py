@@ -277,30 +277,6 @@ class ForecastEngine:
                 result['predicted_category'] = int(dominant_class)
                 result['single_class_prediction'] = True
                 
-        if task == "spike_detection" or task == "both":
-            # Binary spike detection (DA > threshold = 1, else = 0)
-            train_df["spike_binary"] = self.data_processor.create_binary_spike_labels(train_df["da"])
-            
-            spike_model = self.model_factory.get_model("spike_detection", model_type)
-            y_train_spikes = train_df["spike_binary"]
-            
-            # Apply spike-focused sample weights
-            if model_type in ["xgboost", "xgb"]:
-                sample_weights_spike = self.model_factory.compute_spike_focused_weights(y_train_spikes)
-                spike_model.fit(X_train_processed, y_train_spikes, sample_weight=sample_weights_spike)
-            else:
-                spike_model.fit(X_train_processed, y_train_spikes)
-            
-            # Predict spike probability and binary
-            spike_prob = spike_model.predict_proba(X_test_processed)[0][1] if hasattr(spike_model, 'predict_proba') else None
-            spike_pred = spike_model.predict(X_test_processed)[0]
-            
-            result['predicted_spike'] = int(spike_pred)
-            result['spike_probability'] = float(spike_prob) if spike_prob is not None else None
-            
-            # Add actual spike label for evaluation
-            actual_spike = 1 if actual_da is not None and actual_da > config.SPIKE_THRESHOLD else 0
-            result['actual_spike'] = actual_spike
         
         return pd.DataFrame([result])
     
@@ -539,50 +515,6 @@ class ForecastEngine:
                 result['single_class_prediction'] = True
                 logger.debug(f"Single-class prediction for {site}: {dominant_class} (only class in training data)")
                 
-        elif task == "spike_detection":
-            # Binary spike detection for timing accuracy
-            df_train_clean["spike_binary"] = self.data_processor.create_binary_spike_labels(df_train_clean["da"])
-            y_train_spikes = df_train_clean["spike_binary"]
-            
-            # Check model cache for spike detection
-            model_cache_key = f"spike_detection_{model_type}_{len(df_train_clean)}_{hash(str(y_train_spikes.values.tobytes()))}"
-            if model_cache_key in self._model_cache:
-                logger.debug("Using cached spike detection model")
-                model = self._model_cache[model_cache_key]
-            else:
-                logger.debug("Training new spike detection model")
-                model = self.model_factory.get_model("spike_detection", model_type)
-            
-            if model_cache_key not in self._model_cache:
-                # Apply consistent spike-focused weights for fair baseline comparison
-                sample_weights_spike = self.model_factory.compute_spike_focused_weights(y_train_spikes)
-                
-                if model_type in ["xgboost", "xgb"]:
-                    model.fit(X_train_processed, y_train_spikes, sample_weight=sample_weights_spike)
-                else:
-                    # Linear models should also use spike weighting for fair comparison
-                    try:
-                        model.fit(X_train_processed, y_train_spikes, sample_weight=sample_weights_spike)
-                    except TypeError:
-                        # Fallback if model doesn't support sample_weight
-                        model.fit(X_train_processed, y_train_spikes)
-                self._model_cache[model_cache_key] = model
-            
-            # Predict spike probability and binary prediction
-            spike_pred = model.predict(X_forecast)[0]
-            result['predicted_spike'] = int(spike_pred)
-            
-            if hasattr(model, 'predict_proba'):
-                spike_prob = model.predict_proba(X_forecast)[0][1]  # Probability of spike (class 1)
-                result['spike_probability'] = float(spike_prob)
-            
-            result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
-            
-            # Log spike detection result
-            spike_status = "SPIKE DETECTED" if spike_pred == 1 else "no spike"
-            prob_text = f" (p={result.get('spike_probability', 0):.3f})" if 'spike_probability' in result else ""
-            logger.debug(f"Spike detection completed for {site}: {spike_status}{prob_text}")
-                
         return result
             
     def _display_evaluation_metrics(self, task):
@@ -632,27 +564,4 @@ class ForecastEngine:
             else:
                 logger.warning("No valid classification results for evaluation")
                 
-        if task == "spike_detection" or task == "both":
-            # Spike detection specific metrics
-            spike_cols = ['actual_spike', 'predicted_spike']
-            if all(col in self.results_df.columns for col in spike_cols):
-                valid_spike_results = self.results_df.dropna(subset=spike_cols)
-                if not valid_spike_results.empty:
-                    spike_metrics = self.data_processor.evaluate_spike_detection_performance(
-                        valid_spike_results['actual_spike'], 
-                        valid_spike_results['predicted_spike']
-                    )
-                    
-                    logger.info(f"Spike Detection Metrics:")
-                    logger.info(f"  Spike Detection Rate: {spike_metrics['spike_detection_rate']:.4f} ({spike_metrics['true_positives']}/{spike_metrics['total_spikes']} spikes caught)")
-                    logger.info(f"  False Alarm Rate: {spike_metrics['false_alarm_rate']:.4f} ({spike_metrics['false_positives']} false alarms)")
-                    logger.info(f"  Missed Spike Rate: {spike_metrics['missed_spike_rate']:.4f} ({spike_metrics['false_negatives']} spikes missed)")
-                    logger.info(f"  Precision: {spike_metrics['precision']:.4f}")
-                    logger.info(f"  Recall: {spike_metrics['recall']:.4f}")
-                    logger.info(f"  F1-Score: {spike_metrics['f1_score']:.4f}")
-                    logger.info(f"  Dataset: {spike_metrics['spike_prevalence']:.1%} of samples are spikes ({spike_metrics['total_spikes']}/{spike_metrics['total_samples']})")
-                else:
-                    logger.warning("No valid spike detection results for evaluation")
-            else:
-                logger.warning("Spike detection columns not found in results")
     
