@@ -259,7 +259,13 @@ class ForecastEngine:
                 y_train_encoded = train_df["da-category"].map(cat_mapping)
                 
                 cls_model = self.model_factory.get_model("classification", model_type)
-                cls_model.fit(X_train_processed, y_train_encoded)
+                
+                # Apply class balancing with sample weights
+                if model_type in ["xgboost", "xgb"]:
+                    sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
+                    cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
+                else:
+                    cls_model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
                 pred_category = reverse_mapping[pred_encoded]
@@ -459,7 +465,12 @@ class ForecastEngine:
                     logger.debug("Training new classification model")
                     model = self.model_factory.get_model("classification", model_type)
                 if model_cache_key not in self._model_cache:
-                    model.fit(X_train_processed, y_train_encoded)
+                    # Apply class balancing with sample weights  
+                    if model_type in ["xgboost", "xgb"]:
+                        sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
+                        model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
+                    else:
+                        model.fit(X_train_processed, y_train_encoded)
                     self._model_cache[model_cache_key] = model
                 pred_encoded = model.predict(X_forecast)[0]
                 

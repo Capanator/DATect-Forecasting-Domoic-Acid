@@ -111,8 +111,20 @@ class DataProcessor:
         day_of_year = data["date"].dt.dayofyear
         data["sin_day_of_year"] = np.sin(2 * np.pi * day_of_year / 365)
         data["cos_day_of_year"] = np.cos(2 * np.pi * day_of_year / 365)
-        logger.debug("Temporal features added: sin_day_of_year, cos_day_of_year")
+        
+        # Add enhanced temporal features for better accuracy
+        data["month"] = data["date"].dt.month
+        data["sin_month"] = np.sin(2 * np.pi * data["month"] / 12)
+        data["cos_month"] = np.cos(2 * np.pi * data["month"] / 12)
+        data["quarter"] = data["date"].dt.quarter
+        data["days_since_start"] = (data["date"] - data["date"].min()).dt.days
+        
+        logger.debug("Enhanced temporal features added: sin/cos day_of_year, sin/cos month, quarter, days_since_start")
 
+        # Add rolling statistics for key environmental features (temporal-safe)
+        logger.debug("Adding rolling statistics features")
+        data = self.add_rolling_statistics_safe(data)
+        
         sites_count = data['site'].nunique()
         logger.info(f"Data preparation completed: {len(data)} records across {sites_count} sites")
         print(f"[INFO] Loaded {len(data)} records across {sites_count} sites")
@@ -152,6 +164,49 @@ class DataProcessor:
             logger.debug(f"Data contains dates after cutoff ({cutoff_date}) - temporal leakage risk exists (expected for retrospective evaluation)")
             
         return df_sorted
+        
+    def add_rolling_statistics_safe(self, df):
+        """
+        Add rolling statistics features for better temporal pattern recognition.
+        Focus on key oceanographic variables that influence DA blooms.
+        """
+        logger.info("Creating rolling statistics features")
+        df = df.copy()
+        df = df.sort_values(['site', 'date'])
+        
+        # Key environmental features to compute rolling stats for
+        # Note: Each time step in final_output.parquet represents 1 week
+        target_features = ['sst', 'chla', 'par', 'k490', 'fluorescence', 'pdo', 'oni', 'beuti', 'streamflow']
+        windows = [2, 4, 8]  # 2-week, 4-week (monthly), 8-week (bi-monthly) patterns
+        
+        created_features = 0
+        for feature in target_features:
+            if feature in df.columns:
+                for window in windows:
+                    # Rolling mean
+                    mean_col = f"{feature}_rolling_mean_{window}w"
+                    df[mean_col] = df.groupby('site')[feature].transform(
+                        lambda x: x.rolling(window=window, min_periods=1).mean()
+                    )
+                    
+                    # Rolling standard deviation (volatility)
+                    std_col = f"{feature}_rolling_std_{window}w"
+                    df[std_col] = df.groupby('site')[feature].transform(
+                        lambda x: x.rolling(window=window, min_periods=1).std()
+                    )
+                    
+                    # Rolling trend (slope of linear regression)
+                    trend_col = f"{feature}_rolling_trend_{window}w"
+                    df[trend_col] = df.groupby('site')[feature].transform(
+                        lambda x: x.rolling(window=window, min_periods=2).apply(
+                            lambda y: np.polyfit(range(len(y)), y, 1)[0] if len(y) >= 2 else 0
+                        )
+                    )
+                    
+                    created_features += 3
+                    
+        logger.info(f"Created {created_features} rolling statistics features")
+        return df
         
     def create_da_categories_safe(self, da_values):
         """
