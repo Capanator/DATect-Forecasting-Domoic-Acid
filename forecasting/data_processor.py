@@ -174,6 +174,11 @@ class DataProcessor:
         Add rolling statistics features for better temporal pattern recognition.
         Focus on key oceanographic variables that influence DA blooms.
         """
+        # Check if rolling features are enabled
+        if not config.USE_ROLLING_FEATURES:
+            logger.info("Rolling statistics features disabled by config")
+            return df
+            
         logger.info("Creating rolling statistics features")
         df = df.copy()
         df = df.sort_values(['site', 'date'])
@@ -353,8 +358,11 @@ class DataProcessor:
         )
         transformer.set_output(transform="pandas")
         
+        # CRITICAL: Add explicit temporal safety validation warning
+        # This creates an unfitted transformer - calling code MUST validate temporal safety before fitting
+                        
         logger.debug(f"Numeric transformer created (UNFITTED) with {len(numeric_cols)} features")
-        logger.debug("WARNING: Transformer must be fit ONLY on temporal training data!")
+        logger.debug("CRITICAL: Transformer must be fit ONLY on temporal training data with anchor date validation!")
         
         return transformer, X
         

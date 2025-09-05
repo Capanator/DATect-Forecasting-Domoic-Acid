@@ -182,7 +182,7 @@ SATELLITE_DATA = {
 FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "classification"
+FORECAST_TASK = "regression"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -203,7 +203,7 @@ RANDOM_SEED = 42
 N_RANDOM_ANCHORS = 500
 
 # Bootstrap confidence intervals
-N_BOOTSTRAP_ITERATIONS = 25  # Number of bootstrap iterations for confidence intervals
+N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence intervals (reverted from 25)
 
 # Lag Feature Configuration
 
@@ -224,13 +224,19 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 SPIKE_THRESHOLD = 20.0  # DA > 20 μg/g considered a spike event
 USE_BINARY_SPIKE_DETECTION = True  # Use binary spike vs no-spike classification
 SPIKE_FALSE_NEGATIVE_WEIGHT = 500.0  # Heavy penalty for missing actual spikes
-SPIKE_FALSE_POSITIVE_WEIGHT = 10.0  # Moderate penalty for false alarms
+SPIKE_FALSE_POSITIVE_WEIGHT = 2.0  # Moderate penalty for false alarms
 SPIKE_TRUE_NEGATIVE_WEIGHT = 0.05  # Very low weight for correct non-spike predictions
 
 # Bootstrap and Statistical Configuration
 
 # Bootstrap subsample fraction for speed optimization
 BOOTSTRAP_SUBSAMPLE_FRACTION = 0.75  # Use 75% of data for each bootstrap iteration
+
+# Scientific Methodology Configuration
+
+# Sample weighting strategy for regression models
+USE_REGRESSION_SAMPLE_WEIGHTS = False  # False = fair baseline comparison, True = handle imbalance
+# Note: Classification models always use sample weights for class imbalance
 
 # Confidence interval percentiles for bootstrap predictions
 CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
@@ -240,7 +246,8 @@ CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
 # Minimum training samples required for meaningful bootstrap
 MIN_BOOTSTRAP_SAMPLES = 10
 
-# Rolling window sizes for feature engineering
+# Rolling statistics feature engineering
+USE_ROLLING_FEATURES = False  # Enable/disable rolling statistics features
 ROLLING_WINDOWS = [4, 8]  # Standard deviation and trend analysis windows
 
 # Environmental threshold percentiles for bloom detection

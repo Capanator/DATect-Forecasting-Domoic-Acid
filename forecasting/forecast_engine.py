@@ -326,10 +326,10 @@ class ForecastEngine:
         
         # Generate bootstrap predictions with subsampling for efficiency
         for _ in range(n_bootstrap):
-            # Use subsampling for speed optimization (configurable fraction)
+            # Use proper bootstrap sampling with replacement for valid confidence intervals
             n_samples = len(X_train_processed)
             subsample_size = int(config.BOOTSTRAP_SUBSAMPLE_FRACTION * n_samples)
-            bootstrap_indices = np.random.choice(n_samples, subsample_size, replace=False)
+            bootstrap_indices = np.random.choice(n_samples, subsample_size, replace=True)
             
             # Handle both DataFrame and numpy array cases
             if hasattr(X_train_processed, 'iloc'):
@@ -342,9 +342,17 @@ class ForecastEngine:
             # Train model on bootstrap sample
             bootstrap_model = self.model_factory.get_model("regression", model_type)
             
-            # Apply spike weighting if XGBoost
-            # Bootstrap should NOT use sample weights for regression to maintain consistency
-            bootstrap_model.fit(X_bootstrap, y_bootstrap)
+            # Apply consistent sample weighting strategy to bootstrap
+            if config.USE_REGRESSION_SAMPLE_WEIGHTS:
+                # Use sample weights in bootstrap for consistency with main model
+                bootstrap_weights = self.model_factory.compute_spike_focused_weights(y_bootstrap)
+                try:
+                    bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=bootstrap_weights)
+                except TypeError:
+                    bootstrap_model.fit(X_bootstrap, y_bootstrap)
+            else:
+                # No sample weights for fair baseline comparison (current default)
+                bootstrap_model.fit(X_bootstrap, y_bootstrap)
             
             # Make prediction
             pred = bootstrap_model.predict(X_forecast)[0]
@@ -449,9 +457,19 @@ class ForecastEngine:
             y_train = df_train_clean["da"]
             
             if model_cache_key not in self._model_cache:
-                # Regression models should NOT use sample weights to ensure fair comparison
-                # between XGBoost and Linear baseline models
-                model.fit(X_train_processed, y_train)
+                # Scientific methodology: configurable sample weighting for regression
+                if config.USE_REGRESSION_SAMPLE_WEIGHTS:
+                    # Use sample weights to handle imbalanced data (extreme DA events)
+                    sample_weights = self.model_factory.compute_spike_focused_weights(y_train)
+                    try:
+                        model.fit(X_train_processed, y_train, sample_weight=sample_weights)
+                    except TypeError:
+                        # Fallback if model doesn't support sample_weight
+                        model.fit(X_train_processed, y_train)
+                else:
+                    # Fair baseline comparison: no sample weights (current default)
+                    # Ensures XGBoost vs Linear comparison is methodologically sound
+                    model.fit(X_train_processed, y_train)
                 self._model_cache[model_cache_key] = model
             
             prediction = model.predict(X_forecast)[0]

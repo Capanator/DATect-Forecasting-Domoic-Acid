@@ -667,6 +667,7 @@ const Dashboard = () => {
                   >
                     <option value="regression">Regression - Predict continuous DA levels (μg/g)</option>
                     <option value="classification">Classification - Predict risk categories (Low/Moderate/High/Extreme)</option>
+                    <option value="spike_detection">Spike Detection - Binary spike timing prediction (&gt;20 μg/g)</option>
                   </select>
                 </div>
 
@@ -883,6 +884,23 @@ const Dashboard = () => {
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
                     Training samples: {forecast.classification.training_samples}
+                  </p>
+                </div>
+              )}
+              
+              {forecast.spike_detection && (
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium text-red-800 mb-2">
+                    🚨 Spike Detection Prediction
+                  </h3>
+                  <div className="text-2xl font-bold text-red-600">
+                    {forecast.spike_detection.spike_predicted ? 'SPIKE DETECTED' : 'No Spike'}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Probability: {(forecast.spike_detection.spike_probability * 100).toFixed(1)}%
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Training samples: {forecast.spike_detection.training_samples}
                   </p>
                 </div>
               )}

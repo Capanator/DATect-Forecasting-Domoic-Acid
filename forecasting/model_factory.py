@@ -34,11 +34,11 @@ class ModelFactory:
     def __init__(self):
         self.random_seed = config.RANDOM_SEED
         
-    def get_model(self, task, model_type, class_weights=None):
+    def get_model(self, task, model_type):
         if task == "regression":
             return self._get_regression_model(model_type)
         elif task == "classification":
-            return self._get_classification_model(model_type, class_weights)
+            return self._get_classification_model(model_type)
         elif task == "spike_detection":
             return self._get_spike_detection_model(model_type)
         else:
@@ -71,7 +71,7 @@ class ModelFactory:
             raise ValueError(f"Unknown regression model: {model_type}. "
                            f"Supported: 'xgboost', 'linear')")
             
-    def _get_classification_model(self, model_type, class_weights=None):
+    def _get_classification_model(self, model_type):
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
@@ -195,7 +195,7 @@ class ModelFactory:
         # to ensure consistent and configurable weighting system
         return sample_weights
         
-    def compute_spike_focused_weights(self, y_actual, y_predicted_proba=None):
+    def compute_spike_focused_weights(self, y_actual):
         """
         Compute sample weights specifically for spike detection timing.
         Heavily penalizes false negatives (missed spikes) and moderately penalizes false positives.
@@ -228,7 +228,3 @@ class ModelFactory:
         logger.debug(f"Non-spike samples: {total_count-spike_count} with weight {config.SPIKE_TRUE_NEGATIVE_WEIGHT}")
         
         return sample_weights
-        
-    def validate_model_task_combination(self, task, model_type):
-        supported = self.get_supported_models(task)
-        return task in supported and model_type in supported[task]
