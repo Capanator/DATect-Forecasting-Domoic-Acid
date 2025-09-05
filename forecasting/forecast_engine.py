@@ -236,14 +236,9 @@ class ForecastEngine:
             reg_model = self.model_factory.get_model("regression", model_type)
             
             y_train = train_df["da"]
-            spike_mask = y_train > 20.0  # spike threshold
-            sample_weights = np.ones(len(y_train))
-            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
-            if model_type in ["xgboost", "xgb"]:
-                reg_model.fit(X_train_processed, y_train, sample_weight=sample_weights)
-            else:
-                reg_model.fit(X_train_processed, y_train)
+            # Regression models should NOT use sample weights to maintain baseline consistency
+            reg_model.fit(X_train_processed, y_train)
             
             pred_da = reg_model.predict(X_test_processed)[0]
             pred_da = max(0.0, float(pred_da))
@@ -260,12 +255,19 @@ class ForecastEngine:
                 
                 cls_model = self.model_factory.get_model("classification", model_type)
                 
-                # Apply class balancing with sample weights
+                # Apply consistent class balancing for fair baseline comparison
+                sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
+                
                 if model_type in ["xgboost", "xgb"]:
-                    sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
                     cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                 else:
-                    cls_model.fit(X_train_processed, y_train_encoded)
+                    # Linear models should also use class balancing for fair comparison
+                    # Note: sklearn LogisticRegression supports sample_weight parameter
+                    try:
+                        cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
+                    except TypeError:
+                        # Fallback if model doesn't support sample_weight
+                        cls_model.fit(X_train_processed, y_train_encoded)
                 pred_encoded = cls_model.predict(X_test_processed)[0]
                 
                 pred_category = reverse_mapping[pred_encoded]
@@ -302,7 +304,7 @@ class ForecastEngine:
         
         return pd.DataFrame([result])
     
-    def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=25):
+    def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=None):
         """
         Generate bootstrap confidence intervals using resampling.
         
@@ -316,13 +318,17 @@ class ForecastEngine:
         Returns:
             Dictionary with quantile predictions
         """
+        # Use config value if not specified
+        if n_bootstrap is None:
+            n_bootstrap = config.N_BOOTSTRAP_ITERATIONS
+            
         predictions = []
         
         # Generate bootstrap predictions with subsampling for efficiency
         for _ in range(n_bootstrap):
-            # Use subsampling (75% of data) instead of full resampling for speed
+            # Use subsampling for speed optimization (configurable fraction)
             n_samples = len(X_train_processed)
-            subsample_size = int(0.75 * n_samples)
+            subsample_size = int(config.BOOTSTRAP_SUBSAMPLE_FRACTION * n_samples)
             bootstrap_indices = np.random.choice(n_samples, subsample_size, replace=False)
             
             # Handle both DataFrame and numpy array cases
@@ -337,13 +343,8 @@ class ForecastEngine:
             bootstrap_model = self.model_factory.get_model("regression", model_type)
             
             # Apply spike weighting if XGBoost
-            if model_type in ["xgboost", "xgb"]:
-                spike_mask = y_bootstrap > 20.0
-                sample_weights = np.ones(len(y_bootstrap))
-                sample_weights[spike_mask] *= 8.0
-                bootstrap_model.fit(X_bootstrap, y_bootstrap, sample_weight=sample_weights)
-            else:
-                bootstrap_model.fit(X_bootstrap, y_bootstrap)
+            # Bootstrap should NOT use sample weights for regression to maintain consistency
+            bootstrap_model.fit(X_bootstrap, y_bootstrap)
             
             # Make prediction
             pred = bootstrap_model.predict(X_forecast)[0]
@@ -353,9 +354,9 @@ class ForecastEngine:
         # Calculate quantiles
         predictions = np.array(predictions)
         return {
-            "q05": float(np.percentile(predictions, 5)),
-            "q50": float(np.percentile(predictions, 50)),
-            "q95": float(np.percentile(predictions, 95)),
+            "q05": float(np.percentile(predictions, config.CONFIDENCE_PERCENTILES[0])),
+            "q50": float(np.percentile(predictions, config.CONFIDENCE_PERCENTILES[1])),
+            "q95": float(np.percentile(predictions, config.CONFIDENCE_PERCENTILES[2])),
             "bootstrap_predictions": predictions.tolist()
         }
 
@@ -446,15 +447,11 @@ class ForecastEngine:
                 model = self.model_factory.get_model("regression", model_type)
             
             y_train = df_train_clean["da"]
-            spike_mask = y_train > 20.0  # spike threshold
-            sample_weights = np.ones(len(y_train))
-            sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
             if model_cache_key not in self._model_cache:
-                if model_type in ["xgboost", "xgb"]:
-                    model.fit(X_train_processed, y_train, sample_weight=sample_weights)
-                else:
-                    model.fit(X_train_processed, y_train)
+                # Regression models should NOT use sample weights to ensure fair comparison
+                # between XGBoost and Linear baseline models
+                model.fit(X_train_processed, y_train)
                 self._model_cache[model_cache_key] = model
             
             prediction = model.predict(X_forecast)[0]
@@ -463,9 +460,9 @@ class ForecastEngine:
             result['feature_importance'] = self.data_processor.get_feature_importance(model, X_train_processed.columns)
             
             # Generate bootstrap confidence intervals for regression tasks
-            if len(df_train_clean) >= 10:  # Only if we have enough data for meaningful bootstrap
+            if len(df_train_clean) >= config.MIN_BOOTSTRAP_SAMPLES:  # Only if we have enough data for meaningful bootstrap
                 bootstrap_quantiles = self.generate_bootstrap_confidence_intervals(
-                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=15
+                    X_train_processed, y_train, X_forecast, model_type
                 )
                 result['bootstrap_quantiles'] = bootstrap_quantiles
                 logger.debug(f"Bootstrap confidence intervals: q05={bootstrap_quantiles['q05']:.3f}, q50={bootstrap_quantiles['q50']:.3f}, q95={bootstrap_quantiles['q95']:.3f}")
@@ -482,7 +479,7 @@ class ForecastEngine:
                 y_train_encoded = df_train_clean["da-category"].map(cat_mapping)
                 
                 # Check model cache for classification
-                model_cache_key = f"classification_{model_type}_{len(df_train_clean)}_{hash(str(df_train_clean['da-category'].values.tobytes()))}"
+                model_cache_key = f"classification_{model_type}_{len(df_train_clean)}_{hash(str(df_train_clean['da-category'].values))}"
                 if model_cache_key in self._model_cache:
                     logger.debug("Using cached classification model")
                     model = self._model_cache[model_cache_key]
@@ -490,12 +487,18 @@ class ForecastEngine:
                     logger.debug("Training new classification model")
                     model = self.model_factory.get_model("classification", model_type)
                 if model_cache_key not in self._model_cache:
-                    # Apply class balancing with sample weights  
+                    # Apply consistent class balancing for fair baseline comparison
+                    sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
+                    
                     if model_type in ["xgboost", "xgb"]:
-                        sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
                         model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                     else:
-                        model.fit(X_train_processed, y_train_encoded)
+                        # Linear models should also use class balancing for fair comparison
+                        try:
+                            model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
+                        except TypeError:
+                            # Fallback if model doesn't support sample_weight
+                            model.fit(X_train_processed, y_train_encoded)
                     self._model_cache[model_cache_key] = model
                 pred_encoded = model.predict(X_forecast)[0]
                 
@@ -533,12 +536,18 @@ class ForecastEngine:
                 model = self.model_factory.get_model("spike_detection", model_type)
             
             if model_cache_key not in self._model_cache:
-                # Apply spike-focused sample weights
+                # Apply consistent spike-focused weights for fair baseline comparison
+                sample_weights_spike = self.model_factory.compute_spike_focused_weights(y_train_spikes)
+                
                 if model_type in ["xgboost", "xgb"]:
-                    sample_weights_spike = self.model_factory.compute_spike_focused_weights(y_train_spikes)
                     model.fit(X_train_processed, y_train_spikes, sample_weight=sample_weights_spike)
                 else:
-                    model.fit(X_train_processed, y_train_spikes)
+                    # Linear models should also use spike weighting for fair comparison
+                    try:
+                        model.fit(X_train_processed, y_train_spikes, sample_weight=sample_weights_spike)
+                    except TypeError:
+                        # Fallback if model doesn't support sample_weight
+                        model.fit(X_train_processed, y_train_spikes)
                 self._model_cache[model_cache_key] = model
             
             # Predict spike probability and binary prediction
@@ -572,7 +581,7 @@ class ForecastEngine:
                 r2 = r2_score(valid_results['actual_da'], valid_results['predicted_da'])
                 mae = mean_absolute_error(valid_results['actual_da'], valid_results['predicted_da'])
                 
-                spike_threshold = 20.0
+                spike_threshold = config.SPIKE_THRESHOLD
                 y_true_binary = (valid_results['actual_da'] > spike_threshold).astype(int)
                 y_pred_binary = (valid_results['predicted_da'] > spike_threshold).astype(int)
                 

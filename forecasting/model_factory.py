@@ -94,14 +94,9 @@ class ModelFactory:
                 'eval_metric': 'logloss'
             }
             
-            # Add class balancing if weights provided
-            if class_weights is not None:
-                # Convert class weights to XGBoost scale_pos_weight format
-                # For multi-class, we use sample weights during training instead
-                pass
-            else:
-                # Use balanced mode for automatic class weighting
-                xgb_params['class_weight'] = 'balanced' if hasattr(xgb.XGBClassifier(), 'class_weight') else None
+            # NOTE: We don't use class_weight='balanced' here because we manually
+            # compute sample weights in forecast_engine.py to ensure consistent
+            # weighting between XGBoost and LogisticRegression baselines
                 
             return xgb.XGBClassifier(**xgb_params)
         elif model_type == "logistic":
@@ -148,7 +143,7 @@ class ModelFactory:
                 solver="liblinear",      # Better for binary classification
                 max_iter=2000,
                 C=10.0,                  # Less regularization for spike detection
-                class_weight='balanced', # Handle class imbalance
+                # NOTE: class_weight removed - we use manual sample_weight in fit() for consistency
                 random_state=self.random_seed,
                 n_jobs=-1
             )
@@ -196,11 +191,8 @@ class ModelFactory:
         # Apply weights to each sample
         sample_weights = np.array([class_weight_dict[y] for y in y_train])
         
-        # Extra emphasis on extreme events (class 3) for better detection
-        extreme_mask = y_train == 3
-        if extreme_mask.any():
-            sample_weights[extreme_mask] *= 2.0  # Double weight for extreme events
-            
+        # Use balanced class weights only - no additional hardcoded modifiers
+        # to ensure consistent and configurable weighting system
         return sample_weights
         
     def compute_spike_focused_weights(self, y_actual, y_predicted_proba=None):

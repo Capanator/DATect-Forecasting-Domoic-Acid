@@ -203,7 +203,7 @@ class DataProcessor:
                     trend_col = f"{feature}_rolling_trend_{window}w"
                     df[trend_col] = df.groupby('site')[feature].transform(
                         lambda x: x.rolling(window=window, min_periods=2).apply(
-                            lambda y: np.polyfit(range(len(y)), y, 1)[0] if len(y) >= 2 else 0
+                            lambda y: np.polyfit(range(len(y)), y, 1)[0] if len(y) >= config.MIN_TREND_PERIODS else 0
                         )
                     )
                     
@@ -233,14 +233,14 @@ class DataProcessor:
                 # Acceleration (2nd derivative) - rapid environmental shifts
                 df[f'{var}_acceleration'] = df.groupby('site')[f'{var}_change'].transform(lambda x: x.diff())
                 
-                # Volatility (instability indicator) - 4-week rolling std
+                # Volatility (instability indicator) - rolling std
                 df[f'{var}_volatility'] = df.groupby('site')[var].transform(
-                    lambda x: x.rolling(4, min_periods=1).std()
+                    lambda x: x.rolling(config.ROLLING_WINDOWS[0], min_periods=1).std()
                 )
                 
-                # Anomaly flag - values exceeding 2 standard deviations
+                # Anomaly flag - values exceeding standard deviation threshold
                 df[f'{var}_anomaly'] = df.groupby('site')[var].transform(
-                    lambda x: (x > (x.rolling(8, min_periods=1).mean() + 2 * x.rolling(8, min_periods=1).std())).astype(int)
+                    lambda x: (x > (x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).mean() + config.ANOMALY_STD_THRESHOLD * x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).std())).astype(int)
                 )
                 
                 created_features += 4
@@ -249,9 +249,9 @@ class DataProcessor:
         if all(var in df.columns for var in ['chla', 'par', 'sst']):
             # Bloom conditions: high chlorophyll + sufficient light + optimal temperature
             df['bloom_conditions'] = (
-                (df['chla'] > df.groupby('site')['chla'].transform(lambda x: x.rolling(8, min_periods=1).quantile(0.75))) &
-                (df['par'] > df.groupby('site')['par'].transform(lambda x: x.rolling(8, min_periods=1).quantile(0.5))) &
-                (df['sst'].between(12, 18))  # Optimal temperature range for toxic diatoms
+                (df['chla'] > df.groupby('site')['chla'].transform(lambda x: x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).quantile(config.CHLA_THRESHOLD_PERCENTILE))) &
+                (df['par'] > df.groupby('site')['par'].transform(lambda x: x.rolling(config.ROLLING_WINDOWS[1], min_periods=1).quantile(config.PAR_THRESHOLD_PERCENTILE))) &
+                (df['sst'].between(config.OPTIMAL_SST_RANGE[0], config.OPTIMAL_SST_RANGE[1]))  # Optimal temperature range for toxic diatoms
             ).astype(int)
             created_features += 1
         

@@ -179,10 +179,10 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "retrospective"
+FORECAST_MODE = "realtime"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
-FORECAST_TASK = "regression"
+FORECAST_TASK = "classification"
 
 # ML algorithm: "xgboost" (primary) or "linear" (interpretable)
 FORECAST_MODEL = "xgboost"
@@ -202,6 +202,9 @@ RANDOM_SEED = 42
 # Retrospective evaluation anchor points (higher = more thorough)
 N_RANDOM_ANCHORS = 500
 
+# Bootstrap confidence intervals
+N_BOOTSTRAP_ITERATIONS = 25  # Number of bootstrap iterations for confidence intervals
+
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
@@ -220,7 +223,38 @@ DA_CATEGORY_LABELS = [0, 1, 2, 3]
 # Spike Detection Configuration
 SPIKE_THRESHOLD = 20.0  # DA > 20 μg/g considered a spike event
 USE_BINARY_SPIKE_DETECTION = True  # Use binary spike vs no-spike classification
-SPIKE_FALSE_NEGATIVE_WEIGHT = 100.0  # Penalty for missing actual spikes
-SPIKE_FALSE_POSITIVE_WEIGHT = 5.0  # Penalty for false alarms
-SPIKE_TRUE_NEGATIVE_WEIGHT = 0.1  # Low weight for correct non-spike predictions
+SPIKE_FALSE_NEGATIVE_WEIGHT = 500.0  # Heavy penalty for missing actual spikes
+SPIKE_FALSE_POSITIVE_WEIGHT = 10.0  # Moderate penalty for false alarms
+SPIKE_TRUE_NEGATIVE_WEIGHT = 0.05  # Very low weight for correct non-spike predictions
+
+# Bootstrap and Statistical Configuration
+
+# Bootstrap subsample fraction for speed optimization
+BOOTSTRAP_SUBSAMPLE_FRACTION = 0.75  # Use 75% of data for each bootstrap iteration
+
+# Confidence interval percentiles for bootstrap predictions
+CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
+
+# Data Quality Configuration
+
+# Minimum training samples required for meaningful bootstrap
+MIN_BOOTSTRAP_SAMPLES = 10
+
+# Rolling window sizes for feature engineering
+ROLLING_WINDOWS = [4, 8]  # Standard deviation and trend analysis windows
+
+# Environmental threshold percentiles for bloom detection
+CHLA_THRESHOLD_PERCENTILE = 0.75  # Chlorophyll-a 75th percentile threshold
+PAR_THRESHOLD_PERCENTILE = 0.5   # PAR 50th percentile threshold
+
+# Statistical significance standard deviations for anomaly detection
+ANOMALY_STD_THRESHOLD = 2.0  # Number of standard deviations for anomaly detection
+
+# Polynomial trend analysis minimum periods
+MIN_TREND_PERIODS = 2  # Minimum data points required for trend calculation
+
+# Environmental Thresholds for Bloom Detection
+
+# Optimal sea surface temperature range for toxic diatoms (°C)
+OPTIMAL_SST_RANGE = [12, 18]  # Temperature window where DA-producing diatoms thrive
 

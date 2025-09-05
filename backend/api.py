@@ -101,12 +101,12 @@ def resolve_site_name(site: str, site_mapping: dict) -> str:
 class ForecastRequest(BaseModel):
     date: date
     site: str
-    task: str = "regression"  # "regression" or "classification"
+    task: str = "regression"  # "regression", "classification", or "spike_detection"
     model: str = "xgboost"
 
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
-    forecast_task: str = "regression"  # "regression" or "classification"
+    forecast_task: str = "regression"  # "regression", "classification", or "spike_detection"
     forecast_model: str = "xgboost"  # "xgboost" or "linear" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
     forecast_horizon_weeks: int = 1  # Weeks ahead to forecast from data cutoff
@@ -179,12 +179,13 @@ async def get_models():
         mf = get_model_factory()
         available_models = {
             "regression": mf.get_supported_models('regression')['regression'],
-            "classification": mf.get_supported_models('classification')['classification']
+            "classification": mf.get_supported_models('classification')['classification'],
+            "spike_detection": mf.get_supported_models('spike_detection')['spike_detection']
         }
         
         # Get descriptions for all models
         descriptions = {}
-        all_models = set(available_models["regression"] + available_models["classification"])
+        all_models = set(available_models["regression"] + available_models["classification"] + available_models["spike_detection"])
         for model in all_models:
             descriptions[model] = mf.get_model_description(model)
         
@@ -197,8 +198,8 @@ async def get_models():
 async def generate_forecast(request: ForecastRequest):
     """Generate a forecast for the specified parameters."""
     try:
-        if request.task not in ["regression", "classification"]:
-            raise HTTPException(status_code=400, detail="Task must be 'regression' or 'classification'")
+        if request.task not in ["regression", "classification", "spike_detection"]:
+            raise HTTPException(status_code=400, detail="Task must be 'regression', 'classification', or 'spike_detection'")
         
         data = pd.read_parquet(config.FINAL_OUTPUT_PATH)
         site_mapping = get_site_mapping(data)
@@ -236,8 +237,11 @@ async def generate_forecast(request: ForecastRequest):
         
         if request.task == "regression":
             response_data["prediction"] = result.get('predicted_da')
-        else:  # classification
+        elif request.task == "classification":
             response_data["predicted_category"] = result.get('predicted_category')
+        else:  # spike_detection
+            response_data["prediction"] = result.get('spike_probability', 0.0)
+            response_data["spike_detected"] = result.get('spike_detected', False)
         
         if 'feature_importance' in result and result['feature_importance'] is not None:
             importance_df = result['feature_importance']
@@ -754,13 +758,17 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         forecast_date = pd.to_datetime(request.date)
         
-        # Generate both regression and classification forecasts
+        # Generate regression, classification, and spike detection forecasts
         regression_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "regression", "xgboost"
         )
         
         classification_result = get_forecast_engine().generate_single_forecast(
             config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "classification", "xgboost"
+        )
+        
+        spike_detection_result = get_forecast_engine().generate_single_forecast(
+            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "spike_detection", "xgboost"
         )
         
         # Clean numpy values for JSON serialization
@@ -792,6 +800,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
             "site": actual_site,
             "regression": clean_numpy_values(regression_result),
             "classification": clean_numpy_values(classification_result),
+            "spike_detection": clean_numpy_values(spike_detection_result),
             "graphs": {}
         }
         
@@ -827,6 +836,19 @@ async def generate_enhanced_forecast(request: ForecastRequest):
                 "class_probabilities": class_probs,
                 "category_labels": ['Low (≤5)', 'Moderate (5-20]', 'High (20-40]', 'Extreme (>40)'],
                 "type": "category_range"
+            }
+        
+        # Add spike timing graph for spike detection
+        if spike_detection_result:
+            spike_probability = spike_detection_result.get('spike_probability', 0.0)
+            spike_detected = spike_probability > 0.5
+            
+            response_data["graphs"]["spike_timing"] = {
+                "spike_probability": float(spike_probability),
+                "spike_detected": spike_detected,
+                "spike_threshold": config.SPIKE_THRESHOLD,
+                "confidence_level": "High" if spike_probability > 0.8 else "Medium" if spike_probability > 0.3 else "Low",
+                "type": "spike_timing"
             }
         
         return response_data
