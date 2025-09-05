@@ -36,6 +36,8 @@ class ForecastEngine:
         self.data_file = data_file or config.FINAL_OUTPUT_PATH
         self.data = None
         self.results_df = None
+        self._data_cache = {}  # Cache for loaded data
+        self._model_cache = {}  # Cache for trained models
         
         logger.info(f"Using data file: {self.data_file}")
         
@@ -77,7 +79,14 @@ class ForecastEngine:
         
         logger.info(f"Running LEAK-FREE {task} evaluation with {model_type}")
         
-        self.data = self.data_processor.load_and_prepare_base_data(self.data_file)
+        # Use cached data if available
+        cache_key = f"data_{self.data_file}"
+        if cache_key not in self._data_cache:
+            logger.info("Loading data into cache")
+            self._data_cache[cache_key] = self.data_processor.load_and_prepare_base_data(self.data_file)
+        else:
+            logger.info("Using cached data")
+        self.data = self._data_cache[cache_key]
         min_target_date = pd.Timestamp(min_test_date)
         
         self.last_diagnostics = {
@@ -262,7 +271,7 @@ class ForecastEngine:
         
         return pd.DataFrame([result])
     
-    def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=100):
+    def generate_bootstrap_confidence_intervals(self, X_train_processed, y_train, X_forecast, model_type, n_bootstrap=25):
         """
         Generate bootstrap confidence intervals using resampling.
         
@@ -278,11 +287,12 @@ class ForecastEngine:
         """
         predictions = []
         
-        # Generate bootstrap predictions
+        # Generate bootstrap predictions with subsampling for efficiency
         for _ in range(n_bootstrap):
-            # Bootstrap resample with replacement
+            # Use subsampling (75% of data) instead of full resampling for speed
             n_samples = len(X_train_processed)
-            bootstrap_indices = np.random.choice(n_samples, n_samples, replace=True)
+            subsample_size = int(0.75 * n_samples)
+            bootstrap_indices = np.random.choice(n_samples, subsample_size, replace=False)
             
             # Handle both DataFrame and numpy array cases
             if hasattr(X_train_processed, 'iloc'):
@@ -332,7 +342,11 @@ class ForecastEngine:
         Returns:
             Dictionary with forecast results or None if insufficient data
         """
-        data = self.data_processor.load_and_prepare_base_data(data_path)
+        # Use cached data if available
+        cache_key = f"data_{data_path}"
+        if cache_key not in self._data_cache:
+            self._data_cache[cache_key] = self.data_processor.load_and_prepare_base_data(data_path)
+        data = self._data_cache[cache_key]
         forecast_date = pd.Timestamp(forecast_date)
         
         self.data_processor.validate_forecast_inputs(data, site, forecast_date)
@@ -391,17 +405,26 @@ class ForecastEngine:
         }
         
         if task == "regression":
-            model = self.model_factory.get_model("regression", model_type)
+            # Check model cache first
+            model_cache_key = f"regression_{model_type}_{len(df_train_clean)}_{hash(str(df_train_clean['da'].values.tobytes()))}"
+            if model_cache_key in self._model_cache:
+                logger.debug("Using cached regression model")
+                model = self._model_cache[model_cache_key]
+            else:
+                logger.debug("Training new regression model")
+                model = self.model_factory.get_model("regression", model_type)
             
             y_train = df_train_clean["da"]
             spike_mask = y_train > 20.0  # spike threshold
             sample_weights = np.ones(len(y_train))
             sample_weights[spike_mask] *= 8.0  # precision weight for spikes
             
-            if model_type in ["xgboost", "xgb"]:
-                model.fit(X_train_processed, y_train, sample_weight=sample_weights)
-            else:
-                model.fit(X_train_processed, y_train)
+            if model_cache_key not in self._model_cache:
+                if model_type in ["xgboost", "xgb"]:
+                    model.fit(X_train_processed, y_train, sample_weight=sample_weights)
+                else:
+                    model.fit(X_train_processed, y_train)
+                self._model_cache[model_cache_key] = model
             
             prediction = model.predict(X_forecast)[0]
             prediction = max(0.0, float(prediction))
@@ -411,7 +434,7 @@ class ForecastEngine:
             # Generate bootstrap confidence intervals for regression tasks
             if len(df_train_clean) >= 10:  # Only if we have enough data for meaningful bootstrap
                 bootstrap_quantiles = self.generate_bootstrap_confidence_intervals(
-                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=20
+                    X_train_processed, y_train, X_forecast, model_type, n_bootstrap=15
                 )
                 result['bootstrap_quantiles'] = bootstrap_quantiles
                 logger.debug(f"Bootstrap confidence intervals: q05={bootstrap_quantiles['q05']:.3f}, q50={bootstrap_quantiles['q50']:.3f}, q95={bootstrap_quantiles['q95']:.3f}")
@@ -427,8 +450,17 @@ class ForecastEngine:
                 
                 y_train_encoded = df_train_clean["da-category"].map(cat_mapping)
                 
-                model = self.model_factory.get_model("classification", model_type)
-                model.fit(X_train_processed, y_train_encoded)
+                # Check model cache for classification
+                model_cache_key = f"classification_{model_type}_{len(df_train_clean)}_{hash(str(df_train_clean['da-category'].values.tobytes()))}"
+                if model_cache_key in self._model_cache:
+                    logger.debug("Using cached classification model")
+                    model = self._model_cache[model_cache_key]
+                else:
+                    logger.debug("Training new classification model")
+                    model = self.model_factory.get_model("classification", model_type)
+                if model_cache_key not in self._model_cache:
+                    model.fit(X_train_processed, y_train_encoded)
+                    self._model_cache[model_cache_key] = model
                 pred_encoded = model.predict(X_forecast)[0]
                 
                 prediction = reverse_mapping[pred_encoded]
