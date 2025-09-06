@@ -196,17 +196,17 @@ FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for int
 # These override defaults in ModelFactory for reproducible tuning and easy experimentation.
 # Regression parameters
 XGB_REGRESSION_PARAMS = {
-    "n_estimators": 885,
-    "max_depth": 9,
-    "learning_rate": 0.15396196094208137,
-    "subsample": 0.9695497997994025,
-    "colsample_bytree": 0.9373291543047916,
-    "colsample_bylevel": 0.9912817723058245,
+    "n_estimators": 400,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "colsample_bylevel": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "gamma": 0.1,
     "min_child_weight": 3,
-    "reg_alpha": 0.7449915257796885,
-    "reg_lambda": 2.411668071404999,
-    "gamma": 0.3050360367850563,
-    "tree_method": "hist"
+    "tree_method": "hist",
 }
 
 # Classification parameters
@@ -233,7 +233,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 150
+N_RANDOM_ANCHORS = 500
 
 # Bootstrap confidence intervals
 N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence intervals
