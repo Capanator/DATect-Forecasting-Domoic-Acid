@@ -21,15 +21,15 @@ def main():
     print("="*50)
     print("Replicating precompute_cache.py methodology exactly...")
     
-    # Step 1: Load XGBoost results from parquet (original column names)
-    xgb_df = pd.read_parquet("./cache/retrospective/regression_xgboost.parquet")
-    print(f"Loaded {len(xgb_df)} XGBoost predictions")
+    # Step 1: Load Ensemble results from parquet (original column names)
+    xgb_df = pd.read_parquet("./cache/retrospective/regression_ensemble.parquet")
+    print(f"Loaded {len(xgb_df)} Ensemble predictions")
     
     # Step 2: Convert to base_results format (canonical keys)
     required_cols = {'date','site','actual_da','predicted_da','anchor_date'}
     missing = [c for c in ['actual_da','predicted_da'] if c not in xgb_df.columns]
     if missing:
-        raise RuntimeError(f"XGBoost parquet is missing canonical columns {missing}. Regenerate cache via precompute_cache.py.")
+        raise RuntimeError(f"Ensemble parquet is missing canonical columns {missing}. Regenerate cache via precompute_cache.py.")
     from backend.api import clean_float_for_json, _compute_summary
     
     base_results = []
@@ -120,11 +120,11 @@ def main():
     
     print(f"\n🏆 FINAL COMPARISON (Using Exact Pipeline Method)")
     print("="*60)
-    print(f"| Metric   | XGBoost | Naive   | Winner    |")
-    print(f"|----------|---------|---------|-----------|")
-    print(f"| R² Score | {xgb_r2:.4f}  | {naive_r2:.4f}  | {'XGBoost' if xgb_r2 > naive_r2 else 'Naive':>9} |")
-    print(f"| MAE      | {xgb_mae:.4f}  | {naive_mae:.4f}  | {'XGBoost' if xgb_mae < naive_mae else 'Naive':>9} |")
-    print(f"| F1 Score | {xgb_f1:.4f}  | {naive_f1:.4f}  | {'XGBoost' if xgb_f1 > naive_f1 else 'Naive':>9} |")
+    print(f"| Metric   | Ensemble | Naive   | Winner    |")
+    print(f"|----------|----------|---------|-----------|")
+    print(f"| R² Score | {xgb_r2:.4f}   | {naive_r2:.4f}  | {'Ensemble' if xgb_r2 > naive_r2 else 'Naive':>9} |")
+    print(f"| MAE      | {xgb_mae:.4f}   | {naive_mae:.4f}  | {'Ensemble' if xgb_mae < naive_mae else 'Naive':>9} |")
+    print(f"| F1 Score | {xgb_f1:.4f}   | {naive_f1:.4f}  | {'Ensemble' if xgb_f1 > naive_f1 else 'Naive':>9} |")
     
     
     return {

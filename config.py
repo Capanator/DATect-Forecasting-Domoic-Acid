@@ -179,22 +179,22 @@ SATELLITE_DATA = {
 # Forecast Configuration
 
 # Operation mode: "retrospective" (historical validation) or "realtime" (dashboard)
-FORECAST_MODE = "realtime"
+FORECAST_MODE = "retrospective"
 
 # Task type: "regression" (continuous DA levels) or "classification" (risk categories)
 FORECAST_TASK = "regression"
 
-# ML algorithm: "xgboost" (primary) or "linear" (interpretable)
-FORECAST_MODEL = "xgboost"
+# ML algorithm: "ensemble" (primary) or "linear" (interpretable)
+FORECAST_MODEL = "ensemble"
 
 # Forecast Horizon Configuration
 # How many weeks ahead to forecast from the data cutoff point
 FORECAST_HORIZON_WEEKS = 1
 FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations
 
-# XGBoost Hyperparameters (configurable)
+# Ensemble Model Hyperparameters (configurable)
 # These override defaults in ModelFactory for reproducible tuning and easy experimentation.
-# Regression parameters
+# XGBoost Regression parameters (part of ensemble)
 XGB_REGRESSION_PARAMS = {
     "n_estimators": 400,
     "max_depth": 6,
@@ -209,7 +209,7 @@ XGB_REGRESSION_PARAMS = {
     "tree_method": "hist",
 }
 
-# Classification parameters
+# XGBoost Classification parameters (part of ensemble)
 XGB_CLASSIFICATION_PARAMS = {
     "n_estimators": 500,
     "max_depth": 7,
@@ -223,6 +223,27 @@ XGB_CLASSIFICATION_PARAMS = {
     "min_child_weight": 5,
     "tree_method": "hist",
     "eval_metric": "logloss",
+}
+
+# Random Forest Regression parameters (part of ensemble)
+RF_REGRESSION_PARAMS = {
+    "n_estimators": 300,
+    "max_depth": 8,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "max_features": "sqrt",
+    "bootstrap": True,
+}
+
+# Random Forest Classification parameters (part of ensemble)
+RF_CLASSIFICATION_PARAMS = {
+    "n_estimators": 300,
+    "max_depth": 8,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "max_features": "sqrt",
+    "bootstrap": True,
+    "class_weight": "balanced",
 }
 
 
@@ -273,7 +294,7 @@ CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
 
 # Feature engineering toggles
 USE_ROLLING_FEATURES = False  # Enable/disable rolling statistics features
-USE_ENHANCED_TEMPORAL_FEATURES = True  # Enable/disable sin/cos temporal encoding and derived features
+USE_ENHANCED_TEMPORAL_FEATURES = False  # Enable/disable sin/cos temporal encoding and derived features
 
 # Polynomial trend analysis minimum periods
 MIN_TREND_PERIODS = 2  # Minimum data points required for trend calculation

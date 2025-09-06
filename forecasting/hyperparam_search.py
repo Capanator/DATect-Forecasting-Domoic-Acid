@@ -1,8 +1,8 @@
 """
-Hyperparameter Search for XGBoost
-=================================
+Hyperparameter Search for Ensemble Models
+==========================================
 
-Runs a lightweight, leak-free random search over key XGBoost
+Runs a lightweight, leak-free random search over key Ensemble (XGBoost + Random Forest)
 hyperparameters using the existing retrospective evaluation engine.
 
 Usage:
@@ -12,8 +12,8 @@ Notes:
 - Uses the same temporal safeguards as the main pipeline
 - Evaluates across randomly sampled anchor points per site
 - Selects best params by REGRESSION metrics only (R², spike F1, MAE)
-- Saves best params to cache/hyperparams/regression_xgboost_best.json
-- Also mirrors best regression params to cache/hyperparams/classification_xgboost_best.json
+- Saves best params to cache/hyperparams/regression_ensemble_best.json
+- Also mirrors best regression params to cache/hyperparams/classification_ensemble_best.json
  - First evaluates a BASELINE using current config; each trial is compared to baseline
 """
 
@@ -37,7 +37,8 @@ def _sample_loguniform(rng: np.random.Generator, low: float, high: float) -> flo
 
 
 def sample_params(task: str, rng: np.random.Generator) -> Dict:
-    """Sample a candidate hyperparameter set for XGBoost."""
+    """Sample a candidate hyperparameter set for Ensemble (XGBoost + Random Forest)."""
+    # XGBoost parameters
     params = {
         "n_estimators": int(rng.integers(150, 1501)),        # 150–800
         "max_depth": int(rng.integers(3, 11)),              # 3–10
@@ -50,6 +51,11 @@ def sample_params(task: str, rng: np.random.Generator) -> Dict:
         "reg_lambda": float(rng.uniform(0.5, 3.0)),         # 0.5–3.0
         "gamma": float(rng.uniform(0.0, 0.4)),              # 0.0–0.4
         "tree_method": "hist",
+        # Random Forest parameters (prefixed with rf_)
+        "rf_n_estimators": int(rng.integers(100, 501)),      # 100–500
+        "rf_max_depth": int(rng.integers(5, 15)),           # 5–15
+        "rf_min_samples_split": int(rng.integers(2, 10)),   # 2–10
+        "rf_min_samples_leaf": int(rng.integers(1, 5)),     # 1–5
     }
     if task == "classification":
         params["eval_metric"] = "logloss"
@@ -71,7 +77,7 @@ def evaluate_params_regression(params: Dict, n_anchors: int, min_test_date: str,
     try:
         engine = ForecastEngine(validate_on_init=False)
         df = engine.run_retrospective_evaluation(
-            task="regression", model_type="xgboost", n_anchors=n_anchors, min_test_date=min_test_date,
+            task="regression", model_type="ensemble", n_anchors=n_anchors, min_test_date=min_test_date,
             model_params_override=params
         )
 
@@ -181,7 +187,7 @@ def run_search(task: str, trials: int, anchors: int, min_test_date: str, seed: i
     out_dir = Path("cache") / "hyperparams"
     out_dir.mkdir(parents=True, exist_ok=True)
     # Always save regression best
-    out_path = out_dir / "regression_xgboost_best.json"
+    out_path = out_dir / "regression_ensemble_best.json"
     with out_path.open("w") as f:
         json.dump(result, f, indent=2)
     print(f"[INFO] Saved best regression params to {out_path}")
@@ -194,7 +200,7 @@ def run_search(task: str, trials: int, anchors: int, min_test_date: str, seed: i
             "best_params": best_params,
             "note": "Use these for classification; keep eval_metric='logloss' if desired.",
         }
-        cls_path = out_dir / "classification_xgboost_best.json"
+        cls_path = out_dir / "classification_ensemble_best.json"
         with cls_path.open("w") as f:
             json.dump(cls_copy, f, indent=2)
         print(f"[INFO] Mirrored params to {cls_path}")
@@ -203,7 +209,7 @@ def run_search(task: str, trials: int, anchors: int, min_test_date: str, seed: i
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Random search XGBoost hyperparameters with leak-free evaluation")
+    parser = argparse.ArgumentParser(description="Random search Ensemble model hyperparameters with leak-free evaluation")
     parser.add_argument("--task", choices=["regression", "classification"], default="regression",
                         help="Used only for output naming/compat; selection always uses regression metrics")
     parser.add_argument("--trials", type=int, default=20)

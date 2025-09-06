@@ -8,6 +8,8 @@ Supports both regression and classification tasks with multiple algorithms.
 
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.utils.class_weight import compute_class_weight
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, VotingRegressor, VotingClassifier
+import numpy as np
 try:
     import xgboost as xgb
     HAS_XGBOOST = True
@@ -25,7 +27,7 @@ class ModelFactory:
     Factory class for creating configured ML models.
     
     Supported Models:
-    - XGBoost (regression & classification) - PRIMARY MODEL
+    - Ensemble (XGBoost + Random Forest) - PRIMARY MODEL
     - Linear models (Linear/Logistic) - ALTERNATIVE MODEL
     - Linear Regression (regression)
     - Logistic Regression (classification)
@@ -43,7 +45,7 @@ class ModelFactory:
             raise ValueError(f"Unknown task: {task}. Must be 'regression' or 'classification'")
             
     def _get_regression_model(self, model_type, params_override=None):
-        if model_type == "xgboost" or model_type == "xgb":
+        if model_type == "ensemble" or model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
             # Prefer config-driven parameters if available
@@ -69,17 +71,47 @@ class ModelFactory:
             # Ensure seed/n_jobs are enforced
             params['random_state'] = self.random_seed
             params['n_jobs'] = -1
-            return xgb.XGBRegressor(**params)
+            
+            # Create XGBoost regressor
+            xgb_model = xgb.XGBRegressor(**params)
+            
+            # Create Random Forest regressor with complementary parameters
+            rf_params = {
+                'n_estimators': 300,
+                'max_depth': 8,
+                'min_samples_split': 5,
+                'min_samples_leaf': 2,
+                'max_features': 'sqrt',
+                'bootstrap': True,
+                'random_state': self.random_seed,
+                'n_jobs': -1
+            }
+            # Allow RF params override from config
+            cfg_rf_params = getattr(config, 'RF_REGRESSION_PARAMS', None)
+            if cfg_rf_params:
+                rf_params.update(cfg_rf_params)
+            if params_override and 'rf_' in str(params_override):
+                rf_override = {k.replace('rf_', ''): v for k, v in params_override.items() if k.startswith('rf_')}
+                rf_params.update(rf_override)
+            
+            rf_model = RandomForestRegressor(**rf_params)
+            
+            # Create ensemble with equal weights
+            ensemble = VotingRegressor(
+                estimators=[('xgb', xgb_model), ('rf', rf_model)],
+                weights=[0.5, 0.5]
+            )
+            return ensemble
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
             )
         else:
             raise ValueError(f"Unknown regression model: {model_type}. "
-                           f"Supported: 'xgboost', 'linear')")
+                           f"Supported: 'ensemble', 'linear')")
             
     def _get_classification_model(self, model_type, params_override=None):
-        if model_type == "xgboost" or model_type == "xgb":
+        if model_type == "ensemble" or model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
 
@@ -105,7 +137,39 @@ class ModelFactory:
                 params.update(params_override)
             params['random_state'] = self.random_seed
             params['n_jobs'] = -1
-            return xgb.XGBClassifier(**params)
+            
+            # Create XGBoost classifier
+            xgb_model = xgb.XGBClassifier(**params)
+            
+            # Create Random Forest classifier with complementary parameters
+            rf_params = {
+                'n_estimators': 300,
+                'max_depth': 8,
+                'min_samples_split': 5,
+                'min_samples_leaf': 2,
+                'max_features': 'sqrt',
+                'bootstrap': True,
+                'random_state': self.random_seed,
+                'n_jobs': -1,
+                'class_weight': 'balanced'
+            }
+            # Allow RF params override from config
+            cfg_rf_params = getattr(config, 'RF_CLASSIFICATION_PARAMS', None)
+            if cfg_rf_params:
+                rf_params.update(cfg_rf_params)
+            if params_override and 'rf_' in str(params_override):
+                rf_override = {k.replace('rf_', ''): v for k, v in params_override.items() if k.startswith('rf_')}
+                rf_params.update(rf_override)
+            
+            rf_model = RandomForestClassifier(**rf_params)
+            
+            # Create ensemble with soft voting for probabilities
+            ensemble = VotingClassifier(
+                estimators=[('xgb', xgb_model), ('rf', rf_model)],
+                voting='soft',
+                weights=[0.5, 0.5]
+            )
+            return ensemble
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",
@@ -116,12 +180,12 @@ class ModelFactory:
             )
         else:
             raise ValueError(f"Unknown classification model: {model_type}. "
-                           f"Supported: 'xgboost', 'logistic')")
+                           f"Supported: 'ensemble', 'logistic')")
             
     def get_supported_models(self, task=None):
         models = {
-            "regression": ["xgboost", "linear"],
-            "classification": ["xgboost", "logistic"]
+            "regression": ["ensemble", "linear"],
+            "classification": ["ensemble", "logistic"]
         }
         
         if task is None:
@@ -133,8 +197,9 @@ class ModelFactory:
             
     def get_model_description(self, model_type):
         descriptions = {
-            "xgboost": "XGBoost",
-            "xgb": "XGBoost", 
+            "ensemble": "Ensemble (XGBoost + Random Forest)",
+            "xgboost": "Ensemble (XGBoost + Random Forest)",
+            "xgb": "Ensemble (XGBoost + Random Forest)", 
             "linear": "Linear Regression",
             "logistic": "Logistic Regression"
         }

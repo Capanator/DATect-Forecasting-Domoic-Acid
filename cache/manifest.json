@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-09-06T06:08:24.186179",
+  "generated_at": "2025-09-06T06:47:57.957332",
   "cache_version": "2.0",
   "config": {
     "N_RANDOM_ANCHORS": 500,
@@ -9,10 +9,13 @@
   },
   "files": {
     "manifest.json": {
-      "size_bytes": 2687
+      "size_bytes": 3041
+    },
+    "retrospective/regression_ensemble.json": {
+      "size_bytes": 1098975
     },
     "retrospective/regression_linear.json": {
-      "size_bytes": 1074427
+      "size_bytes": 1084699
     },
     "retrospective/classification_logistic.json": {
       "size_bytes": 1016840
@@ -26,11 +29,20 @@
     "retrospective/regression_xgboost.parquet": {
       "size_bytes": 76219
     },
+    "retrospective/classification_ensemble.parquet": {
+      "size_bytes": 40923
+    },
+    "retrospective/regression_ensemble.parquet": {
+      "size_bytes": 87634
+    },
     "retrospective/classification_logistic.parquet": {
-      "size_bytes": 41021
+      "size_bytes": 41212
+    },
+    "retrospective/classification_ensemble.json": {
+      "size_bytes": 1016493
     },
     "retrospective/regression_linear.parquet": {
-      "size_bytes": 73101
+      "size_bytes": 79309
     },
     "retrospective/classification_xgboost.json": {
       "size_bytes": 1016493

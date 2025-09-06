@@ -40,7 +40,7 @@ class CacheManager:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost" or "linear"
+            model_type: "ensemble" or "linear"
             
         Returns:
             List of forecast results or None if not cached

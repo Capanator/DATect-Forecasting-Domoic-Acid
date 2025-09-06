@@ -27,7 +27,7 @@ const Dashboard = () => {
   const [config, setConfig] = useState({
     forecast_mode: 'realtime',
     forecast_task: 'regression', 
-    forecast_model: 'xgboost',
+    forecast_model: 'ensemble',
     selected_sites: []
   })
   const [configLoading, setConfigLoading] = useState(false)
@@ -38,7 +38,7 @@ const Dashboard = () => {
   
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('xgboost')
+  const [selectedModel, setSelectedModel] = useState('ensemble')
   const [task, setTask] = useState('regression')
   
   const [forecast, setForecast] = useState(null)
@@ -680,7 +680,7 @@ const Dashboard = () => {
                     onChange={(e) => setConfig({...config, forecast_model: e.target.value})}
                     className="w-full p-3 border border-gray-300 rounded-md text-lg"
                   >
-                    <option value="xgboost">XGBoost - Advanced gradient boosting (Recommended)</option>
+                    <option value="ensemble">Ensemble - Combined XGBoost + Random Forest (Recommended)</option>
                     <option value="linear">Linear Models - Linear regression & Logistic classification</option>
                   </select>
                 </div>
@@ -913,7 +913,7 @@ const Dashboard = () => {
                         const q05 = (quantiles.q05 ?? levelData.q05);
                         const q50 = (quantiles.q50 ?? levelData.q50);
                         const q95 = (quantiles.q95 ?? levelData.q95);
-                        const xgb_pred = (levelData.xgboost_prediction ?? levelData.predicted_da);
+                        const xgb_pred = (levelData.ensemble_prediction ?? levelData.predicted_da);
 
                         const traces = [];
                         const n_segments = 30;
@@ -938,7 +938,7 @@ const Dashboard = () => {
                           name: 'Bootstrap Range (Q05-Q95)'
                         });
 
-                        // XGBoost point prediction
+                        // Ensemble point prediction
                         if (xgb_pred !== undefined && xgb_pred !== null) {
                           traces.push({
                             x: [xgb_pred],
@@ -950,7 +950,7 @@ const Dashboard = () => {
                               symbol: 'diamond-tall',
                               line: { width: 2, color: 'black' }
                             },
-                            name: 'XGBoost Prediction'
+                            name: 'Ensemble Prediction'
                           });
                         }
 
@@ -962,7 +962,7 @@ const Dashboard = () => {
                         const q05 = (quantiles.q05 ?? levelData.q05);
                         const q50 = (quantiles.q50 ?? levelData.q50);
                         const q95 = (quantiles.q95 ?? levelData.q95);
-                        const xgb_pred = (levelData.xgboost_prediction ?? levelData.predicted_da);
+                        const xgb_pred = (levelData.ensemble_prediction ?? levelData.predicted_da);
 
                         const n_segments = 30;
                         const rawRange = (q95 ?? 0) - (q05 ?? 0);

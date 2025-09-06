@@ -36,9 +36,9 @@ class DATectCacheGenerator:
         print("Pre-computing retrospective forecasts...")
         
         combinations = [
-            ("regression", "xgboost"),
+            ("regression", "ensemble"),
             ("regression", "linear"),  
-            ("classification", "xgboost"),
+            ("classification", "ensemble"),
             ("classification", "logistic")
         ]
         

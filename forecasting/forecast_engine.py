@@ -61,7 +61,7 @@ class ForecastEngine:
         
         logger.info("ForecastEngine initialization completed successfully")
         
-    def run_retrospective_evaluation(self, task="regression", model_type="xgboost", 
+    def run_retrospective_evaluation(self, task="regression", model_type="ensemble", 
                                    n_anchors=50, min_test_date="2008-01-01", 
                                    model_params_override=None):
         """
@@ -69,7 +69,7 @@ class ForecastEngine:
         
         Args:
             task: "regression" or "classification"
-            model_type: "xgboost", "linear", or "logistic" 
+            model_type: "ensemble", "linear", or "logistic" 
             n_anchors: Number of random anchor points per site
             min_test_date: Earliest date for test anchors
             
@@ -257,7 +257,7 @@ class ForecastEngine:
                 # Apply consistent class balancing for fair baseline comparison
                 sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
                 
-                if model_type in ["xgboost", "xgb"]:
+                if model_type in ["ensemble", "xgboost", "xgb"]:
                     cls_model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                 else:
                     try:
@@ -475,7 +475,7 @@ class ForecastEngine:
                     # Apply consistent class balancing for fair baseline comparison
                     sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)
                     
-                    if model_type in ["xgboost", "xgb"]:
+                    if model_type in ["ensemble", "xgboost", "xgb"]:
                         model.fit(X_train_processed, y_train_encoded, sample_weight=sample_weights_cls)
                     else:
                         # Linear models should also use class balancing for fair comparison

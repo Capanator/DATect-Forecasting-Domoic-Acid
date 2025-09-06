@@ -102,12 +102,12 @@ class ForecastRequest(BaseModel):
     date: date
     site: str
     task: str = "regression"  # "regression" or "classification"
-    model: str = "xgboost"
+    model: str = "ensemble"
 
 class ConfigUpdateRequest(BaseModel):
     forecast_mode: str = "realtime"  # "realtime" or "retrospective" 
     forecast_task: str = "regression"  # "regression" or "classification"
-    forecast_model: str = "xgboost"  # "xgboost" or "linear" (linear models)
+    forecast_model: str = "ensemble"  # "ensemble" or "linear" (linear models)
     selected_sites: List[str] = []  # For retrospective site filtering
     forecast_horizon_weeks: int = 1  # Weeks ahead to forecast from data cutoff
 
@@ -211,7 +211,7 @@ async def generate_forecast(request: ForecastRequest):
             forecast_date,
             actual_site,
             request.task,
-            "xgboost"
+            "ensemble"
         )
         
         if result is None:
@@ -314,7 +314,7 @@ async def get_config():
     return {
         "forecast_mode": getattr(config, 'FORECAST_MODE', 'realtime'),
         "forecast_task": getattr(config, 'FORECAST_TASK', 'regression'),
-        "forecast_model": getattr(config, 'FORECAST_MODEL', 'xgboost'),
+        "forecast_model": getattr(config, 'FORECAST_MODEL', 'ensemble'),
         "forecast_horizon_weeks": getattr(config, 'FORECAST_HORIZON_WEEKS', 1),
         "forecast_horizon_days": getattr(config, 'FORECAST_HORIZON_DAYS', 7)
     }
@@ -756,11 +756,11 @@ async def generate_enhanced_forecast(request: ForecastRequest):
         
         # Generate regression and classification forecasts
         regression_result = get_forecast_engine().generate_single_forecast(
-            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "regression", "xgboost"
+            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "regression", "ensemble"
         )
         
         classification_result = get_forecast_engine().generate_single_forecast(
-            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "classification", "xgboost"
+            config.FINAL_OUTPUT_PATH, forecast_date, actual_site, "classification", "ensemble"
         )
         
         # Clean numpy values for JSON serialization
@@ -811,7 +811,7 @@ async def generate_enhanced_forecast(request: ForecastRequest):
 
             response_data["graphs"]["level_range"] = {
                 "gradient_quantiles": quantiles,
-                "xgboost_prediction": predicted_da,
+                "ensemble_prediction": predicted_da,
                 "type": "gradient_uncertainty",
                 "gradient_plot": gradient_plot_json,
             }
