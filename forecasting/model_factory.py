@@ -34,33 +34,42 @@ class ModelFactory:
     def __init__(self):
         self.random_seed = config.RANDOM_SEED
         
-    def get_model(self, task, model_type):
+    def get_model(self, task, model_type, params_override=None):
         if task == "regression":
-            return self._get_regression_model(model_type)
+            return self._get_regression_model(model_type, params_override=params_override)
         elif task == "classification":
-            return self._get_classification_model(model_type)
+            return self._get_classification_model(model_type, params_override=params_override)
         else:
             raise ValueError(f"Unknown task: {task}. Must be 'regression' or 'classification'")
             
-    def _get_regression_model(self, model_type):
+    def _get_regression_model(self, model_type, params_override=None):
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            return xgb.XGBRegressor(
-                n_estimators=400,           # Increased for better accuracy
-                max_depth=6,                # Deeper trees for complex patterns  
-                learning_rate=0.05,         # Lower learning rate for stability
-                subsample=0.85,             # Slightly higher for more data
-                colsample_bytree=0.85,      # More features per tree
-                colsample_bylevel=0.8,      # Column sampling by level
-                reg_alpha=0.1,              # L1 regularization  
-                reg_lambda=1.0,             # L2 regularization
-                gamma=0.1,                  # Minimum split loss
-                min_child_weight=3,         # More conservative splits
-                tree_method='hist',
-                random_state=self.random_seed,
-                n_jobs=-1
-            )
+            # Prefer config-driven parameters if available
+            default_reg_params = {
+                'n_estimators': 400,
+                'max_depth': 6,
+                'learning_rate': 0.05,
+                'subsample': 0.85,
+                'colsample_bytree': 0.85,
+                'colsample_bylevel': 0.8,
+                'reg_alpha': 0.1,
+                'reg_lambda': 1.0,
+                'gamma': 0.1,
+                'min_child_weight': 3,
+                'tree_method': 'hist',
+                'random_state': self.random_seed,
+                'n_jobs': -1,
+            }
+            cfg_params = getattr(config, 'XGB_REGRESSION_PARAMS', None)
+            params = {**default_reg_params, **(cfg_params or {})}
+            if params_override:
+                params.update(params_override)
+            # Ensure seed/n_jobs are enforced
+            params['random_state'] = self.random_seed
+            params['n_jobs'] = -1
+            return xgb.XGBRegressor(**params)
         elif model_type == "linear":
             return LinearRegression(
                 n_jobs=-1
@@ -69,30 +78,34 @@ class ModelFactory:
             raise ValueError(f"Unknown regression model: {model_type}. "
                            f"Supported: 'xgboost', 'linear')")
             
-    def _get_classification_model(self, model_type):
+    def _get_classification_model(self, model_type, params_override=None):
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            
-            # Configure XGBoost with optimized hyperparameters for accuracy
-            xgb_params = {
-                'n_estimators': 500,        # More trees for better accuracy
-                'max_depth': 7,             # Deeper for complex DA patterns
-                'learning_rate': 0.03,      # Lower for stable convergence
-                'subsample': 0.9,           # More data per tree
-                'colsample_bytree': 0.9,    # More features per tree
-                'colsample_bylevel': 0.8,   # Column sampling by level
-                'reg_alpha': 0.1,           # L1 regularization
-                'reg_lambda': 2.0,          # Strong L2 regularization
-                'gamma': 0.2,               # Minimum split loss
-                'min_child_weight': 5,      # Conservative splits for imbalanced data
+
+            default_cls_params = {
+                'n_estimators': 500,
+                'max_depth': 7,
+                'learning_rate': 0.03,
+                'subsample': 0.9,
+                'colsample_bytree': 0.9,
+                'colsample_bylevel': 0.8,
+                'reg_alpha': 0.1,
+                'reg_lambda': 2.0,
+                'gamma': 0.2,
+                'min_child_weight': 5,
                 'tree_method': 'hist',
                 'random_state': self.random_seed,
                 'n_jobs': -1,
-                'eval_metric': 'logloss'
+                'eval_metric': 'logloss',
             }
-                
-            return xgb.XGBClassifier(**xgb_params)
+            cfg_params = getattr(config, 'XGB_CLASSIFICATION_PARAMS', None)
+            params = {**default_cls_params, **(cfg_params or {})}
+            if params_override:
+                params.update(params_override)
+            params['random_state'] = self.random_seed
+            params['n_jobs'] = -1
+            return xgb.XGBClassifier(**params)
         elif model_type == "logistic":
             return LogisticRegression(
                 solver="lbfgs",

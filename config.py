@@ -189,8 +189,41 @@ FORECAST_MODEL = "xgboost"
 
 # Forecast Horizon Configuration
 # How many weeks ahead to forecast from the data cutoff point
-FORECAST_HORIZON_WEEKS = 4 
+FORECAST_HORIZON_WEEKS = 1
 FORECAST_HORIZON_DAYS = FORECAST_HORIZON_WEEKS * 7  # Derived days value for internal calculations
+
+# XGBoost Hyperparameters (configurable)
+# These override defaults in ModelFactory for reproducible tuning and easy experimentation.
+# Regression parameters
+XGB_REGRESSION_PARAMS = {
+    "n_estimators": 885,
+    "max_depth": 9,
+    "learning_rate": 0.15396196094208137,
+    "subsample": 0.9695497997994025,
+    "colsample_bytree": 0.9373291543047916,
+    "colsample_bylevel": 0.9912817723058245,
+    "min_child_weight": 3,
+    "reg_alpha": 0.7449915257796885,
+    "reg_lambda": 2.411668071404999,
+    "gamma": 0.3050360367850563,
+    "tree_method": "hist"
+}
+
+# Classification parameters
+XGB_CLASSIFICATION_PARAMS = {
+    "n_estimators": 500,
+    "max_depth": 7,
+    "learning_rate": 0.03,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "colsample_bylevel": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 2.0,
+    "gamma": 0.2,
+    "min_child_weight": 5,
+    "tree_method": "hist",
+    "eval_metric": "logloss",
+}
 
 
 # Temporal Validation - prevents data leakage (handled by forecast horizon)
@@ -200,7 +233,7 @@ MIN_TRAINING_SAMPLES = 3
 RANDOM_SEED = 42
 
 # Retrospective evaluation anchor points (higher = more thorough)
-N_RANDOM_ANCHORS = 500
+N_RANDOM_ANCHORS = 150
 
 # Bootstrap confidence intervals
 N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence intervals
@@ -208,7 +241,7 @@ N_BOOTSTRAP_ITERATIONS = 20  # Number of bootstrap iterations for confidence int
 # Lag Feature Configuration
 
 # Enable/disable lag features for time series modeling
-USE_LAG_FEATURES = True
+USE_LAG_FEATURES = False
 
 # Time series lags optimized via ACF/PACF analysis
 # Lag 1: immediate dependency (60% sites), Lag 3: cyclical pattern (70% sites)
@@ -239,9 +272,8 @@ CONFIDENCE_PERCENTILES = [5, 50, 95]  # 5th percentile, median, 95th percentile
 # Data Quality Configuration
 
 # Feature engineering toggles
-USE_ROLLING_FEATURES = True  # Enable/disable rolling statistics features
+USE_ROLLING_FEATURES = False  # Enable/disable rolling statistics features
 USE_ENHANCED_TEMPORAL_FEATURES = True  # Enable/disable sin/cos temporal encoding and derived features
 
 # Polynomial trend analysis minimum periods
 MIN_TREND_PERIODS = 2  # Minimum data points required for trend calculation
-

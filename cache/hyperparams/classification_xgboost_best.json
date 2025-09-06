@@ -1,0 +1,18 @@
+{
+  "task": "classification",
+  "source": "copied_from_regression",
+  "best_params": {
+    "n_estimators": 885,
+    "max_depth": 9,
+    "learning_rate": 0.15396196094208137,
+    "subsample": 0.9695497997994025,
+    "colsample_bytree": 0.9373291543047916,
+    "colsample_bylevel": 0.9912817723058245,
+    "min_child_weight": 3,
+    "reg_alpha": 0.7449915257796885,
+    "reg_lambda": 2.411668071404999,
+    "gamma": 0.3050360367850563,
+    "tree_method": "hist"
+  },
+  "note": "Use these for classification; keep eval_metric='logloss' if desired."
+}

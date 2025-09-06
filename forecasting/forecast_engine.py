@@ -62,7 +62,8 @@ class ForecastEngine:
         logger.info("ForecastEngine initialization completed successfully")
         
     def run_retrospective_evaluation(self, task="regression", model_type="xgboost", 
-                                   n_anchors=50, min_test_date="2008-01-01"):
+                                   n_anchors=50, min_test_date="2008-01-01", 
+                                   model_params_override=None):
         """
         Run leak-free retrospective evaluation matching original behavior.
         
@@ -137,7 +138,7 @@ class ForecastEngine:
         logger.info(f"Generated {len(anchor_infos)} leak-free anchor points")
         
         results = Parallel(n_jobs=-1, verbose=1)(
-            delayed(self._forecast_single_anchor_leak_free)(ai, self.data, min_target_date, task, model_type) 
+            delayed(self._forecast_single_anchor_leak_free)(ai, self.data, min_target_date, task, model_type, model_params_override) 
             for ai in tqdm(anchor_infos, desc="Processing Leak-Free Anchors")
         )
         
@@ -156,7 +157,7 @@ class ForecastEngine:
         
         return final_df
         
-    def _forecast_single_anchor_leak_free(self, anchor_info, full_data, min_target_date, task, model_type):
+    def _forecast_single_anchor_leak_free(self, anchor_info, full_data, min_target_date, task, model_type, model_params_override=None):
         """Process single anchor forecast with ZERO data leakage - original algorithm."""
         site, anchor_date = anchor_info
         
@@ -232,7 +233,7 @@ class ForecastEngine:
         }
         
         if task == "regression" or task == "both":
-            reg_model = self.model_factory.get_model("regression", model_type)
+            reg_model = self.model_factory.get_model("regression", model_type, params_override=model_params_override)
             
             y_train = train_df["da"]
             
@@ -251,7 +252,7 @@ class ForecastEngine:
                 
                 y_train_encoded = train_df["da-category"].map(cat_mapping)
                 
-                cls_model = self.model_factory.get_model("classification", model_type)
+                cls_model = self.model_factory.get_model("classification", model_type, params_override=model_params_override)
                 
                 # Apply consistent class balancing for fair baseline comparison
                 sample_weights_cls = self.model_factory.compute_sample_weights_for_classification(y_train_encoded)

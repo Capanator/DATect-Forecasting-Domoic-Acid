@@ -1,0 +1,63 @@
+{
+  "task": "regression",
+  "objective": "-(w_r2*r2 + w_f1*f1 - w_mae*mae_norm)",
+  "baseline_objective": -0.2920266459215729,
+  "best_objective": -0.332081454683152,
+  "improved_over_baseline": true,
+  "best_params": {
+    "n_estimators": 885,
+    "max_depth": 9,
+    "learning_rate": 0.15396196094208137,
+    "subsample": 0.9695497997994025,
+    "colsample_bytree": 0.9373291543047916,
+    "colsample_bylevel": 0.9912817723058245,
+    "min_child_weight": 3,
+    "reg_alpha": 0.7449915257796885,
+    "reg_lambda": 2.411668071404999,
+    "gamma": 0.3050360367850563,
+    "tree_method": "hist"
+  },
+  "best_metrics": {
+    "r2": 0.39568100036706977,
+    "f1_spike": 0.7551622418879056,
+    "mae": 4.908526506111657,
+    "mae_norm": 0.867105534407666,
+    "composite": 0.332081454683152,
+    "n": 1500,
+    "weights": {
+      "w_r2": 0.5,
+      "w_f1": 0.35,
+      "w_mae": 0.15
+    }
+  },
+  "baseline_params": {
+    "n_estimators": 400,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "colsample_bylevel": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "gamma": 0.1,
+    "min_child_weight": 3,
+    "tree_method": "hist"
+  },
+  "baseline_metrics": {
+    "r2": 0.3534755236793298,
+    "f1_spike": 0.7246376811594203,
+    "mae": 5.220568681544044,
+    "mae_norm": 0.9222286954925939,
+    "composite": 0.2920266459215729,
+    "n": 1500,
+    "weights": {
+      "w_r2": 0.5,
+      "w_f1": 0.35,
+      "w_mae": 0.15
+    }
+  },
+  "trials": 500,
+  "anchors": 150,
+  "min_test_date": "2008-01-01",
+  "random_seed": 42
+}
