@@ -6,7 +6,7 @@ Runs a lightweight, leak-free random search over key XGBoost
 hyperparameters using the existing retrospective evaluation engine.
 
 Usage:
-  python3 -m forecasting.hyperparam_search --task regression --trials 2 --anchors 500
+  python3 -m forecasting.hyperparam_search --task regression --trials 200 --anchors 500
 
 Notes:
 - Uses the same temporal safeguards as the main pipeline
