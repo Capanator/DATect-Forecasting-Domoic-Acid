@@ -266,7 +266,6 @@ class DataProcessor:
             logger.warning("No numeric columns found for feature transformation")
             raise ValueError("No numeric features available for modeling")
         
-        # TEMPORAL SAFETY: Validate that this is training data only
         if 'date' in df.columns:
             date_range = df['date'].max() - df['date'].min()
             logger.debug(f"Transformer training data date range: {date_range.days} days "
@@ -283,9 +282,6 @@ class DataProcessor:
             verbose_feature_names_out=False
         )
         transformer.set_output(transform="pandas")
-        
-        # CRITICAL: Add explicit temporal safety validation warning
-        # This creates an unfitted transformer - calling code MUST validate temporal safety before fitting
                         
         logger.debug(f"Numeric transformer created (UNFITTED) with {len(numeric_cols)} features")
         logger.debug("CRITICAL: Transformer must be fit ONLY on temporal training data with anchor date validation!")

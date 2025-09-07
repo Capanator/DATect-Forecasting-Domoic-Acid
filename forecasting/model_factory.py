@@ -46,7 +46,6 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-            # Prefer config-driven parameters if available
             default_reg_params = {
                 'n_estimators': 400,
                 'max_depth': 6,
@@ -82,7 +81,6 @@ class ModelFactory:
         if model_type == "xgboost" or model_type == "xgb":
             if not HAS_XGBOOST:
                 raise ImportError("XGBoost not installed. Run: pip install xgboost")
-
             default_cls_params = {
                 'n_estimators': 500,
                 'max_depth': 7,
